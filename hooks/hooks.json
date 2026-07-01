@@ -8,10 +8,9 @@
             "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh"
           }
         ]
-      }
-    ],
-    "SessionStart:compact": [
+      },
       {
+        "matcher": "compact",
         "hooks": [
           {
             "type": "command",
