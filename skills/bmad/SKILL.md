@@ -52,6 +52,23 @@ design-implementation hard gate (Phase 5 → 6).
 > question/elicitation tool for these prompts; a plain text question has no schema
 > to malform.
 
+### 0. Preflight — BMAD-METHOD dependency check
+
+This skill conducts the **real** BMAD-METHOD `bmad-*` skills, and each of them
+expects a **project-level install** at `{project-root}/_bmad/` (config + scripts),
+created by `npx bmad-method install`. Before anything else, verify it exists:
+
+```bash
+[ -d "_bmad" ] && echo "BMAD_OK" || echo "BMAD_MISSING"
+```
+
+- **`BMAD_MISSING`** → **STOP.** Do not parse args, create a state file, or begin a
+  sequence. Announce, in Vision's voice, then exit:
+  > 🔴 Vision — online. "BMAD-METHOD is not installed in this project. I conduct the
+  > real framework — it needs its project config first. Run `npx bmad-method install`
+  > in this directory, then re-run `/avengers-dev:bmad`."
+- **`BMAD_OK`** → continue to Step 1.
+
 ### 1. Parse Arguments
 
 - **No argument**: Prompt user for a sequence name. Kebab-case, descriptive.
