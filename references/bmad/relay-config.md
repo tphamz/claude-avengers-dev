@@ -1,27 +1,46 @@
 # BMAD Methodology Relay - Configuration
 
-This is the configuration and protocol reference for the BMAD relay methodology.
-Vision loads this at relay start to understand operational parameters.
+This is the configuration and protocol reference for the Avengers BMAD relay.
+The relay **wraps the real BMAD-METHOD `bmad-*` skills** — it does not reimplement
+them. Vision (the conductor) reads this at relay start to understand operational
+parameters and the phase→skill+owner map.
 
 ## Relay Identity
 
-- **Name:** BMAD (Build More Architect Dreams)
-- **Type:** methodology-relay
-- **Phases:** 8 (linear 1-5, iterative 6-8)
-- **Orchestrator:** Vision agent
+- **Name:** BMAD — the Avengers relay that conducts the real BMAD-METHOD framework
+  (mnemonic: *Build More Architect Dreams*). It orchestrates the installed `bmad-*`
+  skills through the crew; it is not a competing methodology.
+- **Type:** skill-wrapping methodology-relay
+- **Phases:** 8 (design 1-5, implementation 6-8)
+- **Conductor:** Vision agent (voice + map, not executor)
 
-## Phase Map
+## Phase Map — phase → real skill → owner → mode
 
-| Phase | Name              | Type      | Key Artifact                          |
-|-------|-------------------|-----------|---------------------------------------|
-| 1     | Assessment        | Linear    | Auto-assessment + Product Brief       |
-| 2     | Requirements      | Linear    | TRD + PRD                             |
-| 3     | Technical Design  | Linear    | TDD + ADRs + Test Strategy            |
-| 4     | Planning          | Linear    | Implementation Plan + Backlog + Stories |
-| 5     | Delivery Readiness| Linear    | Delivery Readiness Report             |
-| 6     | Sprint Planning   | Linear    | sprint-status.yaml                    |
-| 7     | Story Implementation | Iterative | Code + story updates                |
-| 8     | Review & Completion | Linear  | Code review + sprint completion       |
+Each phase either invokes its real `bmad-*` skill **in the main loop** (interactive
+phases — Vision's voice, so the skill can elicit from the user) or **dispatches the
+owning Avenger** to run the real skill autonomously (non-interactive phases).
+
+| Phase | Real skill(s) | Owner | Mode |
+|-------|---------------|-------|------|
+| 1a Discovery | `bmad-document-project` / `bmad-investigate` | `Agent(avengers-dev:blackwidow)` | autonomous |
+| 1b Brief | `bmad-product-brief` | main loop (Vision voice) | interactive |
+| 2 PRD | `bmad-prd` | main loop (Vision voice) | interactive |
+| 3 Architecture | `bmad-create-architecture` | main loop (Vision voice) | interactive |
+| 4 Epics/Stories | `bmad-create-epics-and-stories` | main loop (Vision voice) | interactive |
+| 5 Readiness | `bmad-check-implementation-readiness` | `Agent(avengers-dev:hulk)` | autonomous |
+| — | **DESIGN-IMPLEMENTATION BOUNDARY** | IronMan | **hard gate** |
+| 6 Sprint plan | `bmad-sprint-planning` | main loop (Vision voice) | light |
+| 7 Build (per story) | `bmad-create-story` → `bmad-dev-story` | `Agent(avengers-dev:thor)` per story | autonomous |
+| 8 Review | `bmad-code-review` + `bmad-retrospective` | `Agent(avengers-dev:captain)` | autonomous |
+
+**Why the split:** the wrapped `bmad-*` skills are interactive. A subagent runs
+blind and cannot elicit, so every interactive phase runs in the main loop; only the
+non-interactive phases (whose real work belongs to a specialist Avenger anyway) are
+delegated.
+
+<!-- SEAM: Phases 1b–4 could later be flipped to a fully-autonomous Vision subagent
+     if the wrapped bmad-* skills gain a batch / non-interactive mode. Until then
+     they must stay in the main loop because they ask the user questions. -->
 
 ## State File
 
@@ -33,37 +52,23 @@ Location: `.avengers/relay-sequences/bmad-{name}.yaml`
 sequence_id: string           # Unique identifier: bmad-{name}
 name: string                  # Human name: {name}
 status: enum                  # active | suspended | complete | closed | abandoned
-current_phase: int            # 1-8
+current_phase: string         # 1a | 1b | 2 | 3 | 4 | 5 | 6 | 7 | 8
 design_implementation_boundary_passed: bool  # Phase 5->6 hard gate
 created_at: timestamp
 last_active: timestamp
 
 relay_modifiers:
-  existing_code_in_scope: bool   # Brownfield mode
-  depth_level: enum              # lightweight | standard | enterprise (v1.1)
-
-artifacts:
-  auto_assessment: string        # File path
-  product_brief: string
-  project_context: string        # Brownfield only
-  trd: string
-  prd: string
-  tdd: string
-  adrs: string
-  test_strategy: string
-  implementation_plan: string
-  product_backlog: string
-  dev_stories: string            # Directory path
-  delivery_readiness: string
-  sprint_status: string
+  existing_code_in_scope: bool   # Brownfield mode (drives Phase 1a skill choice)
 
 loop_state:                      # Phase 7 only
   total_items: int
   completed: list
   in_progress: string | null
   remaining: list
-  in_progress_state: object | null
 ```
+
+Artifact paths are owned by the wrapped `bmad-*` skills (BMAD-METHOD writes under
+`docs/` by its own conventions) — the relay does not dictate them.
 
 ## Protocol Directives
 
@@ -78,32 +83,27 @@ When user says 'stop' during any phase:
 ### §2.5 No Role-Play
 
 Operate as Vision's functional persona — do not role-play as human characters.
-Expertise overlays draw on human references for capability framing only.
+The wrapped `bmad-*` skills bring their own domain personas; the relay narration
+stays in Vision's voice.
 
 ### §2.7 Deterministic-First
 
-When a check can be expressed as grep, file existence, count, or regex — use that
-operation rather than LLM judgment. LLM judgment is surfaced as advisory, not blocking.
+Readiness (Phase 5) is delegated to `bmad-check-implementation-readiness`, which
+maximizes deterministic checks. Trust the skill's verdict; surface LLM judgment as
+advisory, not blocking.
 
 ### §3.2 Resume Protocol
 
-On resume, read state file first. Surface to user:
+On resume, read the state file first. Surface to user:
 > "Resuming BMAD '{name}' at Phase {N}: {phase-name} ({context})."
 
-### §3.3 Artifact-Reset Policy
-
-Each phase loads prior artifacts fresh from disk. Recommended: `/clear` between phases
-for strict context isolation. `context_policy: artifact-reset` is authoritative.
-
-### §3.4 Iterative Phase Batching
-
-Phase 7 supports per-story review stops. User may batch approvals with "approve the next N".
-Auto-clears batch on scope creep detection per §3.7.
+Re-enter at `current_phase`, respecting `design_implementation_boundary_passed`.
 
 ### §3.5 Phase Boundary Confirmation
 
-Each phase announces completion and waits for user confirmation before advancing.
-Format: "Phase N ({name}) complete. {summary}. Ready for Phase N+1?"
+Each interactive phase announces completion and waits for user confirmation before
+advancing. Format: "Phase N ({name}) complete. {summary}. Ready for Phase N+1?"
+Delegated phases report through their Avenger; IronMan relays, then advances.
 
 ### §3.6 Design-Implementation Boundary (Hard Gate)
 
@@ -111,41 +111,20 @@ The boundary between Phase 5 and Phase 6 is a hard gate. User must explicitly ch
 - [1] Continue into implementation
 - [2] Exit (artifacts saved, relay suspended)
 
-No auto-advance. No batch-through.
+No auto-advance. No batch-through. Set `design_implementation_boundary_passed: true`
+only on [1].
 
 ### §3.7 Scope Creep Prevention
 
 During Phase 7, if implementation surfaces out-of-scope requirements:
 - Surface to user with three options (note/defer, pause-replan, add-informally)
-- Auto-clear any active batch
 - Do not implement out-of-scope items silently
 
-### §5 One-Phase-At-A-Time Loading
+## Execution Model — wrap, don't reimplement
 
-Vision loads phase persona overlays one at a time from `references/bmad/phase-N-*.md`.
-Do not load all 8 phases at once. Load the current phase overlay; clear on advance.
-
-## Artifact Paths
-
-All artifacts write to `docs/planning/` by default:
-
-```
-docs/planning/
-  planning_phase1_auto-assessment.md
-  planning_phase1_product-brief.md
-  planning_phase2_trd_requirements.md
-  planning_phase2_prd_requirements.md
-  planning_phase3_tdd_technical-design.md
-  planning_phase3_adr_decisions.md
-  planning_phase3_test-strategy.md
-  planning_phase4_implementation-plan.md
-  planning_phase4_product-backlog.md
-  planning_phase4_dev-stories/
-    {epic}-{story}-{slug}.md
-  planning_phase5_delivery-readiness.md
-  sprint-status.yaml
-  retrospectives/
-    sprint-{N}-retro.md
-```
-
-Variable `{base_path}` = `docs/planning` throughout phase files.
+Each phase **invokes its real `bmad-*` skill** (main loop) or **dispatches its
+owner** (subagent). There are no persona overlays to load and no self-contained
+phase logic — the wrapped skill carries the authoring instructions. The
+`references/bmad/phase-{N}-*.md` files are thin stubs documenting the mapping
+(skill + owner + mode) plus the wrapped skill's completion criteria, for quick
+lookup at phase entry.

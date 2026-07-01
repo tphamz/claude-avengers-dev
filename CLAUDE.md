@@ -25,9 +25,11 @@ practices. Read-only. Runs tests as Step 1 of every review.
 Controlled precision. Reviews implementation plans, assesses test coverage.
 Read-only.
 
-### Vision - The BMAD Orchestrator (`agents/vision.md`)
-Synthetic intellect. Runs the full 8-phase Build More Architect Dreams methodology.
-Dispatches Thor (Phase 7) and Captain (Phase 8).
+### Vision - The BMAD Conductor (`agents/vision.md`)
+Synthetic intellect. Conducts the 8-phase BMAD sequence, which **wraps the real
+BMAD-METHOD `bmad-*` skills** rather than reimplementing them. Vision is the voice
+and the phase→skill+owner map: interactive phases run in the main loop; discovery,
+readiness, build, and review are delegated to BlackWidow, Hulk, Thor, and Captain.
 Enforces the design-implementation boundary as a hard gate.
 
 ## Equipment System
@@ -76,33 +78,38 @@ are prefixed onto `gh` commands.
 ## Example Workflows
 
 ### Feature Implementation
-1. **IronMan** -> `Agent(blackwidow)` to explore
-2. **IronMan** -> plans -> `Agent(hulk)` to review plan
+1. **IronMan** -> `Agent(avengers-dev:blackwidow)` to explore
+2. **IronMan** -> plans -> `Agent(avengers-dev:hulk)` to review plan
 3. **IronMan** amends, presents for user approval
-4. **IronMan** -> `Agent(thor)` to implement + tests
-5. **IronMan** -> `Agent(captain)` to review
-6. **IronMan** -> `Agent(blackwidow)` to verify Captain's findings
+4. **IronMan** -> `Agent(avengers-dev:thor)` to implement + tests
+5. **IronMan** -> `Agent(avengers-dev:captain)` to review
+6. **IronMan** -> `Agent(avengers-dev:blackwidow)` to verify Captain's findings
 7. If issues: Thor fixes -> Captain reviews -> BlackWidow verifies (max 3 cycles)
 8. User runs `/avengers-test`
 
 ### Bug Fixing
-1. **IronMan** -> `Agent(blackwidow)` to trace the bug
-2. **IronMan** -> plans the fix -> `Agent(hulk)` reviews
+1. **IronMan** -> `Agent(avengers-dev:blackwidow)` to trace the bug
+2. **IronMan** -> plans the fix -> `Agent(avengers-dev:hulk)` reviews
 3. **IronMan** presents for user approval
-4. **IronMan** -> `Agent(thor)` to fix + regression test
-5. **IronMan** -> `Agent(captain)` to review
-6. **IronMan** -> `Agent(blackwidow)` to verify
+4. **IronMan** -> `Agent(avengers-dev:thor)` to fix + regression test
+5. **IronMan** -> `Agent(avengers-dev:captain)` to review
+6. **IronMan** -> `Agent(avengers-dev:blackwidow)` to verify
 7. User runs `/avengers-test`
 
 ### BMAD Methodology (Full Initiative)
-1. **IronMan** -> `Agent(vision)` to run BMAD Phase 1-5
-2. **Vision** produces: assessment, brief, PRD, TDD, ADRs, test strategy, impl plan,
-   backlog, dev stories, delivery readiness report
-3. **Vision** surfaces Delivery Readiness; IronMan presents for design-implementation authorization
-4. After authorization: Vision runs Phase 6 (Sprint Planning)
-5. **Vision** -> `Agent(thor)` in Phase 7
-6. **Vision** -> `Agent(captain)` in Phase 8
-7. User runs `/avengers-test`
+The `/bmad` skill **wraps the real BMAD-METHOD `bmad-*` skills** and conducts them
+through the crew in Vision's voice. Ownership map:
+1. **Phase 1a Discovery** -> `Agent(avengers-dev:blackwidow)` runs `bmad-document-project` / `bmad-investigate`
+2. **Phase 1b Brief** -> `Skill(bmad-product-brief)` in the main loop (Vision voice)
+3. **Phase 2 PRD** -> `Skill(bmad-prd)` (main loop)
+4. **Phase 3 Architecture** -> `Skill(bmad-create-architecture)` (main loop)
+5. **Phase 4 Epics/Stories** -> `Skill(bmad-create-epics-and-stories)` (main loop)
+6. **Phase 5 Readiness** -> `Agent(avengers-dev:hulk)` runs `bmad-check-implementation-readiness`
+7. **HARD GATE** -> IronMan presents readiness; user chooses [1] Continue / [2] Exit
+8. **Phase 6 Sprint** -> `Skill(bmad-sprint-planning)` (main loop)
+9. **Phase 7 Build** -> `Agent(avengers-dev:thor)` runs `bmad-create-story` -> `bmad-dev-story` per story
+10. **Phase 8 Review** -> `Agent(avengers-dev:captain)` runs `bmad-code-review` + `bmad-retrospective`
+11. User runs `/avengers-test`
 
 ---
 

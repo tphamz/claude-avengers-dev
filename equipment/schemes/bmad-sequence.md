@@ -5,44 +5,43 @@
 Use when IronMan says "run BMAD", "start a BMAD sequence", or "use the BMAD
 methodology" for a new initiative or sprint.
 
-## The Crew
+This scheme **wraps the real BMAD-METHOD `bmad-*` skills** and conducts them through
+the crew in Vision's voice. It does not reimplement BMAD.
 
-| Phase               | Agent            | Task                                       |
-| ------------------- | ---------------- | ------------------------------------------ |
-| 1-5 (Design)        | Vision           | Assessment through Delivery Readiness      |
-| 6 (Sprint Planning) | Vision           | Sprint setup, story assignment             |
-| 7 (Story Impl.)     | Thor (per story) | Implement each story + write all artifacts |
-| 8 (Review)          | Captain          | Code review + DoD validation               |
+## The Crew — phase → real skill → owner → mode
+
+| Phase | Real skill(s) | Owner | Mode |
+| ----- | ------------- | ----- | ---- |
+| 1a Discovery | `bmad-document-project` / `bmad-investigate` | BlackWidow | autonomous |
+| 1b Brief | `bmad-product-brief` | main loop (Vision voice) | interactive |
+| 2 PRD | `bmad-prd` | main loop (Vision voice) | interactive |
+| 3 Architecture | `bmad-create-architecture` | main loop (Vision voice) | interactive |
+| 4 Epics/Stories | `bmad-create-epics-and-stories` | main loop (Vision voice) | interactive |
+| 5 Readiness | `bmad-check-implementation-readiness` | Hulk | autonomous |
+| 6 Sprint plan | `bmad-sprint-planning` | main loop (Vision voice) | light |
+| 7 Build (per story) | `bmad-create-story` → `bmad-dev-story` | Thor (per story) | autonomous |
+| 8 Review | `bmad-code-review` + `bmad-retrospective` | Captain | autonomous |
+
+**Why the split:** the wrapped `bmad-*` skills are interactive (they ask the user
+questions). A subagent runs blind and cannot elicit, so interactive phases run in
+the main loop; only the non-interactive phases (whose real work belongs to a
+specialist Avenger) are delegated.
 
 ## Design-Implementation Boundary
 
-After Phase 5, Vision halts and surfaces the Delivery Readiness Report.
-IronMan presents it to the user for explicit approval before Phase 6 begins.
+After Phase 5, Hulk reports the readiness verdict and the relay halts. IronMan
+presents it to the user for an explicit choice — **[1] Continue into implementation
+/ [2] Exit** — before Phase 6 begins. No auto-advance.
 
-## Story State Machine
+## Artifacts
 
-```
-backlog -> ready-for-dev -> in-progress -> review -> done
-```
-
-## Artifact Paths (written to `docs/planning/`)
-- `planning_phase1_auto-assessment.md`
-- `planning_phase1_product-brief.md`
-- `planning_phase2_trd_requirements.md`
-- `planning_phase2_prd_requirements.md`
-- `planning_phase3_tdd_technical-design.md`
-- `planning_phase3_adr_decisions.md`
-- `planning_phase3_test-strategy.md`
-- `planning_phase4_implementation-plan.md`
-- `planning_phase4_product-backlog.md`
-- `planning_phase4_dev-stories/` (directory of story files)
-- `planning_phase5_delivery-readiness.md`
-- `sprint-status.yaml`
-
-State file: `.avengers/relay-sequences/bmad-{name}.yaml`
+Written by the wrapped `bmad-*` skills, under their own conventions (BMAD-METHOD
+typically writes to `docs/`). The relay's own state file:
+`.avengers/relay-sequences/bmad-{name}.yaml`.
 
 ## Completion Criteria
-- [ ] All 8 phases completed
-- [ ] All stories status = done
-- [ ] Captain verdict: PASS or CONDITIONAL PASS
-- [ ] All artifacts committed to docs/planning/
+- [ ] All phases completed (1a → 8)
+- [ ] Design-implementation hard gate cleared with explicit user authorization
+- [ ] All stories built (Thor) and reviewed (Captain)
+- [ ] Captain verdict: PASS or CONDITIONAL PASS (max 3 review cycles, else escalate)
+- [ ] State file transitioned to `complete`

@@ -5,14 +5,8 @@ description: >
   The Engineer. Plan reviewer, pre-flight checker. Use Hulk to review
   implementation plans, run pre-flight checks before PRs, and assess test
   coverage. Precise and methodical. "You won't like me when the build fails."
-tools:
-  - Read
-  - Grep
-  - Glob
-  - Bash
-  - Skill(equip-gadget *)
-skills:
-  - avengers-test
+tools: Read, Grep, Glob, Bash, Skill
+skills: avengers-test
 ---
 
 # Hulk - The Engineer

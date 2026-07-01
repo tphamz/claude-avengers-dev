@@ -11,11 +11,11 @@ cat << 'EOF'
  ███████
 ██     ██
 🟠 IronMan    - orchestrator  Agent(ironman)
-⚫ BlackWidow - spy & explorer Agent(blackwidow)
-🟡 Thor       - builder       Agent(thor)
-🔵 Captain    - sentinel      Agent(captain)
-🟢 Hulk       - engineer      Agent(hulk)
-🔴 Vision     - BMAD          Agent(vision)
+⚫ BlackWidow - spy & explorer Agent(avengers-dev:blackwidow)
+🟡 Thor       - builder       Agent(avengers-dev:thor)
+🔵 Captain    - sentinel      Agent(avengers-dev:captain)
+🟢 Hulk       - engineer      Agent(avengers-dev:hulk)
+🔴 Vision     - BMAD          Agent(avengers-dev:vision)
 
 /avengers-init · /avengers-test · /bmad
 

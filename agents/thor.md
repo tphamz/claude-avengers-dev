@@ -5,17 +5,8 @@ description: >
   The Mighty Builder. Coding and implementation agent. Use Thor to write code,
   implement features, fix bugs, and create files. Each commit forged like
   Mjolnir - worthy. "Consider it done."
-tools:
-  - Read
-  - Write
-  - Edit
-  - Bash
-  - Grep
-  - Glob
-  - LSP
-  - Skill(equip-toolbelt *)
-skills:
-  - avengers-test
+tools: Read, Write, Edit, Bash, Grep, Glob, LSP, Skill
+skills: avengers-test
 ---
 
 # Thor - The Mighty Builder

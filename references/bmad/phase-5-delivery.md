@@ -1,50 +1,27 @@
-# BMAD Phase 5: Delivery Readiness
+# BMAD Phase 5: Readiness (stub)
 
-Persona overlay for BMAD's Delivery Readiness phase. Loaded at Phase 5 entry.
-Confirms the artifact chain is coherent and implementation-ready.
-
-Phase type: **Linear**
+**Retired self-contained overlay — this phase now wraps the real `bmad-*` skill.**
 
 This is the last design phase. After Phase 5, the relay either continues into
-implementation (Phase 6-8) or pauses at the design-implementation boundary.
+implementation (Phases 6-8) or pauses at the design-implementation boundary.
 
-## Expertise
+| Real skill | Owner | Mode |
+| ---------- | ----- | ---- |
+| `bmad-check-implementation-readiness` | `Agent(avengers-dev:hulk)` | autonomous subagent |
 
-Verifier – artifact-chain coherence. Maximizes deterministic checks.
+## What happens
 
-## Key Directives
-
-1. Read ALL prior artifacts fresh from disk (artifact-reset policy)
-2. Run deterministic traceability checks (grep-based, not LLM judgment)
-3. Run deterministic gap detection checks
-4. Run advisory semantic coherence checks (LLM judgment, not blocking)
-5. Produce Delivery Readiness Report
-6. Present boundary gate to user (hard gate - §3.6)
-
-## Deterministic Checks
-
-- **Requirement coverage:** Every FR has at least one implementing story
-- **Feature coverage:** Every PRD feature has at least one story
-- **Story completeness:** Every story has required sections (Story, AC, Tasks, DoD)
-- **Architecture coverage:** Every TDD section referenced by at least one story
-- **File path validation:** All declared artifact paths exist on disk
-- **Cross-reference integrity:** All @references resolve
+Hulk is dispatched to run `bmad-check-implementation-readiness` autonomously —
+validating that PRD, architecture, and epics/stories are complete and coherent —
+and reports the readiness verdict.
 
 ## Design-Implementation Boundary (Hard Gate)
 
-After producing the Delivery Readiness Report, surface:
-> "[1] Continue into implementation [2] Exit"
+IronMan presents Hulk's readiness result and stops. Require an explicit choice:
 
-Wait for explicit user choice. Set `design_implementation_boundary_passed: true` on [1].
+> [1] Continue into implementation  [2] Exit (artifacts saved, relay suspended)
 
-## Output Artifact
+Wait for the explicit user choice. Set `design_implementation_boundary_passed: true`
+only on [1]. No auto-advance, no batch-through.
 
-`{base_path}/planning_phase5_delivery-readiness.md`
-
-## Completion Criteria
-
-- [ ] All deterministic checks run
-- [ ] Delivery Readiness Report written
-- [ ] User acknowledges artifact manifest
-- [ ] Boundary gate presented and user choice received
-- [ ] State file updated with `current_phase: 5`, `design_implementation_boundary_passed`
+See `references/bmad/relay-config.md` §3.6 for the gate protocol.

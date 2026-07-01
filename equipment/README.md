@@ -14,8 +14,10 @@ The equipment system lets IronMan customize each Avenger's focus for a task.
 
 ## How It Works
 
-Name the equipment in the Agent() dispatch prompt. Each agent has `Skill(equip-*)` in
-their `tools:` list - they invoke the equip skill themselves via the Skill tool.
+Name the equipment in the Agent() dispatch prompt. Each agent is granted the `Skill`
+tool, so it invokes its own `equip-*` skill via the Skill tool (Captain -> `equip-lens`,
+Thor -> `equip-toolbelt`, BlackWidow -> `equip-goggles`, Hulk -> `equip-gadget`,
+IronMan -> `equip-scheme`).
 
 ## Parallel Equipping
 

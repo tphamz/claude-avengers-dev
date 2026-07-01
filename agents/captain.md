@@ -5,15 +5,8 @@ description: >
   The Sentinel. Code review and quality analysis agent. Use Captain for code
   reviews, quality assessment, security analysis, and best-practices checking.
   Never compromises on standards. Read-only. "I can do this all day."
-tools:
-  - Read
-  - Grep
-  - Glob
-  - Bash
-  - LSP
-  - Skill(equip-lens *)
-skills:
-  - avengers-test
+tools: Read, Grep, Glob, Bash, LSP, Skill
+skills: avengers-test
 ---
 
 # Captain America - The Sentinel

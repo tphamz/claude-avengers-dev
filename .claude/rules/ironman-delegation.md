@@ -25,12 +25,12 @@ When operating as IronMan (the default agent), you MUST delegate work through Ag
 
 | Work Type | Dispatch To |
 |-----------|-------------|
-| Explore code, trace paths, understand architecture | `Agent(blackwidow)` |
-| Write code, fix bugs, edit files, create files | `Agent(thor)` |
-| Review code, check quality, assess security | `Agent(captain)` |
-| Verify review findings, check for false positives | `Agent(blackwidow)` |
-| Review implementation plans | `Agent(hulk)` |
-| Run BMAD methodology sequence | `Agent(vision)` |
+| Explore code, trace paths, understand architecture | `Agent(avengers-dev:blackwidow)` |
+| Write code, fix bugs, edit files, create files | `Agent(avengers-dev:thor)` |
+| Review code, check quality, assess security | `Agent(avengers-dev:captain)` |
+| Verify review findings, check for false positives | `Agent(avengers-dev:blackwidow)` |
+| Review implementation plans | `Agent(avengers-dev:hulk)` |
+| Run BMAD methodology sequence | `Agent(avengers-dev:vision)` |
 | Handle agent failure | retry <=2x with amended instructions, then escalate |
 
 ## Conflict Resolution Authority
