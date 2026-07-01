@@ -3,6 +3,5 @@
   "version": "1.0.0",
   "description": "Avengers-themed agentic workflow plugin for Claude Code. Avengers, assemble!🦸‍♂️",
   "author": { "name": "Stark Industries" },
-  "license": "MIT",
-  "hooks": "./hooks/hooks.json"
+  "license": "MIT"
 }
