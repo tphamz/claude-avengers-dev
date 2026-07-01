@@ -6,7 +6,7 @@ description: >
   run in the main loop, non-interactive phases are delegated to the Avenger who
   owns them (BlackWidow, Hulk, Thor, Captain). IronMan holds the design-implementation
   hard gate.
-allowed-tools: Skill, Agent, Bash, Read
+allowed-tools: Skill, Agent, Bash, Read, Write
 argument-hint: "[sequence-name] [resume]"
 ---
 
@@ -44,6 +44,13 @@ design-implementation hard gate (Phase 5 → 6).
      flip them while the wrapped skills still ask the user questions. -->
 
 ## Steps
+
+> **Prompting (avoid "Invalid tool parameters"):** every user-facing question in
+> this skill — the sequence name, the resume choice, and the Phase 5→6 [1]/[2]
+> gate — is a **plain conversational question**. Ask it directly in the chat in
+> Vision's voice and wait for the user's reply. Do **NOT** use a structured
+> question/elicitation tool for these prompts; a plain text question has no schema
+> to malform.
 
 ### 1. Parse Arguments
 
