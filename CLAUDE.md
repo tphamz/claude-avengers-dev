@@ -25,11 +25,12 @@ practices. Read-only. Runs tests as Step 1 of every review.
 Controlled precision. Reviews implementation plans, assesses test coverage.
 Read-only.
 
-### Vision - The BMAD Conductor (`agents/vision.md`)
-Synthetic intellect. Conducts the BMAD sequence (Phase 0 KB check through Phase 9
-KB refresh, on a quick, standard, or full track), which **wraps the real
-BMAD-METHOD `bmad-*` skills** rather than reimplementing them. Vision is the voice
-and the phase→skill+owner map: interactive phases run in the main loop; spec
+### Vision - The SDD Conductor (`agents/vision.md`)
+Synthetic intellect. Conducts both spec-driven relays: `/sdd` over OpenSpec (quick
+and standard tracks; full hands off to `/bmad`) and `/bmad`, which **wraps the real
+BMAD-METHOD `bmad-*` skills** (Phase 0 KB check through Phase 9 KB refresh, on a
+quick, standard, or full track) rather than reimplementing them. Vision is the voice
+and the phase→tool+owner map: interactive phases run in the main loop; spec
 hardening and review are delegated to Captain, readiness to Hulk, and build to Thor.
 Enforces the design-implementation boundary as a hard gate.
 
@@ -41,7 +42,7 @@ Enforces the design-implementation boundary as a hard gate.
 | Thor | **Toolbelts** | Implementation conventions | `react`, `python`, `go`, `nestjs`, `laravel` |
 | BlackWidow| **Goggles** | Exploration strategy | `architecture`, `detective` |
 | Hulk | **Gadgets** | Domain review criteria | `deployment`, `compliance` |
-| IronMan | **Schemes** | Orchestration workflows | `avengers-assemble`, `rescue-mission`, `bmad-sequence` |
+| IronMan | **Schemes** | Orchestration workflows | `avengers-assemble`, `rescue-mission`, `bmad-sequence`, `sdd-sequence` |
 
 ## Skills
 
@@ -50,7 +51,7 @@ Enforces the design-implementation boundary as a hard gate.
 - **/avengers-split** - Quick project health check
 - **/avengers-ssl** - Certificate bundle generator for TLS proxy environments
 - **/avengers-init** - Full environment setup (run once per project)
-- **/avengers-workstation** - status|set|root|migrate|unlink - External md workstation for Avengers + BMAD markdown
+- **/avengers-workstation** - status|set|root|migrate|unlink - External md workstation for Avengers + BMAD + OpenSpec markdown
 - **/avengers-checkpoint** - Save current pipeline state
 - **/avengers-resume** - Restore from checkpoint
 - **/avengers-log** - Session audit trail
@@ -59,6 +60,7 @@ Enforces the design-implementation boundary as a hard gate.
 - **/enable-ironman** / **/disable-ironman** - Persona control
 - **/git-workflow [enable|disable]** - Custom git workflow
 - **/bmad [sequence-name] [quick|standard|full]** - Initiate or resume BMAD via Vision
+- **/sdd [change-name] [quick|standard|full|resume]** - Spec-driven change via Vision: OpenSpec for quick/standard (needs OpenSpec >= 1.13), BMAD for full
 - **/debug-session** - Analyze a --debug log after skill testing
 
 ## Critical Rules
@@ -118,6 +120,21 @@ Ownership map (standard/full):
 14. User runs `/avengers-test`
 
 Quick track: Phase 0 -> `Skill(bmad-quick-dev)` (main loop) -> `Agent(avengers-dev:captain)` reviews the diff -> Phase 9.
+
+### Spec-Driven Change (/sdd)
+The `/sdd` skill runs `quick` and `standard` on OpenSpec through
+`skills/sdd/scripts/sdd-openspec.py`; `full` hands off to `/bmad`. Standard track:
+1. **0 Preflight** -> `sdd-openspec.py preflight`, md workstation with `--link openspec`, `sdd-openspec.py init`, BMAD KB check if `_bmad/` exists (main loop)
+2. **E Explore** (optional) and **P Propose** -> `sdd-openspec.py new --schema avengers-sdd`, then `instructions` per artifact: proposal, specs, design, tests, tasks (main loop, Vision voice)
+3. **H Harden** -> `sdd-openspec.py validate`, then `Agent(avengers-dev:captain)` (adversarial lens) reviews the delta specs; fixes in the main loop
+4. **R Readiness** -> `Agent(avengers-dev:hulk)` returns PASS/FAIL
+5. **HARD GATE** -> IronMan presents readiness; [1] Continue / [2] Exit (FAIL or open Criticals: [1] needs `override` + reason)
+6. **B Build** -> `Agent(avengers-dev:thor)` writes the failing tests from `tests.md`, then works `tasks.md` and commits
+7. **V Verify + review** -> `Agent(avengers-dev:captain)` runs `references/sdd/verify.md` + code review (fix loop max 3)
+8. **A Archive** -> `sdd-openspec.py archive` (guarded), BMAD KB refresh if `_bmad/` exists, md commit
+9. User runs `/avengers-test`
+
+Quick track: 0 -> P (lite, `spec-driven` schema) -> B -> V -> A.
 
 ---
 

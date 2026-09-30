@@ -586,6 +586,16 @@ class WorkstationTests(ProjectCase):
         self.assertTrue(self.legacy.exists())
 
 
+class OpenSpecExclusionTests(ProjectCase):
+    def test_openspec_under_output_folder_is_not_architecture(self) -> None:
+        self.write("_bmad-output/planning-artifacts/architecture.md", "# arch\n")
+        self.write("_bmad-output/openspec/changes/x/architecture-notes.md", "# not bmad\n")
+        config = {"output_folder": self.root / "_bmad-output",
+                  "planning_artifacts": self.root / "_bmad-output" / "planning-artifacts"}
+        self.assertEqual(list(bmad_kb.arch_hashes(config)),
+                         ["planning-artifacts/architecture.md"])
+
+
 class CliHelpTests(unittest.TestCase):
     def test_help_for_each_subcommand(self) -> None:
         for argv in ([], ["preflight"], ["status"], ["impact"], ["stamp"]):
