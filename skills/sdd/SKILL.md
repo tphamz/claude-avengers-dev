@@ -92,14 +92,21 @@ redirects to `/bmad`.
    ```
 
    Exit 1: report the error and continue in-repo. Exit 0:
-   - `ok` with every `symlinks` value `ok` — nothing to ask.
+   - `ok` with every `symlinks` value `ok` or `in_repo` — nothing to ask
+     (`symlinks.openspec: in_repo` means the user already chose to keep
+     `openspec/` in the repo; never ask again).
    - `ok` otherwise — run `workstation.py set --path <path> --link openspec`
      (no question). Exit 0 wired; exit 2 already set. Exit 1 because `openspec/` is
-     a non-empty directory or tracked in git: run the migrate flow of
-     `/avengers-dev:avengers-workstation` Step 3 with `--link openspec` — preview
-     with `--dry-run`, and for a tracked `openspec/` repeat its untrack warning
-     plainly before any `--untrack`. The user may answer "in-repo" instead.
-   - `in_repo` — `openspec/` stays in the repo; continue.
+     a non-empty directory or tracked in git: ask whether to move it into the
+     workstation or keep it in the repo.
+     - Move: run the migrate flow of `/avengers-dev:avengers-workstation` Step 3
+       with `--link openspec` — preview with `--dry-run`, and for a tracked
+       `openspec/` repeat its untrack warning plainly before any `--untrack`.
+     - Keep in the repo: `workstation.py set --in-repo --link openspec`. It records
+       `mdLinksInRepo: ["openspec"]` and leaves `mdWorkstation` and the `bmad` link
+       alone. Exit 0 recorded; exit 2 already recorded.
+   - `in_repo` — the whole project keeps its markdown in the repo, `openspec/`
+     included; continue.
    - `guess`, `missing`, `broken` — run `/avengers-dev:avengers-workstation`
      Steps 1–4, passing `--link openspec` to every `set` and `migrate`.
 
@@ -108,7 +115,9 @@ redirects to `/bmad`.
    write the printed JSON to `.claude/settings.local.json` with the Write tool;
    exit 2 already granted), so Captain and Hulk can read the change files. When
    `_bmad/` exists, also run `workstation.py check-config` as in `/bmad` Step 0.
-   Record `md_workstation` (the path, or `null`).
+   Record `md_workstation` (the path, or `null`) and `openspec_in_repo`: `true`
+   when `openspec/` is not symlinked into the workstation — `md_workstation` is
+   `null`, or `symlinks.openspec` is `in_repo`.
 
 3. **OpenSpec init.**
 
@@ -147,14 +156,16 @@ Resume it?"
 
 - **Resume** follows `/bmad` relay-config §3.2: announce "Resuming SDD '{name}'
   ({track}) at Phase {phase}." and re-enter at `current_phase`, respecting
-  `design_implementation_boundary_passed`. Refresh `md_workstation` from Step 0.
+  `design_implementation_boundary_passed`. Refresh `md_workstation` and
+  `openspec_in_repo` from Step 0.
 - **`status: handed_off`** (full track): do not resume here. Say the sequence is
   owned by `/bmad`, and run `Skill(avengers-dev:bmad)` with `<name> resume`.
 
 **New sequence:** write the state file with `status: active`, `track`,
 `engine: openspec`, `change_id: <name>`, `current_phase: 0`,
 `design_implementation_boundary_passed: false`, `gate_override: null`,
-`archive_override: null`, `review_cycles: 0`, `md_workstation`, `kb_base_commit`.
+`archive_override: null`, `review_cycles: 0`, `md_workstation`, `openspec_in_repo`,
+`kb_base_commit`.
 
 **Full track:** write the state file with `status: handed_off`, `engine: bmad`,
 `current_phase: 0`, then announce the handoff in Vision's voice and run
@@ -185,7 +196,7 @@ run `openspec` directly.
 
    Exit 0: JSON with `change_dir_real`. Exit 1: relay stderr (invalid name, or the
    change already exists — offer to resume it or pick another name). Then, while
-   `status` reports a `next` artifact that is not `apply`:
+   `status` reports a `next` artifact that is not `apply` or `archive`:
 
    ```bash
    python3 ${CLAUDE_PLUGIN_ROOT}/skills/sdd/scripts/sdd-openspec.py instructions <artifact> <change>
@@ -194,8 +205,15 @@ run `openspec` directly.
    Exit 0: OpenSpec's JSON (`instruction`, `template`, `resolvedOutputPath`,
    `dependencies`). Draft the artifact with the user following `instruction` and
    `template`, and write it to `resolvedOutputPath` with the Write tool. Exit 1:
-   relay stderr. Order: proposal → specs → design → tests → tasks. Details:
-   `references/sdd/phase-p-propose.md`.
+   relay stderr. Order: proposal → specs → design → tests → tasks. Every artifact
+   the schema defines is written — OpenSpec only unlocks `tasks` once its
+   dependencies exist. Details: `references/sdd/phase-p-propose.md`.
+
+   **Loop guard:** after each write, run `status` again. If `next` names the same
+   artifact as before the write, **stop the loop** — do not rewrite it again.
+   Report the artifact, the path written, and the `status` JSON to the user (the
+   file is usually at the wrong path or does not match the schema's `generates`
+   pattern), fix it with the user, then resume.
 3. **H — Harden.** Run `sdd-openspec.py validate <change>`. Exit 0: valid. Exit 1:
    the JSON `blocking` list (OpenSpec errors, strict warnings, and the "archive
    would refuse" INFO issues) are Criticals — fix them with the user and re-run.
@@ -266,9 +284,12 @@ Then:
    and follow `/avengers-dev:bmad` Step 5 (`references/bmad/phase-9-kb-refresh.md`):
    exit 2 no commits since base; `refresh_recommended` → confirm → refresh →
    `stamp`.
-2. **Commit the specs:** with `md_workstation`, offer the md commit (Step 7, phase
-   `complete`). In-repo, dispatch `Agent(avengers-dev:thor)` to commit the
-   `openspec/` changes as `docs(openspec): archive <change>`.
+2. **Commit the specs.** These are independent; do both when both apply.
+   - `openspec_in_repo: true` — dispatch `Agent(avengers-dev:thor)` to commit the
+     `openspec/` changes in the code repo as `docs(openspec): archive <change>`
+     (pathspec `openspec/`). This does not depend on `md_workstation`.
+   - `md_workstation` set — offer the md commit (Step 7, phase `complete`) for the
+     rest of the workstation.
 3. Set `status: complete`.
 
 ### 6. Quick Track
@@ -276,8 +297,10 @@ Then:
 `references/sdd/track-quick.md`. Step 0 as above, then:
 
 1. **P (lite):** `new <change> --schema spec-driven`, then the `instructions` loop
-   with a short proposal and specs, `design.md` only when its instruction calls
-   for one, and tasks. One confirmation at the end.
+   (with its loop guard) for a short proposal and specs, then `design.md`, then
+   tasks. **Always write `design.md`:** `spec-driven`'s `tasks` requires `design`,
+   so skipping it leaves `next` stuck on `design`. When the change needs no design,
+   its body is one line, `Not needed: <reason>`. One confirmation at the end.
 2. **B:** Thor works `tasks.md` (no tests-first step), commits.
 3. **V:** Captain, `references/sdd/verify.md` + code review, fix loop max 3.
 4. **A:** Step 5.

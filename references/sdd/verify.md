@@ -36,8 +36,10 @@ diff. It is read-only: never implement tasks, edit artifacts, or archive.
 
 2. **Set up the report** with three dimensions — **Completeness**, **Correctness**,
    **Coherence** — each holding CRITICAL, WARNING or SUGGESTION issues.
-   Respect intentional omissions (`skip_specs: true`, no `design.md`): mark those
-   checks **Not applicable**, never invent the artifact. Reserve **Not verified**
+   Respect intentional omissions: `skip_specs: true`, and a `design.md` whose body
+   is `Not needed: <reason>` (the quick track always writes `design.md`, so this is
+   how it says no design was needed). Mark those checks **Not applicable**, never
+   invent the artifact. A missing `design.md` is Not verified, not Not applicable. Reserve **Not verified**
    for applicable checks whose evidence is missing or unreadable, and say why.
 
 3. **Completeness.**

@@ -13,9 +13,11 @@ OpenSpec's built-in `spec-driven` schema; no Harden, Readiness or gate.
 
 ## What happens
 
-- **Propose (lite):** short proposal and delta specs, `design.md` only when the
-  instruction's own criteria call for one, and tasks. One confirmation at the end
-  instead of one per artifact.
+- **Propose (lite):** short proposal and delta specs, then `design.md`, then
+  tasks. `design.md` is always written: the `spec-driven` schema's `tasks` requires
+  `design`, so skipping it stalls the Propose loop. When no design is needed its
+  body is one line, `Not needed: <reason>`. One confirmation at the end instead of
+  one per artifact.
 - **Build** and **Verify** as on the standard track, without the tests-first step.
   Captain still reviews every change — a project rule.
 - **Archive** is guarded as on every track.

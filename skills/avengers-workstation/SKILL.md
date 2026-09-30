@@ -64,7 +64,8 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py
 
 Exit 0: JSON `{state, path, source, root, remote_key, repo_name, suggested_path,
 output_folder, symlink, symlinks}`. `symlinks` maps each managed link to
-`ok|missing|dangling|mismatch|real_dir`; `symlink` is the `bmad` link, kept for
+`ok|missing|dangling|mismatch|real_dir`, or `in_repo` for a link the user keeps in
+the repo (`mdLinksInRepo`); `symlink` is the `bmad` link, kept for
 older callers. `resolve --link openspec` also reports the `openspec` link before it
 is managed (`/sdd` uses this).
 Exit 1: error — report it and stop.
@@ -97,7 +98,13 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py
 
 Each link's target is created before the link. Pass `--link openspec` when the
 caller (e.g. `/sdd`) needs `openspec/` managed; it is recorded in `mdLinks`, so a
-later plain `set` keeps it.
+later plain `set` keeps it. Re-pointing a link lists its old target in `actions`.
+
+To keep only `openspec/` in the repo, run `workstation.py set --in-repo --link
+openspec`: it records `mdLinksInRepo: ["openspec"]`, removes an `openspec` symlink
+(never a real directory) and its exclude line, and leaves `mdWorkstation` and the
+`bmad` link alone. Exit 0 recorded; exit 2 already recorded. A later
+`set --link openspec` (without `--in-repo`) wires it into the workstation again.
 
 Exit 0: wired — JSON lists the `links` and the actions taken. Exit 2: already set
 (no-op). Exit 1: refused or failed — relay stderr. Common refusals:

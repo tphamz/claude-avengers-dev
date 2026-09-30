@@ -19,8 +19,12 @@ Main loop, Vision's voice. Quick track (lite) and standard track.
    an answer would change the specs, the approach or the task breakdown.
    - **Standard:** proposal → specs → design → tests → tasks, each confirmed with
      the user (relay-config §3.5).
-   - **Quick (lite):** proposal and specs short; `design.md` only if the
-     instruction's own criteria call for it; tasks. One confirmation at the end.
+   - **Quick (lite):** proposal and specs short; `design.md` always (the
+     `spec-driven` schema's `tasks` requires it) — one line, `Not needed: <reason>`,
+     when the change needs no design; tasks. One confirmation at the end.
+   - **Loop guard:** re-run `status` after each write. If `next` has not moved
+     past the artifact just written, stop and report it with the path and the
+     `status` JSON instead of looping.
 3. Delta specs: `## ADDED` / `## MODIFIED` / `## REMOVED` / `## RENAMED
    Requirements`, each requirement with at least one `#### Scenario:` in WHEN/THEN
    form. For MODIFIED, copy the whole existing requirement from

@@ -56,6 +56,10 @@ TELEMETRY_ENV = {"OPENSPEC_TELEMETRY": "0", "DO_NOT_TRACK": "1"}
 INSTALL_HINT = ("OpenSpec is not installed (or is older than 1.13). Install it with "
                 "`npm i -g @fission-ai/openspec@latest`, then re-run.")
 CHANGE_NAME = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+ARTIFACT_ID = re.compile(r"^[a-z][a-z0-9-]*$")
+SCHEMAS = ("spec-driven", "avengers-sdd")
+PROJECT_SETTINGS = Path(".avengers") / "settings.json"
+IN_REPO = "in-repo"
 # INFO messages from OpenSpec's validator (dist/core/validation/validator.js, 1.13.2)
 # that mean `archive` will refuse the change.
 ARCHIVE_BLOCKERS = ("Archive would refuse this delta", "Could not check archive merge conflicts")
@@ -108,7 +112,45 @@ def openspec_cwd(project_dir: Path) -> Path:
     if real.name != OPENSPEC_DIR:
         raise SDDError(f"{OPENSPEC_DIR}/ links to {real}, which is not named "
                        f"'{OPENSPEC_DIR}'; OpenSpec cannot use it as its root")
+    ws = recorded_workstation(project_dir)
+    if ws is None or not is_within(real, Path(os.path.realpath(ws))):
+        where = f"the recorded md workstation {ws}" if ws else "a recorded md workstation"
+        raise SDDError(f"{OPENSPEC_DIR}/ links to {real}, which is not inside {where}; run "
+                       "`workstation.py set --path <workstation> --link openspec` to wire it")
     return real.parent
+
+
+def is_within(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+        return True
+    except ValueError:
+        return False
+
+
+def recorded_workstation(project_dir: Path) -> Path | None:
+    """mdWorkstation from .avengers/settings.json (written by workstation.py).
+
+    A malformed file is backed up to settings.json.bak and treated as unrecorded.
+    """
+    path = project_dir / PROJECT_SETTINGS
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            raise ValueError("not a JSON object")
+    except (ValueError, UnicodeDecodeError) as exc:
+        backup = path.with_suffix(".json.bak")
+        try:
+            shutil.copy2(path, backup)
+        except OSError as copy_exc:
+            raise SDDError(f"malformed {path} and cannot back it up: {copy_exc}") from exc
+        print(f"WARNING: malformed JSON in {path} ({exc}); backed up to {backup.name}",
+              file=sys.stderr)
+        return None
+    value = data.get("mdWorkstation")
+    return Path(value) if isinstance(value, str) and value and value != IN_REPO else None
 
 
 def run(argv: list[str], cwd: Path) -> subprocess.CompletedProcess:
@@ -228,6 +270,7 @@ def cmd_init(project_dir: Path, dry_run: bool) -> int:
                        "creates the target), then re-run init")
     if root.exists() and not root.is_dir():
         raise SDDError(f"{OPENSPEC_DIR} exists and is not a directory")
+    openspec_cwd(project_dir)  # refuse a link outside the recorded workstation up front
     if not SCHEMA_SOURCE.is_dir():
         raise SDDError(f"plugin schema not found: {SCHEMA_SOURCE}")
     config = root / "config.yaml"
@@ -337,7 +380,11 @@ def task_counts(project_dir: Path, change: str) -> tuple[int, int]:
     payload = fail_on(code, data, stderr, "openspec list")
     for entry in payload.get("changes") or []:
         if isinstance(entry, dict) and entry.get("name") == change:
-            return int(entry.get("completedTasks") or 0), int(entry.get("totalTasks") or 0)
+            try:
+                return int(entry.get("completedTasks") or 0), int(entry.get("totalTasks") or 0)
+            except (TypeError, ValueError) as exc:
+                raise SDDError(f"openspec list returned unreadable task counts for '{change}': "
+                               f"{exc}") from exc
     raise SDDError(f"change '{change}' not found among active changes (openspec list)")
 
 
@@ -368,6 +415,9 @@ def cmd_status(project_dir: Path, change: str) -> int:
 # --------------------------------------------------------------------------- instructions
 
 def cmd_instructions(project_dir: Path, artifact: str, change: str) -> int:
+    if not ARTIFACT_ID.match(artifact):
+        raise SDDError(f"invalid artifact id '{artifact}': use lowercase letters, digits and "
+                       "hyphens, e.g. proposal, specs, design, tests, tasks, apply")
     check_name(change)
     code, data, stderr = openspec_json(project_dir, "instructions", artifact,
                                        "--change", change, "--json")
@@ -461,7 +511,7 @@ def build_parser() -> argparse.ArgumentParser:
                                      "Print {change, schema, path, change_dir_real}. Exit 0; "
                                      "1 invalid name, existing change, or other error.")
     new.add_argument("change", help="Change id (kebab-case)")
-    new.add_argument("--schema", required=True,
+    new.add_argument("--schema", required=True, choices=SCHEMAS,
                      help="Schema to pin: spec-driven (quick) or avengers-sdd (standard)")
 
     val = sub.add_parser("validate", parents=[common], help="Strict validation of a change",

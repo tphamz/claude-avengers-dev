@@ -63,6 +63,7 @@ PATH_KEY_SUFFIXES = ("_folder", "_artifacts", "_knowledge", "_output", "_path", 
 AUTOMATOR = "bmad-story-automator"
 WS_SUFFIX = "-mds"
 LINKS = ("bmad", "openspec")
+IN_REPO_LINKS = ("openspec",)  # links that can be kept in the repo on their own
 OPENSPEC_DIR = "openspec"
 LINK_LABELS = {"bmad": "BMAD output, Hulk specs, KB", "openspec": "OpenSpec specs and changes"}
 
@@ -295,6 +296,7 @@ def link_names(project_dir: Path, settings: dict, extra: tuple[str, ...] = ()) -
     mdLinks recorded: those, plus bmad when _bmad/ exists. Not recorded (installs from
     before managed links): bmad alone for a plain call; with `extra` (e.g. --link
     openspec), bmad only when _bmad/ exists or a workstation is already wired.
+    Links kept in the repo (mdLinksInRepo) are not managed unless `extra` names them.
     """
     recorded = settings.get("mdLinks")
     has_bmad = (project_dir / "_bmad").is_dir()
@@ -308,8 +310,16 @@ def link_names(project_dir: Path, settings: dict, extra: tuple[str, ...] = ()) -
             else set()
     else:
         names = {"bmad"}
+    names -= in_repo_links(settings)
     names.update(extra)
     return [name for name in LINKS if name in names]
+
+
+def in_repo_links(settings: dict) -> set[str]:
+    """Links the user keeps in the repo on their own (mdLinksInRepo)."""
+    recorded = settings.get("mdLinksInRepo")
+    return {name for name in recorded if name in IN_REPO_LINKS} \
+        if isinstance(recorded, list) else set()
 
 
 def link_map(project_dir: Path, ws: Path | None,
@@ -357,8 +367,11 @@ def resolve(project_dir: Path, extra: tuple[str, ...] = ()) -> dict:
 
     target = Path(report["path"]) if report["path"] else None
     report["symlink"] = symlink_state(output, target)
+    kept = in_repo_links(settings)
+    extra = tuple(name for name in extra if name not in kept)
     report["symlinks"] = {name: symlink_state(link, link_target) for name, (link, link_target)
                           in managed_links(project_dir, target, settings, extra).items()}
+    report["symlinks"].update({name: "in_repo" for name in LINKS if name in kept})
     if report["state"] == "ok" and "dangling" in report["symlinks"].values():
         report["state"] = "broken"
     return report
@@ -587,9 +600,70 @@ def check_link(project_dir: Path, name: str, link: Path, target: Path) -> str:
     return state
 
 
+def keep_links_in_repo(project_dir: Path, names: tuple[str, ...],
+                       dry_run: bool) -> tuple[int, dict | None]:
+    """`set --in-repo --link L`: keep L in the repo, leaving every other link wired.
+
+    Records L in mdLinksInRepo and drops it from mdLinks; removes L's symlink (never a
+    real directory) and its exclude line when no other worktree uses it; rewrites
+    avengers-kb.md. mdWorkstation is not touched.
+    """
+    bad = [name for name in names if name not in IN_REPO_LINKS]
+    if bad:
+        raise WSError(f"--in-repo --link supports {', '.join(IN_REPO_LINKS)} only; use "
+                      "`set --in-repo` alone to keep all markdown in the repo")
+    settings = project_settings(project_dir)
+    ws = recorded_workstation(project_dir)
+    kept_now = in_repo_links(settings)
+    links = link_map(project_dir, ws, list(names))
+    actions: list[str] = []
+    for link, _ in links.values():
+        if link.is_symlink():
+            actions.append(f"remove symlink {_display(link, project_dir)}")
+    new_kept = sorted(kept_now | set(names))
+    if not set(names) <= kept_now:
+        actions.append(f"record mdLinksInRepo: {', '.join(new_kept)}")
+    recorded = settings.get("mdLinks")
+    new_links = [n for n in recorded if n not in names] if isinstance(recorded, list) else None
+    if isinstance(recorded, list) and new_links != recorded:
+        actions.append(f"remove {', '.join(n for n in names if n in recorded)} from mdLinks")
+    link_patterns = [p for p in exclude_patterns(project_dir, [l for l, _ in links.values()])
+                     if not p.endswith("/" + KB_RULES.as_posix())]
+    present = remove_exclude_lines(project_dir, link_patterns, dry_run=True)
+    in_use = patterns_in_use(project_dir, present)
+    removable = [p for p in present if p not in in_use]
+    if removable:
+        actions.append("remove " + ", ".join(removable) + " from .git/info/exclude")
+    _kept_note(in_use)
+    new_settings = dict(settings, mdLinksInRepo=new_kept)
+    if new_links is not None:
+        new_settings["mdLinks"] = new_links
+    rules = project_dir / KB_RULES
+    hint_names = link_names(project_dir, new_settings)
+    rewrite_hint = ws is not None and ws.is_dir() and rules.is_file() and \
+        rules.read_text(encoding="utf-8") != kb_rules_content(project_dir, ws, hint_names)
+    if rewrite_hint:
+        actions.append(f"write {KB_RULES.as_posix()}")
+    if not actions:
+        print(f"{', '.join(names)} already kept in the repo (no-op)", file=sys.stderr)
+        return 2, None
+    if not dry_run:
+        for link, _ in links.values():
+            if link.is_symlink():
+                link.unlink()
+        remove_exclude_lines(project_dir, removable, dry_run=False)
+        save_json(project_dir / PROJECT_SETTINGS, new_settings)
+        if rewrite_hint:
+            write_kb_rules(project_dir, ws, dry_run=False, names=hint_names)
+    return 0, {"actions": actions, "in_repo_links": new_kept, "exclude_kept": in_use,
+               "dry_run": dry_run}
+
+
 def do_set(project_dir: Path, path: str | None, root: str | None, in_repo: bool,
            dry_run: bool, extra: tuple[str, ...] = ()) -> tuple[int, dict | None]:
     settings_file = project_dir / PROJECT_SETTINGS
+    if in_repo and extra:
+        return keep_links_in_repo(project_dir, extra, dry_run)
     if in_repo:
         settings = project_settings(project_dir)
         removed = unwire(project_dir, dry_run)
@@ -619,6 +693,8 @@ def do_set(project_dir: Path, path: str | None, root: str | None, in_repo: bool,
     settings = project_settings(project_dir)
     links = managed_links(project_dir, ws, settings, extra)
     names = list(links)
+    # An explicit --link overrides an earlier in-repo choice for that link.
+    reclaimed = sorted(in_repo_links(settings) & set(extra))
     # Check every link before changing anything.
     states = {name: check_link(project_dir, name, link, target)
               for name, (link, target) in links.items()}
@@ -634,12 +710,17 @@ def do_set(project_dir: Path, path: str | None, root: str | None, in_repo: bool,
         actions.append(f"set mdWorkstation in {PROJECT_SETTINGS.as_posix()}")
     if settings.get("mdLinks") != names:
         actions.append(f"record mdLinks: {', '.join(names) or '(none)'}")
+    if reclaimed:
+        actions.append(f"remove {', '.join(reclaimed)} from mdLinksInRepo")
     new_root = root or registry.get("root") or str(ws.parent)
     if key and ((registry.get("repos") or {}).get(key) != str(ws)
                 or registry.get("root") != new_root):
         actions.append(f"register {key} in ~/.avengers/workstations.json")
     for name, (link, target) in links.items():
-        if states[name] != "ok":
+        if states[name] == "mismatch":
+            actions.append(f"re-point symlink {_display(link, project_dir)} from "
+                           f"{os.readlink(link)} to {target}")
+        elif states[name] != "ok":
             actions.append(f"symlink {_display(link, project_dir)} -> {target}")
     patterns = exclude_patterns(project_dir, [link for link, _ in links.values()])
     pending = add_exclude_lines(project_dir, patterns, dry_run=True)
@@ -661,6 +742,12 @@ def do_set(project_dir: Path, path: str | None, root: str | None, in_repo: bool,
         (ws / "avengers").mkdir(parents=True, exist_ok=True)
         settings["mdWorkstation"] = str(ws)
         settings["mdLinks"] = names
+        if reclaimed:
+            left = sorted(in_repo_links(settings) - set(reclaimed))
+            if left:
+                settings["mdLinksInRepo"] = left
+            else:
+                settings.pop("mdLinksInRepo", None)
         save_json(settings_file, settings)
         if key:
             registry.setdefault("repos", {})[key] = str(ws)
@@ -959,7 +1046,8 @@ def build_parser() -> argparse.ArgumentParser:
                                      "missing|broken|in_repo (broken when any managed link "
                                      "dangles). symlink is the output_folder link (kept for "
                                      "compatibility); symlinks maps each managed link (bmad, "
-                                     "openspec) to ok|missing|dangling|mismatch|real_dir. "
+                                     "openspec) to ok|missing|dangling|mismatch|real_dir, "
+                                     "or in_repo for a link kept in the repo (mdLinksInRepo). "
                                      "Exit 0; 1 on error.")
     res.add_argument("--link", action="append", choices=LINKS, default=[],
                      help="Also report this link even if it is not managed yet (repeatable)")
@@ -973,13 +1061,17 @@ def build_parser() -> argparse.ArgumentParser:
                                        ".claude/rules/avengers-kb.md. --in-repo removes any "
                                        "symlink wiring and records the choice. Refuses a "
                                        "tracked or non-empty link folder (use migrate). "
-                                       "Exit 0; 2 already set; 1 on error.")
+                                       "--in-repo --link openspec keeps just openspec/ in the "
+                                       "repo; a later --link openspec without --in-repo wires "
+                                       "it again. Exit 0; 2 already set; 1 on error.")
     set_p.add_argument("--path", help="Workstation folder (default with --root: "
                                       "<root>/<repo-name>-mds)")
     set_p.add_argument("--root", help="md root to record in ~/.avengers/workstations.json "
                                       "(default: existing root, else the parent of --path)")
     set_p.add_argument("--in-repo", action="store_true",
-                       help="Record that this project keeps its markdown in the repo")
+                       help="Record that this project keeps its markdown in the repo. With "
+                            "--link openspec, keep only openspec/ in the repo (mdLinksInRepo); "
+                            "other links and mdWorkstation are untouched")
     set_p.add_argument("--link", action="append", choices=LINKS, default=[],
                        help="Also manage this link (repeatable); recorded in mdLinks")
 

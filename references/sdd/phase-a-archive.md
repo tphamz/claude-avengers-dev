@@ -21,9 +21,11 @@ The last phase on the quick and standard tracks. Main loop.
 2. **KB (BMAD projects only).** `bmad-kb.py impact --base <kb_base_commit>`, then
    the `/bmad` Phase 9 procedure (`references/bmad/phase-9-kb-refresh.md`). Without
    BMAD, the merged `openspec/specs/` is the refreshed KB.
-3. **Commit.** With an md workstation, offer the md commit (`/bmad` relay-config
-   §3.11, phase `complete`). In-repo, Thor commits the `openspec/` changes with
-   `docs(openspec): archive <change>`.
+3. **Commit.** Independent of each other: when `openspec_in_repo` is true
+   (`openspec/` is not symlinked into the workstation), Thor commits the
+   `openspec/` changes in the code repo as `docs(openspec): archive <change>`; with
+   an md workstation, offer the md commit (`/bmad` relay-config §3.11, phase
+   `complete`).
 4. Set `status: complete`.
 
 See `references/sdd/relay-config.md` for the phase map.

@@ -78,6 +78,9 @@ gate_override:                # null, or set when the gate is passed despite blo
   reason: string
   at: timestamp
 md_workstation: string | null # workstation path from Step 0; null = in-repo
+openspec_in_repo: bool        # openspec/ not symlinked into the workstation
+                              # (md_workstation null, or mdLinksInRepo has openspec);
+                              # archive then commits openspec/ in the code repo
 kb_base_commit: string | null # HEAD at Step 0 (BMAD projects only); base for impact
 review_cycles: int            # Verify + review cycles used (max 3)
 archive_override:             # null, or set when archive ran with --allow-incomplete

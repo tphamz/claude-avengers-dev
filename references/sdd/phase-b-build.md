@@ -19,9 +19,9 @@ apply <change>` for `contextFiles` and progress). He never runs `openspec` direc
   `tasks.md`.
 - **Both tracks:** work `tasks.md` top to bottom; tick `- [x]` as each task's stated
   verification passes. Run the project's tests. Commit the code with a
-  conventional message. With an md workstation the change files live outside the
-  repo and are covered by the md commit; in-repo, include the `openspec/changes/<id>/`
-  updates in the commit.
+  conventional message. When `openspec_in_repo` is true, include the
+  `openspec/changes/<id>/` updates in the commit; otherwise the change files live
+  in the workstation and are covered by the md commit.
 - **Scope creep** (`/bmad` relay-config §3.7): an out-of-scope requirement is
   reported, not built.
 

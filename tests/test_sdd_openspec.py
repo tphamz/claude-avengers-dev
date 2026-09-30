@@ -115,6 +115,12 @@ class FakeCase(unittest.TestCase):
         env_patch.start()
         self.addCleanup(env_patch.stop)
 
+    def record_ws(self, ws: Path) -> None:
+        """Record ws as mdWorkstation, as `workstation.py set` does."""
+        settings = self.project / ".avengers" / "settings.json"
+        settings.parent.mkdir(parents=True, exist_ok=True)
+        settings.write_text(json.dumps({"mdWorkstation": str(ws)}), encoding="utf-8")
+
     def scenario(self, data: dict) -> None:
         self.scenario_file.write_text(json.dumps(data), encoding="utf-8")
 
@@ -261,6 +267,7 @@ class InitTests(FakeCase):
         target = self.base / "ws" / "openspec"
         target.mkdir(parents=True)
         (self.project / "openspec").symlink_to(target, target_is_directory=True)
+        self.record_ws(self.base / "ws")
         code, out, err = self.run_cli("init")
         self.assertEqual(code, 0, err)
         self.assertTrue((target / "config.yaml").is_file())
@@ -309,6 +316,14 @@ class NewTests(FakeCase):
         with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             sdd.main(["new", "add-x"])
 
+    def test_unknown_schema_rejected(self) -> None:
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), self.assertRaises(SystemExit) as ctx:
+            sdd.main(["new", "add-x", "--schema", "../evil"])
+        self.assertEqual(ctx.exception.code, 2)
+        self.assertIn("invalid choice", err.getvalue())
+        self.assertEqual(self.calls(), [])
+
     def test_openspec_error_reported(self) -> None:
         self.scenario({"new": {"exit": 1, "stdout": js({"change": None, "status": [
             {"severity": "error", "code": "change_error",
@@ -323,6 +338,7 @@ class SymlinkCwdTests(FakeCase):
         target = self.base / "ws" / "openspec"
         target.mkdir(parents=True)
         (self.project / "openspec").symlink_to(target, target_is_directory=True)
+        self.record_ws(self.base / "ws")
         self.scenario({"validate": {"stdout": validate_json()}})
         self.assertEqual(self.run_cli("validate", "add-x")[0], 0)
         self.assertEqual(os.path.realpath(self.calls()[0]["cwd"]),
@@ -334,6 +350,41 @@ class SymlinkCwdTests(FakeCase):
         self.assertEqual(code, 1)
         self.assertIn("dangling symlink", err)
         self.assertEqual(self.calls(), [])
+
+    def link_outside(self) -> None:
+        target = self.base / "other" / "openspec"
+        target.mkdir(parents=True)
+        (self.project / "openspec").symlink_to(target, target_is_directory=True)
+
+    def test_link_outside_recorded_workstation_refused(self) -> None:
+        self.link_outside()
+        (self.base / "ws").mkdir()
+        self.record_ws(self.base / "ws")
+        for argv in (("validate", "add-x"), ("init",)):
+            with self.subTest(argv=argv):
+                code, _, err = self.run_cli(*argv)
+                self.assertEqual(code, 1)
+                self.assertIn("not inside the recorded md workstation", err)
+                self.assertIn("--link openspec", err)
+        self.assertEqual(self.calls(), [])
+        self.assertFalse((self.base / "other" / "openspec" / "config.yaml").exists())
+
+    def test_link_without_recorded_workstation_refused(self) -> None:
+        self.link_outside()
+        code, _, err = self.run_cli("status", "add-x")
+        self.assertEqual(code, 1)
+        self.assertIn("not inside a recorded md workstation", err)
+        self.assertEqual(self.calls(), [])
+
+    def test_malformed_settings_backed_up_and_refused(self) -> None:
+        self.link_outside()
+        settings = self.project / ".avengers" / "settings.json"
+        settings.parent.mkdir(parents=True)
+        settings.write_text("{bad")
+        code, _, err = self.run_cli("validate", "add-x")
+        self.assertEqual(code, 1)
+        self.assertIn("WARNING: malformed JSON", err)
+        self.assertEqual((settings.parent / "settings.json.bak").read_text(), "{bad")
 
     def test_link_target_not_named_openspec_refused(self) -> None:
         target = self.base / "elsewhere"
@@ -448,6 +499,14 @@ class InstructionsTests(FakeCase):
         self.assertEqual(self.calls()[0]["argv"],
                          ["instructions", "tests", "--change", "add-x", "--json"])
 
+    def test_invalid_artifact_refused(self) -> None:
+        for artifact in ("Tests", "tests;rm", "../x", "1tests", "a b"):
+            with self.subTest(artifact=artifact):
+                code, _, err = self.run_cli("instructions", artifact, "add-x")
+                self.assertEqual(code, 1)
+                self.assertIn("invalid artifact id", err)
+        self.assertEqual(self.calls(), [])
+
     def test_error(self) -> None:
         self.scenario({"instructions": {"exit": 1, "stdout": js({"status": [
             {"severity": "error", "code": "change_error", "message": "not found"}]})}})
@@ -528,6 +587,17 @@ class ArchiveTests(FakeCase):
         self.assertIn("archive_spec_update_failed", err)
         self.assertIn("MODIFIED failed", err)
         self.assertIn("No files were changed", err)
+
+    def test_unreadable_task_counts_are_error(self) -> None:
+        for done, total in (("two", 2), (1, [3])):
+            with self.subTest(done=done, total=total):
+                self.scenario({"list": {"stdout": js({"changes": [
+                    {"name": "add-x", "completedTasks": done, "totalTasks": total}]})}})
+                code, _, err = self.run_cli("archive", "add-x")
+                self.assertEqual(code, 1)
+                self.assertIn("unreadable task counts", err)
+                self.assertNotIn("Traceback", err)
+        self.assertNotIn("archive", self.subcommands())
 
     def test_unknown_change(self) -> None:
         self.arrange()
@@ -753,6 +823,15 @@ class IntegrationTests(unittest.TestCase):
         # A MODIFIED delta for a requirement that does not exist: OpenSpec's strict
         # validate passes it (INFO only); the wrapper refuses it.
         self.assertEqual(self.cli("new", "ghost", "--schema", "spec-driven")[0], 0)
+        # Quick track: spec-driven's tasks require design, so next stays on design
+        # until design.md exists; a one-line "Not needed" design unblocks tasks.
+        ghost = real / "changes" / "ghost"
+        (ghost / "specs" / "greeting").mkdir(parents=True)
+        (ghost / "proposal.md").write_text(PROPOSAL)
+        (ghost / "specs" / "greeting" / "spec.md").write_text(GHOST_SPEC)
+        self.assertEqual(json.loads(self.cli("status", "ghost")[1])["next"], "design")
+        (ghost / "design.md").write_text("# Design\n\nNot needed: a one-line change.\n")
+        self.assertEqual(json.loads(self.cli("status", "ghost")[1])["next"], "tasks")
         self.write_change("ghost", GHOST_SPEC, "# Tasks\n\n## 1. G\n\n- [x] 1.1 Do it\n")
         raw = self.openspec("validate", "ghost", "--type", "change", "--strict", "--json")
         self.assertEqual(raw.returncode, 0, raw.stdout)

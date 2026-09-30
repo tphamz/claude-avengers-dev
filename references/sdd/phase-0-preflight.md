@@ -16,9 +16,13 @@ the workstation questions.
    >= 2.31. Missing or too old: print the install hint
    (`npm i -g @fission-ai/openspec@latest`) and stop. Avengers never installs it.
 2. **md workstation.** As in `/bmad` Step 0 (relay-config §3.11), with the
-   `openspec` link: `openspec/` becomes a symlink to `<workstation>/openspec/`. An
-   in-repo choice keeps `openspec/` in the repo. A tracked `openspec/` is refused
-   with the same untrack warning as `_bmad-output`. Then grant the workstation path.
+   `openspec` link: `openspec/` becomes a symlink to `<workstation>/openspec/`. A
+   tracked or non-empty `openspec/` is refused; the user either migrates it (with
+   the same untrack warning as `_bmad-output`) or keeps it in the repo with
+   `workstation.py set --in-repo --link openspec`, which leaves the `bmad` link and
+   `mdWorkstation` alone and is never asked again (`resolve` reports
+   `symlinks.openspec: in_repo`). Then grant the workstation path and record
+   `openspec_in_repo`.
 3. **Init.** Only when `openspec/config.yaml` is missing (or the `avengers-sdd`
    schema is): `openspec init --tools none` — config, `specs/`, `changes/archive/`,
    no `/opsx` commands or skills — plus the `avengers-sdd` schema. A dangling
