@@ -546,8 +546,8 @@ your home directory or a repo that contains this project — first warn plainly:
 there lands in that repo." Then ask: "Commit {count} md changes in {toplevel}?"
 
 On yes, dispatch `Agent(avengers-dev:thor)` to run exactly, from any directory:
-`git -C <toplevel> add -- <rel>` then
-`git -C <toplevel> commit -m "docs(<repo_name>): <phase> artifacts" -- <rel>`
+`git -C <toplevel> add -- ':(literal)<rel>'` then
+`git -C <toplevel> commit -m "docs(<repo_name>): <phase> artifacts" -- ':(literal)<rel>'`
 (`<phase>` is `discovery`, `design`, or `complete`). The pathspec commit leaves
 anything else the user has staged in the md repo untouched. **Never push.** If a
 hook or signing fails, report it and continue — an md commit never blocks the relay.

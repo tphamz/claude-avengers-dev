@@ -750,6 +750,41 @@ class SpecTargetTests(WSCase):
         self.assertIsNone(report["commit"]["toplevel"])
         self.assertEqual(report["commit"]["pathspec"], f"specs/stories/{self.SLUG}.md")
 
+    def test_in_repo_project_in_subdir_of_larger_repo(self) -> None:
+        project = self.repo / "packages" / "app"
+        project.mkdir(parents=True)
+        report = self.target(project=project)
+        self.assertEqual(report["target"], os.path.join(os.path.realpath(project), "specs",
+                                                        "stories", f"{self.SLUG}.md"))
+        commit = report["commit"]
+        self.assertTrue(commit["git"])
+        self.assertEqual(commit["toplevel"], os.path.realpath(self.repo))
+        self.assertEqual(commit["pathspec"], f"packages/app/specs/stories/{self.SLUG}.md")
+        self.assertIsNone(commit["dedicated"])
+
+    def test_workstation_outside_reported_toplevel_is_clean_error(self) -> None:
+        mdrepo = self.base / "mdrepo"
+        self.init_md_repo(mdrepo)
+        ws = mdrepo / "repo-mds"
+        self.assertEqual(self.set_ws(ws)[0], 0)
+        elsewhere = self.base / "Elsewhere"
+        elsewhere.mkdir()
+        real_toplevel = workstation.git_toplevel
+
+        def fake_toplevel(cwd: Path) -> Path | None:
+            if os.path.realpath(cwd) == os.path.realpath(ws):
+                return elsewhere
+            return real_toplevel(cwd)
+
+        with mock.patch.object(workstation, "git_toplevel", side_effect=fake_toplevel):
+            code, out, err = self.run_cli("spec-target", "--slug", self.SLUG)
+            self.assertEqual(code, 1)
+            self.assertEqual(out, "")
+            self.assertIn("is not under md repo toplevel", err)
+            self.assertIn("path case or symlink mismatch", err)
+            self.assertIn(os.path.realpath(elsewhere), err)
+            self.assertEqual(self.run_cli("md-status")[0], 1)
+
     def test_read_only(self) -> None:
         ws = self.md / "repo-mds"
         self.assertEqual(self.set_ws(ws)[0], 0)

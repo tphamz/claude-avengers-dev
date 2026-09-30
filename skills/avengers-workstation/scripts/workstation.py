@@ -29,7 +29,8 @@ Commands:
 Exit codes:
   0 = success
   1 = error
-  2 = no-op (see each subcommand's --help; spec-target never returns 2)
+  2 = no-op (see each subcommand's --help)
+spec-target never exits 2 (argparse usage errors excepted).
 """
 from __future__ import annotations
 
@@ -791,7 +792,12 @@ def md_repo(project_dir: Path, ws: Path) -> dict | None:
     if top is None:
         return None
     real_top = Path(os.path.realpath(top))
-    rel = Path(os.path.realpath(ws)).relative_to(real_top).as_posix() or "."
+    real_ws = Path(os.path.realpath(ws))
+    try:
+        rel = real_ws.relative_to(real_top).as_posix() or "."
+    except ValueError:
+        raise WSError(f"workstation {real_ws} is not under md repo toplevel {real_top} "
+                      "(path case or symlink mismatch)") from None
     real_project = Path(os.path.realpath(project_dir))
     home = real_top == Path(os.path.realpath(Path.home()))
     dedicated = not home and not is_within(real_project, real_top)
@@ -994,7 +1000,7 @@ def build_parser() -> argparse.ArgumentParser:
                                       "stories. pathspec is toplevel-relative and matches "
                                       "md-status dirty entries. Read-only; creates nothing. "
                                       "Exit 0; 1 on error (invalid slug, missing project "
-                                      "dir). Never exits 2.")
+                                      "dir). Never exits 2 (argparse usage errors excepted).")
     spec.add_argument("--slug", required=True,
                       help="Spec slug, matching ^[a-z0-9][a-z0-9-]{0,79}$")
     sub.add_parser("grant-path", parents=[common, ws_path],

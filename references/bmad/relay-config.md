@@ -667,8 +667,8 @@ The workstation folder is `<md-root>/<repo-name>-mds/`.
 2. Exit 0: if `dedicated` is false (the md repo is `$HOME` or contains the project),
    warn first that the commit lands in that repo. Then ask "Commit N md changes in
    <md repo>?"
-3. On yes, Thor runs `git -C <toplevel> add -- <rel>`, then
-   `git -C <toplevel> commit -m "docs(<repo-name>): <phase> artifacts" -- <rel>`.
+3. On yes, Thor runs `git -C <toplevel> add -- ':(literal)<rel>'`, then
+   `git -C <toplevel> commit -m "docs(<repo-name>): <phase> artifacts" -- ':(literal)<rel>'`.
    The pathspec commit leaves anything else staged in the md repo untouched.
 4. A hook or signing failure is reported and the relay continues. Never push.
 

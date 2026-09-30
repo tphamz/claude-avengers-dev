@@ -194,7 +194,7 @@ the link state; otherwise `<repo>/specs/stories` (`guess`, `in_repo`, `missing`,
 the folder is gone). `pathspec` is relative to `toplevel` and matches `md-status`
 `dirty` entries exactly. `dedicated` is `null` for an in-repo Target.
 Exit 1: error — the slug does not match `^[a-z0-9][a-z0-9-]{0,79}$`, or the project
-directory is missing. It never exits 2.
+directory is missing. It never exits 2 (argparse usage errors excepted).
 
 The drafting rule is in `agents/hulk.md`; the save and md-commit rule is in
 `agents/thor.md`.

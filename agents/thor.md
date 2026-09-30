@@ -80,6 +80,15 @@ The dispatch carries the approved spec with its `Target:`, `Workstation state:` 
 at that path — never build it from an environment variable, which is empty in agent
 Bash.
 
+**Which kind of Target.** Decide from the approved `md commit:` line alone:
+`md commit: with the work (in-repo)` means an **in-repo** Target; any other value
+(`<toplevel> (dedicated)` or `none (<reason>)`) means a **workstation** Target.
+
+**No script path in the dispatch.** For a workstation Target, return the generic
+Blocked Report below with `Question: the dispatch has no workstation.py path; pass
+it from the "Avengers plugin root:" session line`. For an in-repo Target, skip step
+a and save in the repo at the approved path.
+
 **a. Re-resolve.** Run
 `python3 <absolute workstation.py path from the dispatch> spec-target --slug <slug>`
 (the slug is the Target's file name without `.md`).
@@ -116,9 +125,10 @@ with:
      (exit 0), where `<ws>` is `spec_dir` minus its trailing
      `/avengers/specs/stories`.
 
-  Then run `git -C <toplevel> add -- <pathspec>` and
-  `git -C <toplevel> commit -m "docs(<repo_name>): spec <slug>" -- <pathspec>`
-  (`repo_name` from the md-status JSON). The pathspec commit leaves anything else
+  Then run `git -C <toplevel> add -- ':(literal)<pathspec>'` and
+  `git -C <toplevel> commit -m "docs(<repo_name>): spec <slug>" -- ':(literal)<pathspec>'`
+  (`repo_name` from the md-status JSON). The `:(literal)` prefix stops git from
+  reading glob characters in the path; the pathspec commit leaves anything else
   staged in the md repo untouched.
 - **Otherwise** leave the spec uncommitted and report why (`commit.reason`, or the
   condition that failed). When `dedicated` is false, add relay-config §3.13's
