@@ -695,6 +695,25 @@ class SpecTargetTests(WSCase):
         self.assertEqual(report["target"], self.ws_target(ws))
         self.assertEqual(report["spec_dir"], os.path.dirname(self.ws_target(ws)))
 
+    def test_in_repo_openspec_keeps_workstation_target(self) -> None:
+        ws = self.md / "repo-mds"
+        code, _, err = self.run_cli("set", "--path", str(ws), "--link", "bmad",
+                                    "--link", "openspec")
+        self.assertEqual(code, 0, err)
+        code, _, err = self.run_cli("set", "--in-repo", "--link", "openspec")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.settings()["mdLinksInRepo"], ["openspec"])
+        report = self.target()
+        self.assertEqual(report["state"], "ok")
+        self.assertEqual(report["target"], self.ws_target(ws))
+        self.assertEqual(report["spec_dir"], os.path.dirname(self.ws_target(ws)))
+
+    def test_in_repo_openspec_only_is_in_repo(self) -> None:
+        code, _, err = self.run_cli("set", "--in-repo", "--link", "openspec")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.settings(), {"mdLinksInRepo": ["openspec"]})
+        self.assert_in_repo(self.target(), "missing")
+
     def test_symlinked_md_root_uses_realpath(self) -> None:
         real = self.base / "real-md"
         real.mkdir()
