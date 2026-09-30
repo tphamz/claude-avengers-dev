@@ -40,4 +40,4 @@ user decides. Require an explicit choice:
 No auto-advance, no batch-through.
 
 See `references/bmad/relay-config.md` §2.7 and §3.6 for the gate protocol and
-§3.11 for the override.
+§3.9 for the override.

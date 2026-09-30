@@ -35,7 +35,7 @@ cannot run these skills. They verify instead. `bmad-dev-story` and (full track)
 `bmad-testarch-atdd` change source code, so Thor runs them, and each stop that
 needs a human comes back as a Blocked report. The main loop may read broadly and
 write BMAD artifacts and relay bookkeeping (state file, `bmad-kb.py stamp`
-outputs, `workstation.py set` repair; full list in relay-config `§3.12`), but
+outputs, `workstation.py set` repair; full list in relay-config `§3.10`), but
 never modifies source code — code changes always go to Thor. **Quick-track
 exception:** on the quick track, `bmad-quick-dev` runs in the main loop and
 implements the code; it is the one sanctioned case where the main loop writes
@@ -250,7 +250,7 @@ catchphrase (see `agents/vision.md`), then execute the phase per its owner:
 - **Build (7)** — run `Skill(bmad-create-story)` in this main loop, then
   dispatch `Agent(avengers-dev:thor)` to run `bmad-testarch-atdd` (full track
   only) and `bmad-dev-story`, per story; relay each Blocked report to the user
-  (relay-config `§3.8`).
+  (relay-config `§3.12`).
 
 Phase-by-phase (standard and full tracks; quick track is Step 6):
 
@@ -303,7 +303,7 @@ Phase-by-phase (standard and full tracks; quick track is Step 6):
 9. **HARD GATE** — Step 4. Do not enter Phase 6 without it.
 10. **Phase 6 — Sprint Planning.** `Skill(bmad-sprint-planning)` in the main loop.
 11. **Phase 7 — Build.** For each story, in `development_status` order (full
-   detail in relay-config `§3.8`). Skip a story only when its `phase7_step` is
+   detail in relay-config `§3.12`). Skip a story only when its `phase7_step` is
    `recorded` (`pending` → `dispatched` → `done_reported` → `recorded`, each
    saved immediately); other values re-enter as the resume rules above say.
    Marker inference has already run, so a story at `review` or `done` with no
@@ -361,7 +361,7 @@ Phase-by-phase (standard and full tracks; quick track is Step 6):
     still unmarked after marker inference (a `done` story was inferred `closed`
     and is never set to `pending`). Then per story, in this order (full detail in
     `references/bmad/phase-8-review.md`; each `phase8_step` change is saved
-    immediately, relay-config `§3.9`). Skip a story at `phase8_step: closed`. The story's review ranges are
+    immediately, relay-config `§3.13`). Skip a story at `phase8_step: closed`. The story's review ranges are
     `<baseline_commit>..<phase7_end_sha>` plus each range in
     `phase8_fix_ranges`, from `loop_state.stories[<story_key>]`; never `..HEAD`,
     which includes later stories. If a story has no `phase7_end_sha`, use the
@@ -504,7 +504,7 @@ Whichever way Phase 9 ends (steps 1–6, on every track), offer an **md commit**
    change needs discovery).
 2. Run `Skill(bmad-quick-dev)` in the main loop; it implements the code. This is
    the one sanctioned case where the main loop writes source code (relay-config
-   `§3.12`). Its own step-4 review replaces Captain's `bmad-code-review`.
+   `§3.10`). Its own step-4 review replaces Captain's `bmad-code-review`.
 3. Dispatch `Agent(avengers-dev:captain)` to review the resulting diff — a project
    rule: every code change gets Captain's review.
 4. **Fix loop.** On FAIL, or CONDITIONAL PASS with any `[CRITICAL]`, fix the
@@ -533,7 +533,7 @@ State file lives at `.avengers/relay-sequences/bmad-{name}.yaml` throughout.
 
 Offered at three points: after the Phase 1a stamp, at the hard gate, and at
 completion (end of Phase 9, any track). Skip when `md_workstation` is `null`.
-Relay-config §3.13 has the full rule.
+Relay-config §3.11 has the full rule.
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py md-status

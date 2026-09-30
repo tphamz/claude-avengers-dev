@@ -24,7 +24,7 @@ informed, still-valid consent.
 - [ ] The session-start and compact-resume hooks print the plugin root; Tony passes the absolute workstation.py path in every Hulk and Thor dispatch and never guesses it
 - [ ] Hulk's sign-off shows Target, Workstation state and md commit; a spec-target failure is shown, and the Target falls back in-repo
 - [ ] Thor: an in-repo Target is always saved in-repo; a workstation Target must equal the fresh `target`, else Blocked; a denied Write or mkdir gives the generic Blocked report
-- [ ] Thor commits in the md repo only when git=true, dedicated=true, fresh toplevel == approved toplevel, and the pathspec is in md-status `dirty`; otherwise the spec stays uncommitted, with the reason (plus the §3.13 warning when dedicated=false)
+- [ ] Thor commits in the md repo only when git=true, dedicated=true, fresh toplevel == approved toplevel, and the pathspec is in md-status `dirty`; otherwise the spec stays uncommitted, with the reason (plus the §3.11 warning when dedicated=false)
 - [ ] Never push; md-commit failures (hook, signing, merge in progress) are reported and never block
 - [ ] Scoped greps are clean; `python3 -m unittest discover -s tests` passes; `bash -n scripts/*.sh` passes
 - [ ] Debug session CLEAN: dedicated repo (one spec-only md commit), non-dedicated (no commit + warning), re-pointed (Blocked), plugin-root line present after startup and compaction, absolute path works in a subagent

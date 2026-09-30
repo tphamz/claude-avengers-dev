@@ -44,7 +44,7 @@ number**; this file only records what differs.
 Per-phase stubs: `phase-0-preflight.md`, `phase-p-propose.md`, `phase-h-harden.md`,
 `phase-b-build.md`, `phase-v-verify.md`, `phase-a-archive.md`, and `track-quick.md`.
 
-**Why the split:** the same as `/bmad` §3.12. Propose, Explore, applying hardening
+**Why the split:** the same as `/bmad` §3.10. Propose, Explore, applying hardening
 fixes and the gate ask the user questions, so they run in the main loop, as do the
 wrapped `bmad-review-*` skills in Harden. Captain's Harden verification, Readiness,
 Build and Verify need no user input and belong to a specialist Avenger.
@@ -111,10 +111,10 @@ The `/bmad` directives apply unchanged unless noted. Section numbers refer to
 | §3.5 Phase Boundary Confirmation | applies at every main-loop phase and at the gate |
 | §3.6 Design-Implementation Boundary | the gate sits between R (Readiness) and B (Build) on the standard track; the quick track has none |
 | §3.7 Scope Creep Prevention | applies in B; an out-of-scope requirement becomes a new change, a spec edit (back to P), or an informal note |
-| §3.10 KB Lifecycle | only when `_bmad/` exists. Without BMAD the KB is `openspec/specs/` alone, refreshed by `archive` |
-| §3.11 Gate Override | unchanged: readiness FAIL or unresolved Harden `[CRITICAL]`s need `override` plus a reason |
-| §3.12 Wrapped Skills Run in the Main Loop | applies unchanged, plus directive 5's OpenSpec writes (main loop only); delegated phases are H, R, B and V |
-| §3.13 md Workstation and md Commits | Step 0 adds the `openspec` link; md commits are offered at the gate (`design`) and after archive (`complete`) |
+| §3.8 KB Lifecycle | only when `_bmad/` exists. Without BMAD the KB is `openspec/specs/` alone, refreshed by `archive` |
+| §3.9 Gate Override | unchanged: readiness FAIL or unresolved Harden `[CRITICAL]`s need `override` plus a reason |
+| §3.10 Wrapped Skills Run in the Main Loop | applies unchanged, plus directive 5's OpenSpec writes (main loop only); delegated phases are H, R, B and V |
+| §3.11 md Workstation and md Commits | Step 0 adds the `openspec` link; md commits are offered at the gate (`design`) and after archive (`complete`) |
 
 ### SDD-specific directives
 

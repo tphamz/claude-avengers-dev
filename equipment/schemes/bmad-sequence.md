@@ -35,7 +35,7 @@ Hulk and Captain are read-only, so every skill except `bmad-dev-story` (and
 `bmad-create-story` included) and the owner verifies the result. Thor runs
 `bmad-dev-story` (after atdd on the full track); when it stops for a human he returns a
 Blocked report and the main loop relays it to the user. The main loop writes BMAD
-artifacts and relay bookkeeping only (list in relay-config §3.12) — code changes,
+artifacts and relay bookkeeping only (list in relay-config §3.10) — code changes,
 including code-review patches, always go to Thor.
 **Quick-track exception:** on the `/bmad` quick track, `bmad-quick-dev` runs in the
 main loop and implements the code; it is the one sanctioned case where the main
@@ -74,7 +74,7 @@ relayed to the user (answer or suspend), `[Gate]` subtask for a step-9
 regression or definition-of-done HALT, `review` reset to `in-progress`,
 re-dispatch with the answer, Work state and Resume instruction → done:
 `post_sha` recorded, checks run, `phase7_end_sha` written (never overwritten).
-See `references/bmad/relay-config.md` §3.8.
+See `references/bmad/relay-config.md` §3.12.
 
 ## Phase 8 Per-Story Flow
 
@@ -104,7 +104,7 @@ Resume uses per-story markers, `phase7_step` and `phase8_step`, not
 `loop_state.completed` (stories with no marker get one from marker inference
 first). Phase 7 skips `recorded`; Phase 8 skips `closed` and
 re-enters every other story at its recorded step. See relay-config `§3.2` and
-`§3.9`.
+`§3.13`.
 
 ## Completion Criteria
 - [ ] All phases for the chosen track completed (Phase 0 through Phase 9)

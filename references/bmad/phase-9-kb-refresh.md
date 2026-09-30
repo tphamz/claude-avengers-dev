@@ -34,7 +34,7 @@ State files with a `track` key always go through Phase 9.
 
 **Not a git repo:** `impact` exits 1; note it and set `complete` (no `stamp`).
 
-With an md workstation, offer an md commit (relay-config §3.13) before announcing
+With an md workstation, offer an md commit (relay-config §3.11) before announcing
 completion.
 
-See `references/bmad/relay-config.md` §3.10 for the KB lifecycle.
+See `references/bmad/relay-config.md` §3.8 for the KB lifecycle.

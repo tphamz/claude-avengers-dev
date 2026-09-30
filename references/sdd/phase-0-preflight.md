@@ -15,7 +15,7 @@ the workstation questions.
 1. **Preflight.** `openspec` >= 1.13 (on PATH or in `node_modules/.bin`) and git
    >= 2.31. Missing or too old: print the install hint
    (`npm i -g @fission-ai/openspec@latest`) and stop. Avengers never installs it.
-2. **md workstation.** As in `/bmad` Step 0 (relay-config §3.13), with the
+2. **md workstation.** As in `/bmad` Step 0 (relay-config §3.11), with the
    `openspec` link: `openspec/` becomes a symlink to `<workstation>/openspec/`. A
    tracked or non-empty `openspec/` is refused; the user either migrates it (with
    the same untrack warning as `_bmad-output`) or keeps it in the repo with

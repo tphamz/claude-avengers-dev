@@ -17,7 +17,7 @@ the story file and `sprint-status.yaml`. `bmad-dev-story` changes source code, s
 Thor runs it, and every stop that needs a human comes back as a Blocked report
 for the main loop to relay. Per story, in `development_status` order, skipping
 only a story whose `loop_state.stories[<story_key>].phase7_step` is `recorded`
-(full detail in relay-config `§3.8`; the marker is `pending` → `dispatched` →
+(full detail in relay-config `§3.12`; the marker is `pending` → `dispatched` →
 `done_reported` → `recorded`, each saved immediately):
 
 1. **Create the story (main loop).** Skip if the story is already past

@@ -38,4 +38,4 @@ Record `kb_status_at_start` (the state) and `kb_base_commit` (the `head` value) 
 the state file — Phase 9 measures impact from `kb_base_commit`.
 
 Exit codes: 0 = report printed; 1 = `_bmad/` missing. See
-`references/bmad/relay-config.md` §3.10 for the KB lifecycle.
+`references/bmad/relay-config.md` §3.8 for the KB lifecycle.

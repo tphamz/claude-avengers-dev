@@ -73,7 +73,7 @@ Captain have no Write, Edit or Agent tools. So:
 
 The main loop may read broadly and write BMAD artifacts and relay bookkeeping
 (state file, `bmad-kb.py stamp` outputs, `workstation.py set` repair; full list
-in relay-config `§3.12`), but never modifies source code — code changes always
+in relay-config `§3.10`), but never modifies source code — code changes always
 go to Thor. **Quick-track exception:** on the quick track, `bmad-quick-dev` runs
 in the main loop and implements the code; it is the one sanctioned case where
 the main loop writes source code. Captain's quick-track fixes go to Thor by
@@ -163,7 +163,7 @@ workstation when one is set), merged into `openspec/specs/` by archive. State:
 `{planning_artifacts}`, and stories, sprint status, reviews and retrospectives
 go to `{implementation_artifacts}` (both default under
 `_bmad-output/`, which may be a symlink into an md workstation, relay-config
-`§3.13`). State:
+`§3.11`). State:
 `.avengers/relay-sequences/bmad-{name}.yaml`.
 
 ## Delegation Detail — /sdd
@@ -226,7 +226,7 @@ Blocked report; store it in `blocked` (with options, work state and resume
 instruction), relay it to the user (answer or suspend), add a `[Gate]` subtask
 for a step-9 regression or definition-of-done HALT and reset `review` to
 `in-progress` if needed, then re-dispatch with the answer, the previous Work state
-and the Resume instruction (relay-config `§3.8`). Record SHAs from
+and the Resume instruction (relay-config `§3.12`). Record SHAs from
 `git rev-parse HEAD` before each dispatch (`pre_sha`) and after each report
 (`post_sha`), never from Thor's report: the story's `baseline_commit` is the
 `pre_sha` of its first dev-story dispatch and `phase7_end_sha` is the `post_sha`
@@ -254,13 +254,13 @@ carries over. On the full track, a story at `code_review_done` with a recorded
 `trace_report` but missing `Cover AC <n>` bullets gets them re-derived from the
 report (the trace never re-runs). A replayed Blocked chain continues at Phase 7 step 5 or Phase 8
 step 4; an orphaned Phase 8 fix chain is put to the user (finish or treat as
-done). Full rules: relay-config `§3.2`, `§3.9`.
+done). Full rules: relay-config `§3.2`, `§3.13`.
 
 **Phase 8 (Review):** on entry, write `phase8_start_sha` once (resume fallback in
 relay-config `§2.9`) and `phase8_step: pending` on each story still unmarked
 after marker inference (never on a `done` story, inferred `closed`); save each
 `phase8_step` change immediately (`code_review_done` → `fixing` → `captain` →
-`verify` → `closed`, relay-config `§3.9`). Per story, run `bmad-code-review` in the main loop with the
+`verify` → `closed`, relay-config `§3.13`). Per story, run `bmad-code-review` in the main loop with the
 story as the spec and the explicit range `<baseline_commit>..<phase7_end_sha>`,
 and have the user pick "Leave as action items" (patches are never applied in the
 main loop; if the user picks "Apply every patch", hand the list to Thor). On the

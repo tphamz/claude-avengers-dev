@@ -24,7 +24,7 @@ The last phase on the quick and standard tracks. Main loop.
 3. **Commit.** Independent of each other: when `openspec_in_repo` is true
    (`openspec/` is not symlinked into the workstation), Thor commits the
    `openspec/` changes in the code repo as `docs(openspec): archive <change>`; with
-   an md workstation, offer the md commit (`/bmad` relay-config §3.13, phase
+   an md workstation, offer the md commit (`/bmad` relay-config §3.11, phase
    `complete`).
 4. Set `status: complete`.
 

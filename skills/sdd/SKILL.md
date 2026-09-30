@@ -85,7 +85,7 @@ redirects to `/bmad`.
    or the git minimum) and exit. Never install OpenSpec.
 
 2. **md workstation.** Follow `/avengers-dev:bmad` Step 0's workstation section
-   (`/bmad` relay-config §3.13) with the `openspec` link:
+   (`/bmad` relay-config §3.11) with the `openspec` link:
 
    ```bash
    python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py resolve --link openspec
@@ -255,7 +255,7 @@ the verdict — plus any unresolved Harden Criticals — in Vision's voice and *
 > Design-implementation boundary reached. The line must hold.
 > **[1] Continue into implementation  [2] Exit** (artifacts saved, relay suspended)
 
-This is `/bmad` relay-config §3.6 and §3.11, unchanged:
+This is `/bmad` relay-config §3.6 and §3.9, unchanged:
 
 - **PASS and no unresolved Criticals** — [1] sets
   `design_implementation_boundary_passed: true` and proceeds to B.

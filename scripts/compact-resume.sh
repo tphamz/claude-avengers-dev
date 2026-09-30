@@ -17,7 +17,7 @@ BMAD — run the /bmad skill in the main loop (Vision is the voice, not a spawne
 Exception: during /bmad, the wrapped bmad-* skills run inline and may write BMAD
 artifacts (docs, reports, story files, sprint-status.yaml, including the Phase 7
 epic-status write and the Blocked-report resets) plus relay bookkeeping (state
-file, bmad-kb.py stamp outputs, workstation.py set repair; relay-config §3.12)
+file, bmad-kb.py stamp outputs, workstation.py set repair; relay-config §3.10)
 — never source code. Code changes, including code-review patches, always go to
 avengers-dev:thor. Quick-track exception: on the /bmad quick track,
 bmad-quick-dev runs in the main loop and implements the code; it is the one

@@ -19,7 +19,7 @@
 - **`bmad-quick-dev`** runs in the main loop; it clarifies intent, plans,
   implements, and runs its own step-4 review. That review replaces Captain's
   `bmad-code-review`. **Quick-track exception:** this is the one sanctioned case
-  where the main loop writes source code (relay-config `§3.12`).
+  where the main loop writes source code (relay-config `§3.10`).
 - **Captain still reviews the diff** — a project rule: every code change is
   reviewed by Captain.
 - **Fix loop** — on FAIL, or CONDITIONAL PASS with any `[CRITICAL]`, fix the

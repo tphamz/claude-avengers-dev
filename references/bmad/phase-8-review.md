@@ -34,7 +34,7 @@ at Phase 7 start), diff, list commits and skip the ancestor check as relay-confi
 story whose `development_status` entry is `done` is inferred `closed` and never
 set to `pending`, and a resume keeps the recorded values. Each story's `phase8_step` (`pending` → `code_review_done` → `fixing` →
 `captain` → `verify` → `closed`) is saved the moment it changes (relay-config
-`§3.9`).
+`§3.13`).
 
 **Resume** (relay-config `§3.2`). First replay any story's stored `blocked`
 entry to the user (answer or keep suspended) before any dispatch; when the
@@ -95,7 +95,7 @@ user (`§2.9`). Per story:
    `[Review][Decision]` bullets, the code-review conversation is lost: ask the
    user to decide each one directly. Set the story's `sprint-status.yaml` entry to
    `in-progress` so dev-story does not warn "Unexpected story status". A resume
-   skips this step if it is already done (relay-config `§3.9`). No unchecked
+   skips this step if it is already done (relay-config `§3.13`). No unchecked
    `[Review][Patch]` or `[Gate]` items → set `captain` and go to step 4.
 3. **Fix (Thor).** If unchecked `[Review][Patch]` items exist after
    reconciliation, dispatch Thor with the explicit story file path (dev-story
@@ -105,7 +105,7 @@ user (`§2.9`). Per story:
    that path, resolves the items, runs tests and commits. Dev-story step 9 sets the
    story to `review`. The dispatch carries the same stop instruction as Phase 7:
    at any dev-story HALT or ask point, Thor stops without committing and returns
-   a Blocked report. The main loop handles it as in relay-config `§3.8` step 4:
+   a Blocked report. The main loop handles it as in relay-config `§3.12` step 4:
    record `blocked` (with options, work state and resume instruction), relay it
    to the user (answer or suspend), append a
    `- [ ] [Gate] Fix <failure>: <user answer>` subtask for a step-9 regression

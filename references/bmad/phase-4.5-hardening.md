@@ -13,7 +13,7 @@ tracks.
 The main loop runs both review skills over the epics, stories, and acceptance
 criteria (ACs) from Phase 4, checking that every AC is concrete, independently
 testable, and covers error and edge paths (every wrapped skill runs in the main
-loop, relay-config `§3.12`). Then it resolves the story paths (relay-config
+loop, relay-config `§3.10`). Then it resolves the story paths (relay-config
 `§2.8`) and dispatches Captain read-only, with the `adversarial` lens, those paths
 and both skills' findings, to verify them (no test gate: this is a
 pre-implementation spec review, so Captain skips his Step 1 test run;
@@ -25,6 +25,6 @@ pre-implementation spec review, so Captain skips his Step 1 test run;
 Captain reports only. Back in the main loop, walk the findings with the user and
 apply the agreed fixes to the stories. Any `[CRITICAL]` left unresolved is carried
 to the Phase 5 → 6 gate, where passing requires an `override` with a reason
-(relay-config §3.11).
+(relay-config §3.9).
 
 See `references/bmad/relay-config.md` for the full phase map.

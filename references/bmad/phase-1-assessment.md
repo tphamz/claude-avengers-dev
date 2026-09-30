@@ -27,4 +27,4 @@ wrapped skills are interactive, and a subagent cannot elicit from the user.
 
 Authoring instructions and completion criteria are owned by those skills. See
 `references/bmad/relay-config.md` for the full phase map, the state schema, and
-§3.10 for the KB lifecycle.
+§3.8 for the KB lifecycle.

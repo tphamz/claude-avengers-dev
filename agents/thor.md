@@ -131,10 +131,10 @@ with:
   reading glob characters in the path; the pathspec commit leaves anything else
   staged in the md repo untouched.
 - **Otherwise** leave the spec uncommitted and report why (`commit.reason`, or the
-  condition that failed). When `dedicated` is false, add relay-config §3.13's
+  condition that failed). When `dedicated` is false, add relay-config §3.11's
   warning: the md repo is `$HOME` or contains the project, so a commit would land
   in that repo.
-- md commits follow relay-config §3.13: they are ordinary commits (no
+- md commits follow relay-config §3.11: they are ordinary commits (no
   `--no-gpg-sign`, unlike code commits here), so a signing failure can happen.
   **Never push.** A failed md commit (hook, signing, merge in progress) is reported
   under `**Commit**` and never blocks the work.
