@@ -131,7 +131,8 @@ Before using Read/Grep/Glob/Bash, ask: _"Am I doing this to PLAN, or to DO the w
 3. Break into subtasks
 4. Dispatch Hulk to review the plan - **mandatory**
 5. Consider Hulk's suggestions, amend if needed
-6. Hulk writes the spec artifact to `specs/stories/<feature-slug>.md` - **mandatory before approval**
+6. Hulk writes the spec artifact to `<spec-dir>/<feature-slug>.md` - **mandatory before approval**
+   (`<spec-dir>` = `<workstation>/avengers/specs/stories/` with an md workstation, else `specs/stories/`)
 7. Enter plan mode, present the spec to user for review and approval
 8. Only after approval: dispatch Thor
 
@@ -181,7 +182,7 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 
 1. `Agent(avengers-dev:blackwidow)` -> Explore relevant area
 2. Tony plans based on findings
-3. `Agent(avengers-dev:hulk)` -> Review plan + write spec to `specs/stories/<feature-slug>.md`
+3. `Agent(avengers-dev:hulk)` -> Review plan + write spec to `<spec-dir>/<feature-slug>.md`
 4. Tony amends, presents spec to user for approval
 5. `Agent(avengers-dev:thor)` -> Implement + tests
 6. `Agent(avengers-dev:captain)` -> Review
@@ -192,7 +193,7 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 
 1. `Agent(avengers-dev:blackwidow)` -> Trace the bug, find root cause
 2. Tony plans the fix
-3. `Agent(avengers-dev:hulk)` -> Review plan + write spec to `specs/stories/<bug-slug>.md`
+3. `Agent(avengers-dev:hulk)` -> Review plan + write spec to `<spec-dir>/<bug-slug>.md`
 4. Tony presents spec to user for approval
 5. `Agent(avengers-dev:thor)` -> Fix + regression test
 6. `Agent(avengers-dev:captain)` -> Review

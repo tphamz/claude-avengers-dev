@@ -390,21 +390,42 @@ class StampTests(ProjectCase):
         self.make_kb()
         self.head = self.commit("chore: init")
         self.marker = self.root / ".avengers" / "kb.json"
+        self.branch = self.git("symbolic-ref", "--short", "HEAD")
+
+    def entry(self, data: dict | None = None) -> dict:
+        data = data or json.loads(self.marker.read_text(encoding="utf-8"))
+        return data["branches"][self.branch]
 
     def test_write(self) -> None:
         code, _, _ = self.run_cli("stamp")
         self.assertEqual(code, 0)
         data = json.loads(self.marker.read_text(encoding="utf-8"))
-        self.assertEqual(data["commit"], self.head)
+        self.assertEqual(data["version"], 2)
+        self.assertEqual(self.entry(data)["commit"], self.head)
         self.assertEqual(data["index_path"], "docs/index.md")
         self.assertEqual(data["context_path"], "_bmad-output/project-context.md")
-        self.assertIn("stamped_at", data)
+        self.assertIn("stamped_at", self.entry(data))
+        self.assertEqual(self.entry(data)["arch_hashes"], {})
+        self.assertFalse((self.root / ".claude" / "rules" / "avengers-kb.md").exists())
 
     def test_dry_run_prints_without_writing(self) -> None:
         code, out, _ = self.run_cli("stamp", "--dry-run")
         self.assertEqual(code, 0)
-        self.assertEqual(json.loads(out)["commit"], self.head)
+        self.assertEqual(self.entry(json.loads(out))["commit"], self.head)
         self.assertFalse(self.marker.exists())
+
+    def test_legacy_flat_marker_upgraded_in_place(self) -> None:
+        self.write(".avengers/kb.json", json.dumps({"commit": "f" * 40}))
+        self.assertEqual(self.run_cli("stamp")[0], 0)
+        data = json.loads(self.marker.read_text(encoding="utf-8"))
+        self.assertNotIn("commit", data)
+        self.assertEqual(self.entry(data)["commit"], self.head)
+
+    def test_detached_head_key(self) -> None:
+        self.git("checkout", "-q", "--detach")
+        self.assertEqual(self.run_cli("stamp")[0], 0)
+        data = json.loads(self.marker.read_text(encoding="utf-8"))
+        self.assertEqual(list(data["branches"]), [f"HEAD@{self.head[:7]}"])
 
     def test_already_stamped_is_noop(self) -> None:
         self.assertEqual(self.run_cli("stamp")[0], 0)
@@ -416,7 +437,7 @@ class StampTests(ProjectCase):
         self.assertEqual(self.run_cli("stamp")[0], 0)
         new_head = self.commit("feat: more", {"src/b.py": "b\n"})
         self.assertEqual(self.run_cli("stamp")[0], 0)
-        self.assertEqual(json.loads(self.marker.read_text(encoding="utf-8"))["commit"], new_head)
+        self.assertEqual(self.entry()["commit"], new_head)
 
     def test_non_git_is_error(self) -> None:
         with tempfile.TemporaryDirectory() as other:
@@ -426,6 +447,143 @@ class StampTests(ProjectCase):
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
                 code = bmad_kb.main(["stamp", "--project-dir", other])
         self.assertEqual(code, 1)
+
+
+class BranchTests(ProjectCase):
+    """The marker is keyed per branch so worktrees on different branches coexist."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.write(".gitignore", ".avengers/\n")
+        self.main_head = self.stamped_repo()
+        self.main = self.git("symbolic-ref", "--short", "HEAD")
+        self.marker = self.root / ".avengers" / "kb.json"
+
+    def test_unstamped_branch_falls_back_to_newest(self) -> None:
+        self.git("checkout", "-q", "-b", "feature")
+        report = self.status()
+        self.assertEqual(report["state"], "stale")
+        self.assertEqual(report["branch"], "feature")
+        self.assertEqual([s["type"] for s in report["signals"]], ["branch_unstamped"])
+        self.assertEqual(report["stamped_commit"], self.main_head)
+
+    def test_two_branches_do_not_overwrite(self) -> None:
+        self.git("checkout", "-q", "-b", "feature")
+        feature_head = self.commit("feat: x", {"src/x.py": "x\n"})
+        self.assertEqual(self.run_cli("stamp")[0], 0)
+        branches = json.loads(self.marker.read_text(encoding="utf-8"))["branches"]
+        self.assertEqual(branches[self.main]["commit"], self.main_head)
+        self.assertEqual(branches["feature"]["commit"], feature_head)
+        self.git("checkout", "-q", self.main)
+        report = self.status()
+        self.assertEqual((report["state"], report["stamped_commit"]), ("fresh", self.main_head))
+
+
+class WorkstationTests(ProjectCase):
+    """KB marker and architecture signal with an md workstation behind _bmad-output."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self._ws_tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._ws_tmp.cleanup)
+        self.ws = Path(self._ws_tmp.name).resolve() / "repo"
+        (self.ws / "avengers").mkdir(parents=True)
+        self.init_repo()
+        self.install_bmad('project_knowledge: "{project-root}/_bmad-output/project-knowledge"\n'
+                          'planning_artifacts: "{output_folder}/planning-artifacts"\n'
+                          'output_folder: _bmad-output\n')
+        (self.root / "_bmad-output").symlink_to(self.ws, target_is_directory=True)
+        (self.root / ".git" / "info").mkdir(parents=True, exist_ok=True)
+        (self.root / ".git" / "info" / "exclude").write_text("/_bmad-output\n")
+        self.write(".avengers/settings.json", json.dumps({"mdWorkstation": str(self.ws)}))
+        (self.ws / "project-knowledge").mkdir()
+        (self.ws / "project-knowledge" / "index.md").write_text("# index\n")
+        (self.ws / "project-context.md").write_text("# context\n")
+        self.arch = self.ws / "planning-artifacts" / "architecture.md"
+        self.arch.parent.mkdir()
+        self.arch.write_text("# arch v1\n")
+        self.write(".gitignore", ".avengers/\n")
+        self.head = self.commit("chore: init")
+        self.branch = self.git("symbolic-ref", "--short", "HEAD")
+        self.ws_marker = self.ws / "avengers" / "kb.json"
+        self.legacy = self.root / ".avengers" / "kb.json"
+
+    def test_stamp_writes_workstation_marker_with_relative_paths(self) -> None:
+        self.assertEqual(self.run_cli("stamp")[0], 0)
+        data = json.loads(self.ws_marker.read_text(encoding="utf-8"))
+        self.assertEqual(data["index_path"], "project-knowledge/index.md")
+        self.assertEqual(data["context_path"], "project-context.md")
+        self.assertIn("planning-artifacts/architecture.md",
+                      data["branches"][self.branch]["arch_hashes"])
+        self.assertFalse(self.legacy.exists())
+        report = self.status()
+        self.assertEqual(report["state"], "fresh")
+        self.assertEqual(report["workstation"], str(self.ws))
+        self.assertEqual(report["marker_path"], str(self.ws_marker))
+
+    def test_in_repo_path_is_project_root_relative(self) -> None:
+        self.install_bmad('project_knowledge: "{project-root}/docs"\noutput_folder: _bmad-output\n')
+        self.write("docs/index.md", "# index\n")
+        self.assertEqual(self.run_cli("stamp")[0], 0)
+        data = json.loads(self.ws_marker.read_text(encoding="utf-8"))
+        self.assertEqual(data["index_path"], "{project-root}/docs/index.md")
+
+    def test_legacy_marker_read_then_moved(self) -> None:
+        self.write(".avengers/kb.json", json.dumps({"commit": self.head}))
+        report = self.status()
+        self.assertEqual((report["state"], report["marker_path"]), ("fresh", str(self.legacy)))
+        self.commit("feat: more", {"src/b.py": "b\n"})
+        code, out, _ = self.run_cli("stamp")
+        self.assertEqual(code, 0)
+        self.assertIn("Moved legacy", out)
+        self.assertFalse(self.legacy.exists())
+        self.assertTrue(self.ws_marker.exists())
+
+    def test_architecture_hash_signal_without_commit(self) -> None:
+        self.assertEqual(self.run_cli("stamp")[0], 0)
+        self.arch.write_text("# arch v2\n")
+        report = self.status()
+        self.assertEqual(report["state"], "stale")
+        self.assertEqual(report["signals"], [{
+            "type": "architecture",
+            "detail": "planning-artifacts/architecture.md (content changed)"}])
+        self.assertEqual(self.run_cli("stamp")[0], 0)
+        self.assertEqual(self.status()["state"], "fresh")
+        self.assertEqual(self.run_cli("stamp")[0], 2)
+
+    def test_architecture_hash_signal_in_impact(self) -> None:
+        self.assertEqual(self.run_cli("stamp")[0], 0)
+        (self.ws / "planning-artifacts" / "architecture-v2.md").write_text("# new\n")
+        self.commit("fix: typo", {"src/a.py": "a\n"})
+        code, out, _ = self.run_cli("impact", "--base", self.head)
+        self.assertEqual(code, 0)
+        report = json.loads(out)
+        self.assertTrue(report["refresh_recommended"])
+        self.assertIn({"type": "architecture",
+                       "detail": "planning-artifacts/architecture-v2.md (added)"},
+                      report["signals"])
+
+    def test_stamp_refreshes_kb_rules_file(self) -> None:
+        self.assertEqual(self.run_cli("stamp")[0], 0)
+        rules = self.root / ".claude" / "rules" / "avengers-kb.md"
+        lines = rules.read_text(encoding="utf-8").splitlines()
+        expected = f"@{self.ws / 'project-context.md'}"
+        self.assertIn(expected, lines)
+        self.assertIn("`grep -R` / `find -L`", rules.read_text(encoding="utf-8"))
+        # A moved workstation replaces the stale import instead of adding a second one.
+        rules.write_text(rules.read_text().replace(expected, "@/old/ws/project-context.md"))
+        self.commit("feat: c", {"src/c.py": "c\n"})
+        self.assertEqual(self.run_cli("stamp")[0], 0)
+        lines = rules.read_text(encoding="utf-8").splitlines()
+        self.assertIn(expected, lines)
+        self.assertNotIn("@/old/ws/project-context.md", lines)
+
+    def test_missing_workstation_falls_back_to_legacy_location(self) -> None:
+        self.write(".avengers/settings.json", json.dumps({"mdWorkstation": "/nonexistent/ws"}))
+        code, _, err = self.run_cli("stamp")
+        self.assertEqual(code, 0)
+        self.assertIn("not found", err)
+        self.assertTrue(self.legacy.exists())
 
 
 class CliHelpTests(unittest.TestCase):

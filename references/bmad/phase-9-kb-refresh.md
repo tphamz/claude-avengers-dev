@@ -19,15 +19,22 @@ track's review) advances here instead of setting `complete`.
 3. On confirm: 3 or fewer `changed_areas` → `bmad-document-project` in `deep_dive`
    once per area; otherwise `full_rescan`.
 4. `bmad-generate-project-context` updates `{output_folder}/project-context.md`.
-5. `stamp`, then set `status: complete`.
+5. `stamp` (writes this branch's entry in the marker — `<workstation>/avengers/kb.json`
+   with an md workstation, else `.avengers/kb.json` — and refreshes
+   `.claude/rules/avengers-kb.md` — search hint plus the `project-context.md` import),
+   then set `status: complete`.
 6. No refresh recommended, or the user declines → set `complete` directly.
 
 **Resume defaults** apply only to a **legacy state file** — one with no `track`
 key. A legacy sequence already at `8` or `complete` is not routed into Phase 9;
 any other legacy sequence reaches Phase 9 and, with no `kb_base_commit`, uses the
-commit in `.avengers/kb.json`, or skips Phase 9 with a note if there is none.
+`stamped_commit` from `bmad-kb.py status`, or skips Phase 9 with a note if there
+is none.
 State files with a `track` key always go through Phase 9.
 
 **Not a git repo:** `impact` exits 1; note it and set `complete` (no `stamp`).
+
+With an md workstation, offer an md commit (relay-config §3.11) before announcing
+completion.
 
 See `references/bmad/relay-config.md` §3.8 for the KB lifecycle.

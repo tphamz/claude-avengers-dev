@@ -7,13 +7,22 @@ The KB is the pair of files the real BMAD-METHOD skills produce:
   - {output_folder}/project-context.md    (bmad-generate-project-context)
 
 Paths come from _bmad/bmm/config.yaml, falling back to _bmad/core/config.yaml,
-then to BMAD defaults. The freshness marker is .avengers/kb.json.
+then to BMAD defaults.
+
+The freshness marker is <workstation>/avengers/kb.json when an md workstation is
+set (mdWorkstation in .avengers/settings.json), else .avengers/kb.json. Reads fall
+back to the legacy .avengers/kb.json; `stamp` moves it into the workstation. The
+marker is keyed per branch so worktrees on different branches do not overwrite
+each other:
+  {"version": 2, "index_path", "context_path",
+   "branches": {"<branch>": {"commit", "stamped_at", "arch_hashes"}}}
+A detached HEAD uses the key HEAD@<sha7>.
 
 Commands:
   preflight [--track T]  - Verify the project-level BMAD install (_bmad/)
   status                 - Report KB state as JSON (missing|unstamped|fresh|stale|unknown)
   impact --base SHA      - Report refresh-worthy change signals since SHA as JSON
-  stamp [--dry-run]      - Record HEAD as the KB freshness marker
+  stamp [--dry-run]      - Record HEAD for the current branch as the KB freshness marker
 
 Exit codes:
   0 = success
@@ -25,7 +34,9 @@ from __future__ import annotations
 
 import argparse
 import fnmatch
+import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -35,6 +46,12 @@ from pathlib import Path
 DEFAULTS = {"project_knowledge": "docs", "output_folder": "_bmad-output"}
 CONFIG_FILES = (Path("_bmad") / "bmm" / "config.yaml", Path("_bmad") / "core" / "config.yaml")
 KB_MARKER = Path(".avengers") / "kb.json"
+PROJECT_SETTINGS = Path(".avengers") / "settings.json"
+WS_MARKER = Path("avengers") / "kb.json"
+KB_RULES = Path(".claude") / "rules" / "avengers-kb.md"
+WORKSTATION = (Path(__file__).resolve().parents[2] / "avengers-workstation" / "scripts"
+               / "workstation.py")
+OPTIONAL_KEYS = ("planning_artifacts",)
 STALE_FILE_THRESHOLD = 20
 TRACKS = ("quick", "standard", "full")
 
@@ -108,7 +125,43 @@ def read_bmad_config(project_dir: Path) -> dict[str, Path]:
             print(f"WARNING: '{key}' not set in _bmad config; using default '{default}'",
                   file=sys.stderr)
         resolved[key] = _resolve_path(merged.get(key, default), project_dir)
+    for key in OPTIONAL_KEYS:
+        if key in merged:
+            output = str(resolved["output_folder"])
+            resolved[key] = _resolve_path(merged[key].replace("{output_folder}", output),
+                                          project_dir)
     return resolved
+
+
+def read_workstation(project_dir: Path) -> Path | None:
+    """The md workstation from .avengers/settings.json (no import of workstation.py)."""
+    path = project_dir / PROJECT_SETTINGS
+    try:
+        value = json.loads(path.read_text(encoding="utf-8")).get("mdWorkstation")
+    except (OSError, ValueError, UnicodeDecodeError, AttributeError):
+        return None
+    if not isinstance(value, str) or not value or value == "in-repo":
+        return None
+    ws = Path(value)
+    if not ws.is_dir():
+        print(f"WARNING: md workstation {ws} not found; using {KB_MARKER}", file=sys.stderr)
+        return None
+    return ws
+
+
+def marker_rel(path: Path, project_dir: Path, ws: Path | None) -> str:
+    """Marker path form: relative to the workstation when inside it, else to the project.
+
+    With a workstation, in-repo paths are written as {project-root}/<rel> so the
+    shared marker never carries a machine-specific absolute path.
+    """
+    if ws is None:
+        return _rel(path, project_dir)
+    try:
+        return path.relative_to(Path(os.path.realpath(ws))).as_posix()
+    except ValueError:
+        rel = _rel(path, project_dir)
+        return rel if Path(rel).is_absolute() else "{project-root}/" + rel
 
 
 def kb_paths(project_dir: Path) -> tuple[Path, Path, dict[str, Path]]:
@@ -123,6 +176,34 @@ def _rel(path: Path, project_dir: Path) -> str:
         return path.relative_to(project_dir).as_posix()
     except ValueError:
         return str(path)
+
+
+def arch_hashes(config: dict[str, Path]) -> dict[str, str]:
+    """sha256 of *architecture*.md under planning_artifacts and output_folder."""
+    output = config["output_folder"]
+    hashes: dict[str, str] = {}
+    for key in ("planning_artifacts", "output_folder"):
+        root = config.get(key)
+        if root is None or not root.is_dir():
+            continue
+        for path in sorted(root.rglob("*architecture*.md")):
+            if path.is_file():
+                hashes[_rel(path, output)] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashes
+
+
+def arch_hash_signals(stored: dict | None, current: dict[str, str]) -> list[dict[str, str]]:
+    """Architecture signals from hash differences (no baseline stored -> no signal)."""
+    if not isinstance(stored, dict):
+        return []
+    signals = []
+    for rel in sorted(set(stored) | set(current)):
+        if stored.get(rel) == current.get(rel):
+            continue
+        change = ("added" if rel not in stored else
+                  "removed" if rel not in current else "content changed")
+        signals.append({"type": "architecture", "detail": f"{rel} ({change})"})
+    return signals
 
 
 # --------------------------------------------------------------------------- git
@@ -157,6 +238,28 @@ def _nul_split(proc: subprocess.CompletedProcess | None) -> list[str]:
     if proc is None or proc.returncode != 0:
         return []
     return [entry for entry in proc.stdout.split("\0") if entry]
+
+
+def git_branch(project_dir: Path) -> str | None:
+    """Current branch name, HEAD@<sha7> when detached, None outside git."""
+    proc = run_git(project_dir, "symbolic-ref", "--short", "-q", "HEAD")
+    if proc is not None and proc.returncode == 0 and proc.stdout.strip():
+        return proc.stdout.strip()
+    head = git_head(project_dir)
+    return f"HEAD@{head[:7]}" if head else None
+
+
+def output_outside_git(project_dir: Path, config: dict[str, Path]) -> bool:
+    """True when output_folder resolves outside the project's git work tree."""
+    proc = run_git(project_dir, "rev-parse", "--show-toplevel")
+    if proc is None or proc.returncode != 0:
+        return False
+    top = Path(os.path.realpath(proc.stdout.strip()))
+    try:
+        config["output_folder"].relative_to(top)
+        return False
+    except ValueError:
+        return True
 
 
 def git_count_since(project_dir: Path, base: str) -> int:
@@ -246,9 +349,47 @@ def collect_signals(project_dir: Path, base: str, config: dict[str, Path]) -> di
 
 # --------------------------------------------------------------------------- marker
 
-def read_marker(project_dir: Path) -> dict | None:
-    """Read .avengers/kb.json. Malformed files are backed up to kb.json.bak."""
-    marker = project_dir / KB_MARKER
+def marker_locations(project_dir: Path, ws: Path | None) -> tuple[Path, Path]:
+    """(primary, legacy). Without a workstation both are .avengers/kb.json."""
+    legacy = project_dir / KB_MARKER
+    return (ws / WS_MARKER if ws else legacy), legacy
+
+
+def read_marker(project_dir: Path, ws: Path | None = None) -> tuple[dict | None, Path | None]:
+    """Read the marker from the workstation, falling back to the legacy location.
+
+    Returns (data, path read). A flat legacy marker ({commit, ...}) is kept under
+    "legacy" and applies to whichever branch reads it.
+    """
+    for marker in dict.fromkeys(marker_locations(project_dir, ws)):
+        data = _load_marker(marker, project_dir)
+        if data is None:
+            continue
+        if "branches" not in data:
+            data = {"branches": {}, "legacy": data} if data.get("commit") else {"branches": {}}
+        if not isinstance(data.get("branches"), dict):
+            data["branches"] = {}
+        return data, marker
+    return None, None
+
+
+def pick_entry(marker: dict | None, branch: str | None) -> tuple[dict | None, bool]:
+    """(entry, is_fallback). Fallback = the newest other branch's entry."""
+    if not marker:
+        return None, False
+    branches = marker.get("branches") or {}
+    if branch and isinstance(branches.get(branch), dict):
+        return branches[branch], False
+    if marker.get("legacy"):
+        return marker["legacy"], False
+    others = [e for e in branches.values() if isinstance(e, dict) and e.get("commit")]
+    if others:
+        return max(others, key=lambda e: str(e.get("stamped_at", ""))), True
+    return None, False
+
+
+def _load_marker(marker: Path, project_dir: Path) -> dict | None:
+    """Load one marker file. Malformed files are backed up to kb.json.bak."""
     if not marker.exists():
         return None
     try:
@@ -258,13 +399,31 @@ def read_marker(project_dir: Path) -> dict | None:
         return data
     except (ValueError, UnicodeDecodeError) as exc:
         backup = marker.with_name("kb.json.bak")
+        shown = _rel(marker, project_dir)
         try:
             marker.replace(backup)
         except OSError as move_exc:
-            raise KBError(f"malformed {KB_MARKER} and cannot back it up: {move_exc}") from exc
-        print(f"WARNING: malformed {KB_MARKER} ({exc}); backed up to {_rel(backup, project_dir)}",
+            raise KBError(f"malformed {shown} and cannot back it up: {move_exc}") from exc
+        print(f"WARNING: malformed {shown} ({exc}); backed up to {_rel(backup, project_dir)}",
               file=sys.stderr)
         return None
+
+
+def refresh_kb_rules(project_dir: Path) -> None:
+    """Rewrite .claude/rules/avengers-kb.md (search hint + project-context.md import).
+
+    The file has one generator, `workstation.py kb-rules`, shared with `workstation.py set`.
+    """
+    if not WORKSTATION.is_file():
+        print(f"WARNING: {WORKSTATION} not found; {KB_RULES} not refreshed", file=sys.stderr)
+        return
+    proc = subprocess.run([sys.executable, str(WORKSTATION), "kb-rules",
+                           "--project-dir", str(project_dir)],
+                          capture_output=True, text=True, check=False)
+    if proc.returncode == 0:
+        print(f"Refreshed {KB_RULES.as_posix()}")
+    elif proc.returncode != 2:
+        print(f"WARNING: could not refresh {KB_RULES}: {proc.stderr.strip()}", file=sys.stderr)
 
 
 # --------------------------------------------------------------------------- commands
@@ -288,20 +447,27 @@ def cmd_status(project_dir: Path) -> int:
         return 1
 
     index, context, config = kb_paths(project_dir)
+    ws = read_workstation(project_dir)
     head = git_head(project_dir)
+    branch = git_branch(project_dir)
     report = {
         "state": None,
-        "index_path": _rel(index, project_dir),
-        "context_path": _rel(context, project_dir),
+        "index_path": marker_rel(index, project_dir, ws),
+        "context_path": marker_rel(context, project_dir, ws),
+        "workstation": str(ws) if ws else None,
+        "branch": branch,
+        "marker_path": None,
         "stamped_commit": None,
         "head": head,
         "commits_since": None,
         "signals": [],
     }
 
-    marker = read_marker(project_dir) if index.exists() else None
-    stamped = marker.get("commit") if marker else None
+    marker, marker_path = read_marker(project_dir, ws) if index.exists() else (None, None)
+    entry, fallback = pick_entry(marker, branch)
+    stamped = entry.get("commit") if entry else None
     report["stamped_commit"] = stamped
+    report["marker_path"] = str(marker_path) if marker_path else None
 
     if not index.exists():
         report["state"] = "missing"
@@ -309,6 +475,11 @@ def cmd_status(project_dir: Path) -> int:
         report["state"] = "unstamped"
     elif head is None:
         report["state"] = "unknown"
+    elif fallback:
+        report["state"] = "stale"
+        report["signals"] = [{"type": "branch_unstamped",
+                              "detail": f"no stamp for branch {branch}; newest stamp is "
+                                        f"{str(stamped)[:12]}"}]
     elif (resolved := git_commit_exists(project_dir, str(stamped))) is None:
         report["state"] = "stale"
         report["signals"] = [{"type": "unknown_stamp",
@@ -317,7 +488,9 @@ def cmd_status(project_dir: Path) -> int:
         report["commits_since"] = git_count_since(project_dir, resolved)
         found = collect_signals(project_dir, resolved, config)
         report["signals"] = found["signals"]
-        report["state"] = "stale" if found["signals"] else "fresh"
+        if output_outside_git(project_dir, config):
+            report["signals"] += arch_hash_signals(entry.get("arch_hashes"), arch_hashes(config))
+        report["state"] = "stale" if report["signals"] else "fresh"
 
     print(json.dumps(report, indent=2))
     return 0
@@ -340,6 +513,12 @@ def cmd_impact(project_dir: Path, base: str) -> int:
 
     _, _, config = kb_paths(project_dir)
     found = collect_signals(project_dir, resolved, config)
+    if output_outside_git(project_dir, config):
+        ws = read_workstation(project_dir)
+        marker, _ = read_marker(project_dir, ws)
+        entry, fallback = pick_entry(marker, git_branch(project_dir))
+        if entry and not fallback:
+            found["signals"] += arch_hash_signals(entry.get("arch_hashes"), arch_hashes(config))
     print(json.dumps({
         "refresh_recommended": bool(found["signals"]),
         "signals": found["signals"],
@@ -354,33 +533,52 @@ def cmd_stamp(project_dir: Path, dry_run: bool) -> int:
         print("ERROR: not a git repository (or no commits); cannot stamp", file=sys.stderr)
         return 1
 
-    index, context, _ = kb_paths(project_dir)
-    marker = read_marker(project_dir)
-    if marker and marker.get("commit") == head:
-        print(f"KB already stamped at {head[:12]} (no-op)", file=sys.stderr)
+    index, context, config = kb_paths(project_dir)
+    ws = read_workstation(project_dir)
+    branch = git_branch(project_dir) or "HEAD"
+    target, legacy = marker_locations(project_dir, ws)
+    marker, source = read_marker(project_dir, ws)
+    hashes = arch_hashes(config)
+    entry = ((marker or {}).get("branches") or {}).get(branch)
+    if (source == target and isinstance(entry, dict) and entry.get("commit") == head
+            and entry.get("arch_hashes") == hashes and not (marker or {}).get("legacy")):
+        print(f"KB already stamped at {head[:12]} for {branch} (no-op)", file=sys.stderr)
+        if ws:
+            refresh_kb_rules(project_dir)
         return 2
     if not index.exists():
         print(f"WARNING: KB index not found at {_rel(index, project_dir)}", file=sys.stderr)
 
-    payload = {
+    branches = dict((marker or {}).get("branches") or {})
+    branches[branch] = {
         "commit": head,
         "stamped_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "index_path": _rel(index, project_dir),
-        "context_path": _rel(context, project_dir),
+        "arch_hashes": hashes,
+    }
+    payload = {
+        "version": 2,
+        "index_path": marker_rel(index, project_dir, ws),
+        "context_path": marker_rel(context, project_dir, ws),
+        "branches": branches,
     }
     content = json.dumps(payload, indent=2) + "\n"
     if dry_run:
         print(content, end="")
         return 0
 
-    target = project_dir / KB_MARKER
+    shown = _rel(target, project_dir)
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
+        if source == legacy and target != legacy:
+            legacy.unlink()
+            print(f"Moved legacy {KB_MARKER.as_posix()} into the workstation")
     except OSError as exc:
-        print(f"ERROR: cannot write {KB_MARKER}: {exc}", file=sys.stderr)
+        print(f"ERROR: cannot write {shown}: {exc}", file=sys.stderr)
         return 1
-    print(f"Stamped KB at {head[:12]} -> {KB_MARKER.as_posix()}")
+    print(f"Stamped KB at {head[:12]} for {branch} -> {shown}")
+    if ws:
+        refresh_kb_rules(project_dir)
     return 0
 
 
@@ -404,8 +602,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("status", parents=[common],
                    help="Print KB state as JSON",
-                   description="Print {state, index_path, context_path, stamped_commit, head, "
-                               "commits_since, signals}. Exit 0; 1 if _bmad/ is missing.")
+                   description="Print {state, index_path, context_path, workstation, branch, "
+                               "marker_path, stamped_commit, head, commits_since, signals}. "
+                               "Paths are relative to the workstation when one is set. "
+                               "Exit 0; 1 if _bmad/ is missing.")
 
     imp = sub.add_parser("impact", parents=[common],
                          help="Print refresh-worthy change signals since a commit as JSON",
@@ -414,9 +614,12 @@ def build_parser() -> argparse.ArgumentParser:
     imp.add_argument("--base", required=True, help="Base commit (e.g. kb_base_commit)")
 
     stamp = sub.add_parser("stamp", parents=[common],
-                           help="Write .avengers/kb.json at HEAD",
-                           description="Write .avengers/kb.json recording HEAD. "
-                                       "Exit 0; 2 if already stamped at HEAD; 1 on error.")
+                           help="Record HEAD for the current branch in the KB marker",
+                           description="Write the KB marker (<workstation>/avengers/kb.json, "
+                                       "else .avengers/kb.json) recording HEAD for the current "
+                                       "branch, and refresh .claude/rules/avengers-kb.md when "
+                                       "a workstation is set. Exit 0; 2 if already stamped at "
+                                       "HEAD; 1 on error.")
     stamp.add_argument("--dry-run", action="store_true", help="Print the JSON instead of writing")
     return parser
 

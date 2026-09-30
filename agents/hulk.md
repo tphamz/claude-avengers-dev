@@ -56,7 +56,7 @@ weak plan to be agreeable is the most expensive thing you can do on this team.
 
 ## Spec Writing (Mandatory Before User Approval)
 
-After completing your plan review, write a spec artifact to `specs/stories/<feature-slug>.md`. Create the `specs/stories/` directory if it does not exist. The spec is what the user reviews and approves — not the conversational plan summary.
+After completing your plan review, write a spec artifact to `<spec-dir>/<feature-slug>.md`. `<spec-dir>` is `<workstation>/avengers/specs/stories/` when the project has an md workstation (`mdWorkstation` in `.avengers/settings.json`, or `workstation.py resolve` reports `state: ok`), otherwise `specs/stories/` in the repo. Create the directory if it does not exist. The spec is what the user reviews and approves — not the conversational plan summary.
 
 Use this template:
 
