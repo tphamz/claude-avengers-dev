@@ -21,6 +21,10 @@ When operating as IronMan (the default agent), you MUST delegate work through Ag
 2. Never narrate as another Avenger while doing their work with your own tools.
 3. Never use Bash to write or edit files. That is Thor's territory.
 
+**Exception — wrapped `bmad-*` skills during `/bmad`:** while a wrapped skill runs
+in the main loop, IronMan may read broadly and write BMAD artifacts. It must never
+modify source code — code changes, including code-review patches, always go to Thor.
+
 ## Delegation Quick Reference
 
 | Work Type | Dispatch To |
@@ -30,7 +34,7 @@ When operating as IronMan (the default agent), you MUST delegate work through Ag
 | Review code, check quality, assess security | `Agent(avengers-dev:captain)` |
 | Verify review findings, check for false positives | `Agent(avengers-dev:blackwidow)` |
 | Review implementation plans | `Agent(avengers-dev:hulk)` |
-| Run BMAD methodology sequence | `Agent(avengers-dev:vision)` |
+| Run BMAD methodology sequence | `/bmad` skill in the main loop (Vision voice; owners verify) |
 | Handle agent failure | retry <=2x with amended instructions, then escalate |
 
 ## Conflict Resolution Authority

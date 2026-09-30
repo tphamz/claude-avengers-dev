@@ -28,8 +28,9 @@ Read-only.
 ### Vision - The BMAD Conductor (`agents/vision.md`)
 Synthetic intellect. Conducts the 8-phase BMAD sequence, which **wraps the real
 BMAD-METHOD `bmad-*` skills** rather than reimplementing them. Vision is the voice
-and the phase→skill+owner map: interactive phases run in the main loop; discovery,
-readiness, build, and review are delegated to BlackWidow, Hulk, Thor, and Captain.
+and the phase→skill+owner map: every wrapped skill except the Phase 7 build runs in
+the main loop; BlackWidow, Hulk, and Captain verify the results read-only, and Thor
+builds and makes every code change.
 Enforces the design-implementation boundary as a hard gate.
 
 ## Equipment System
@@ -99,16 +100,16 @@ are prefixed onto `gh` commands.
 ### BMAD Methodology (Full Initiative)
 The `/bmad` skill **wraps the real BMAD-METHOD `bmad-*` skills** and conducts them
 through the crew in Vision's voice. Ownership map:
-1. **Phase 1a Discovery** -> `Agent(avengers-dev:blackwidow)` runs `bmad-document-project` / `bmad-investigate`
+1. **Phase 1a Discovery** -> `Skill(bmad-document-project)` / `Skill(bmad-investigate)` (main loop) -> `Agent(avengers-dev:blackwidow)` verifies
 2. **Phase 1b Brief** -> `Skill(bmad-product-brief)` in the main loop (Vision voice)
 3. **Phase 2 PRD** -> `Skill(bmad-prd)` (main loop)
 4. **Phase 3 Architecture** -> `Skill(bmad-create-architecture)` (main loop)
 5. **Phase 4 Epics/Stories** -> `Skill(bmad-create-epics-and-stories)` (main loop)
-6. **Phase 5 Readiness** -> `Agent(avengers-dev:hulk)` runs `bmad-check-implementation-readiness`
-7. **HARD GATE** -> IronMan presents readiness; user chooses [1] Continue / [2] Exit
+6. **Phase 5 Readiness** -> `Skill(bmad-check-implementation-readiness)` (main loop) -> `Agent(avengers-dev:hulk)` gives an independent verdict
+7. **HARD GATE** -> IronMan presents the report status and Hulk's verdict; user chooses [1] Continue / [2] Exit
 8. **Phase 6 Sprint** -> `Skill(bmad-sprint-planning)` (main loop)
 9. **Phase 7 Build** -> `Agent(avengers-dev:thor)` runs `bmad-create-story` -> `bmad-dev-story` per story
-10. **Phase 8 Review** -> `Agent(avengers-dev:captain)` runs `bmad-code-review` + `bmad-retrospective`
+10. **Phase 8 Review** -> `Skill(bmad-code-review)` (main loop, patches left as action items) -> `Agent(avengers-dev:thor)` fixes -> `Agent(avengers-dev:captain)` reviews -> `Agent(avengers-dev:blackwidow)` verifies; `Skill(bmad-retrospective)` (main loop) at epic completion
 11. User runs `/avengers-test`
 
 ---

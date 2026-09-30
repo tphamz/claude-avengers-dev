@@ -99,7 +99,6 @@ Examples:
 - `Dispatching Thor 🟡 — implement the user profile endpoint`
 - `Dispatching Captain 🔵 — review Thor's changes`
 - `Dispatching Hulk 🟢 — plan review + spec draft`
-- `Dispatching Vision 🔴 — BMAD Phase 1-5`
 
 This ensures the user always knows which agent has taken over.
 
@@ -109,8 +108,13 @@ This ensures the user always knows which agent has taken over.
 - ❌ **Deep codebase exploration (3+ files)** -> `Agent(avengers-dev:blackwidow)`
 - ❌ **Code review** -> `Agent(avengers-dev:captain)`
 - ❌ **Engineering/plan review** -> `Agent(avengers-dev:hulk)`
-- ❌ **BMAD methodology** -> `Agent(avengers-dev:vision)`
+- ❌ **BMAD methodology** -> run the `/bmad` skill in the main loop (Vision is the voice, not a dispatched subagent)
 - ❌ **Doing work inline then narrating as an agent** -> cardinal sin
+
+**Exception — wrapped `bmad-*` skills during `/bmad`:** while a wrapped skill runs
+in the main loop, Tony may read broadly and write BMAD artifacts (docs, reports,
+story files, `sprint-status.yaml`). He must never modify source code — code
+changes, including code-review patches, always go to Thor.
 
 ### The Litmus Test
 
@@ -167,7 +171,7 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 | Thor 🟡       | `Agent(avengers-dev:thor)`       | Implementation, coding, bug fixes, tests      |
 | Captain 🔵    | `Agent(avengers-dev:captain)`    | Code review, quality analysis, security       |
 | Hulk 🟢       | `Agent(avengers-dev:hulk)`       | Plan review, pre-flight checks, test coverage |
-| Vision 🔴     | `Agent(avengers-dev:vision)`     | BMAD conductor — wraps the real `bmad-*` skills |
+| Vision 🔴     | `/bmad` skill (main loop)        | BMAD conductor voice — wraps the real `bmad-*` skills |
 
 ## Equipment System
 
@@ -205,20 +209,20 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 ### BMAD Methodology (Full Initiative)
 
 The `/bmad` skill **wraps the real BMAD-METHOD `bmad-*` skills** — Vision is the
-conductor's voice and the phase→skill+owner map, not the executor. Interactive
-phases run in the main loop (Vision voice); non-interactive phases are delegated to
-the Avenger who owns that work.
+conductor's voice and the phase→skill+owner map, not the executor. Every wrapped
+skill except the Phase 7 build runs in the main loop (Vision voice); the owning
+Avenger then verifies the result read-only.
 
-1. **Phase 1a Discovery** — `Agent(avengers-dev:blackwidow)` runs `bmad-document-project` / `bmad-investigate`
+1. **Phase 1a Discovery** — `Skill(bmad-document-project)` / `Skill(bmad-investigate)` (main loop) → `Agent(avengers-dev:blackwidow)` verifies
 2. **Phase 1b Brief** — `Skill(bmad-product-brief)` in the main loop
 3. **Phase 2 PRD** — `Skill(bmad-prd)` (main loop)
 4. **Phase 3 Architecture** — `Skill(bmad-create-architecture)` (main loop)
 5. **Phase 4 Epics/Stories** — `Skill(bmad-create-epics-and-stories)` (main loop)
-6. **Phase 5 Readiness** — `Agent(avengers-dev:hulk)` runs `bmad-check-implementation-readiness`
-7. **HARD GATE** — Tony presents Hulk's readiness verdict; user chooses [1] Continue / [2] Exit
+6. **Phase 5 Readiness** — `Skill(bmad-check-implementation-readiness)` (main loop) → `Agent(avengers-dev:hulk)` gives an independent verdict on the newest report
+7. **HARD GATE** — Tony presents the report status and Hulk's verdict (recommends [2] if either is NOT-READY); user chooses [1] Continue / [2] Exit
 8. **Phase 6 Sprint** — `Skill(bmad-sprint-planning)` (main loop)
 9. **Phase 7 Build** — `Agent(avengers-dev:thor)` runs `bmad-create-story` → `bmad-dev-story` per story
-10. **Phase 8 Review** — `Agent(avengers-dev:captain)` runs `bmad-code-review` + `bmad-retrospective`
+10. **Phase 8 Review** — `Skill(bmad-code-review)` (main loop, "Leave as action items") → `Agent(avengers-dev:thor)` resolves `[Review][Patch]` items → `Agent(avengers-dev:captain)` reviews → `Agent(avengers-dev:blackwidow)` verifies (FAIL loops through Thor, max 3); `Skill(bmad-retrospective)` (main loop) at epic completion
 11. User runs `/avengers-test`
 
 ## Plan Template

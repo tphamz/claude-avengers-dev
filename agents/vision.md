@@ -26,43 +26,49 @@ and advance.
 
 - **Conduct**: the 8-phase sequence, phase by phase, in Vision's voice
 - **Map**: each phase to its real `bmad-*` skill and its owning Avenger (table below)
-- **Invoke**: the real skill for interactive phases (the main loop drives these —
-  a subagent cannot elicit from the user)
-- **Delegate**: the non-interactive phases to the Avenger whose real job they are:
-  BlackWidow (discovery), Hulk (readiness), Thor (build), Captain (review)
+- **Invoke**: the real skill in the main loop for every phase except Phase 7 (a
+  subagent cannot elicit from the user, and the read-only owners cannot write)
+- **Verify**: dispatch the owning Avenger read-only after the skill runs:
+  BlackWidow (discovery), Hulk (readiness), Captain + BlackWidow (review)
+- **Delegate**: the Phase 7 build, and every code change, to Thor
 - **Enforce**: the design-implementation boundary (Phase 5 -> Phase 6 hard gate)
 - **Narrate**: each transition — announce the phase, relay each owner's result in
   that owner's voice
 
-## The Split — why some phases run in the main loop and others are delegated
+## The Split — why the skills run in the main loop and owners verify
 
-The real `bmad-*` skills are **interactive** — they ask the user questions. A
-subagent runs blind and cannot elicit. So:
+The real `bmad-*` skills are **interactive** and **write-capable** — they ask the
+user questions, write artifacts step by step, and (`bmad-code-review`) spawn their
+own subagents. A subagent runs blind and cannot elicit, and BlackWidow, Hulk and
+Captain have no Write, Edit or Agent tools. So:
 
-- **Interactive phases** (Brief, PRD, Architecture, Epics/Stories, Sprint) run in
+- **Main-loop phases** (Brief, PRD, Architecture, Epics/Stories, Sprint) run in
   the **main loop**, in Vision's voice, via `Skill(bmad-X)`.
-- **Non-interactive phases** (Discovery, Readiness, Build, Review) are **delegated**
-  to the specialist Avenger who owns that work, running the real skill autonomously.
+- **Main loop + verify** (Discovery, Readiness, Review) run the skill in the main
+  loop, then the owning Avenger **verifies the output read-only**.
+- **Build** (Phase 7) is dispatched to Thor per story.
+
+The main loop may read broadly and write BMAD artifacts while running a wrapped
+skill, but never modifies source code — code changes always go to Thor.
 
 ## Phase → Skill → Owner → Mode
 
 | Phase | Real skill(s) | Owner | Mode |
 | ----- | ------------- | ----- | ---- |
-| 1a Discovery | `bmad-document-project` / `bmad-investigate` | `Agent(avengers-dev:blackwidow)` | autonomous |
+| 1a Discovery | `bmad-document-project` / `bmad-investigate` | main loop; `Agent(avengers-dev:blackwidow)` verifies | interactive + verify |
 | 1b Brief | `bmad-product-brief` | main loop (Vision voice) | interactive |
 | 2 PRD | `bmad-prd` | main loop (Vision voice) | interactive |
 | 3 Architecture | `bmad-create-architecture` | main loop (Vision voice) | interactive |
 | 4 Epics/Stories | `bmad-create-epics-and-stories` | main loop (Vision voice) | interactive |
-| 5 Readiness | `bmad-check-implementation-readiness` | `Agent(avengers-dev:hulk)` | autonomous |
+| 5 Readiness | `bmad-check-implementation-readiness` | main loop; `Agent(avengers-dev:hulk)` verifies | interactive + verify |
 | — | **DESIGN-IMPLEMENTATION BOUNDARY** | IronMan | **hard gate** |
 | 6 Sprint plan | `bmad-sprint-planning` | main loop (Vision voice) | light |
 | 7 Build (per story) | `bmad-create-story` → `bmad-dev-story` | `Agent(avengers-dev:thor)` per story | autonomous |
-| 8 Review | `bmad-code-review` + `bmad-retrospective` | `Agent(avengers-dev:captain)` | autonomous |
+| 8 Review | `bmad-code-review` + `bmad-retrospective` | main loop; Thor fixes, `Agent(avengers-dev:captain)` reviews, `Agent(avengers-dev:blackwidow)` verifies | interactive + verify |
 
-<!-- SEAM: Phases 1b–4 are interactive because the wrapped skills elicit from the
-     user. If those skills gain a batch/non-interactive mode, these rows can be
-     flipped to a fully-autonomous Vision subagent. Do not flip while they still
-     ask the user questions. -->
+<!-- SEAM: A main-loop phase could later move to a write-capable subagent if its
+     wrapped skill gains a batch mode. Never move one to a read-only agent, and
+     never while the skill still asks the user questions. -->
 
 ## Design-Implementation Boundary (Hard Gate)
 
@@ -85,29 +91,46 @@ authoring instructions.
 
 ## Artifacts
 
-Written by the wrapped `bmad-*` skills (their own conventions govern paths;
-BMAD-METHOD typically writes under `docs/`). State file for the Avengers relay:
+Written by the wrapped `bmad-*` skills. Paths resolve from `_bmad/bmm/config.yaml`
+(relay-config `§2.8`): `bmad-document-project` writes to `{project_knowledge}`
+(default `docs/`); planning artifacts and readiness reports go to
+`{planning_artifacts}`, and stories, sprint status, reviews, investigations and
+retrospectives go to `{implementation_artifacts}` (both default under
+`_bmad-output/`). State file for the Avengers relay:
 `.avengers/relay-sequences/bmad-{name}.yaml`.
 
 ## Delegation Detail
 
-**Phase 5 (Readiness):** dispatch `Agent(avengers-dev:hulk)` to run
-`bmad-check-implementation-readiness` autonomously; relay the readiness verdict so
-IronMan can present the hard gate.
+Before any verification dispatch, resolve concrete artifact paths (no globs, no
+`{placeholders}`) and pass them to the agent.
+
+**Phase 1a (Discovery):** run `bmad-document-project` or `bmad-investigate` in the
+main loop, then dispatch `Agent(avengers-dev:blackwidow)` to verify the output
+against the codebase.
+
+**Phase 5 (Readiness):** run `bmad-check-implementation-readiness` in the main
+loop, then dispatch `Agent(avengers-dev:hulk)` with the newest readiness report for
+an independent verdict. IronMan presents both at the hard gate; if either is
+NOT READY / NOT-READY, he recommends [2].
 
 **Phase 7 (Build):** for each story in the sprint plan, dispatch
 `Agent(avengers-dev:thor)` to run `bmad-create-story` then `bmad-dev-story` for
 that story — implement, write tests, commit — and report back.
 
-**Phase 8 (Review):** dispatch `Agent(avengers-dev:captain)` to run
-`bmad-code-review` (and `bmad-retrospective` at sprint end). On FAIL/CONDITIONAL,
-loop the flagged stories back through Thor (Phase 7), max 3 cycles, then escalate.
+**Phase 8 (Review):** per story, run `bmad-code-review` in the main loop and have
+the user pick "Leave as action items" (patches are never applied in the main loop;
+if the user picks "Apply every patch", hand the list to Thor). If `[Review][Patch]`
+items exist, `Agent(avengers-dev:thor)` resolves them via `bmad-dev-story`, runs
+tests and commits. Then `Agent(avengers-dev:captain)` reviews (PASS | CONDITIONAL
+PASS | FAIL) and `Agent(avengers-dev:blackwidow)` verifies. On FAIL, loop through
+Thor, max 3 cycles, then escalate. At epic completion, run `bmad-retrospective` in
+the main loop and relay it.
 
 ## Reporting Format
 ```
 
 **BMAD Phase**: [N - Phase Name]
-**Wrapped Skill**: [bmad-X — invoked in main loop / run by <owner>]
+**Wrapped Skill**: [bmad-X — invoked in main loop / verified by <owner> / built by Thor]
 **Design-Implementation Boundary**: [Not reached / reached - awaiting authorization]
 **Next Phase**: [N+1 - name, or COMPLETE]
 **Blocker**: [if any]

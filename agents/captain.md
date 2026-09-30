@@ -79,6 +79,16 @@ mood. A review exists to surface what is wrong while it is still cheap to fix.
 - **CONDITIONAL PASS**: No Critical findings, but Warnings exist.
 - **FAIL**: Critical findings present.
 
+## BMAD Verification (Phase 8)
+
+In a `/bmad` sequence, `bmad-code-review` and `bmad-retrospective` run in the main
+loop — you do **not** invoke them, or any other write-capable `bmad-*` skill. You
+are dispatched after the main-loop code review and Thor's fixes to review the
+story's changes read-only, using the steps above. Read the story file's
+`### Review Findings` subsection to confirm every `[Review][Patch]` item is
+resolved. Return PASS | CONDITIONAL PASS | FAIL. Do not edit the story file,
+`sprint-status.yaml` or `deferred-work.md`.
+
 ## Equipment: Lenses
 
 If your task mentions a lens, invoke `equip-lens` with its name before starting.

@@ -16,31 +16,35 @@ parameters and the phase→skill+owner map.
 
 ## Phase Map — phase → real skill → owner → mode
 
-Each phase either invokes its real `bmad-*` skill **in the main loop** (interactive
-phases — Vision's voice, so the skill can elicit from the user) or **dispatches the
-owning Avenger** to run the real skill autonomously (non-interactive phases).
+Every phase except Phase 7 invokes its real `bmad-*` skill **in the main loop**
+(Vision's voice), so the skill can elicit from the user and write its artifacts.
+In Phases 1a, 5 and 8 the owning Avenger is then dispatched **read-only to verify**
+the result. Phase 7 dispatches Thor to build.
 
 | Phase | Real skill(s) | Owner | Mode |
 |-------|---------------|-------|------|
-| 1a Discovery | `bmad-document-project` / `bmad-investigate` | `Agent(avengers-dev:blackwidow)` | autonomous |
+| 1a Discovery | `bmad-document-project` / `bmad-investigate` | main loop; `Agent(avengers-dev:blackwidow)` verifies | interactive + verify |
 | 1b Brief | `bmad-product-brief` | main loop (Vision voice) | interactive |
 | 2 PRD | `bmad-prd` | main loop (Vision voice) | interactive |
 | 3 Architecture | `bmad-create-architecture` | main loop (Vision voice) | interactive |
 | 4 Epics/Stories | `bmad-create-epics-and-stories` | main loop (Vision voice) | interactive |
-| 5 Readiness | `bmad-check-implementation-readiness` | `Agent(avengers-dev:hulk)` | autonomous |
+| 5 Readiness | `bmad-check-implementation-readiness` | main loop; `Agent(avengers-dev:hulk)` verifies | interactive + verify |
 | — | **DESIGN-IMPLEMENTATION BOUNDARY** | IronMan | **hard gate** |
 | 6 Sprint plan | `bmad-sprint-planning` | main loop (Vision voice) | light |
 | 7 Build (per story) | `bmad-create-story` → `bmad-dev-story` | `Agent(avengers-dev:thor)` per story | autonomous |
-| 8 Review | `bmad-code-review` + `bmad-retrospective` | `Agent(avengers-dev:captain)` | autonomous |
+| 8 Review | `bmad-code-review` + `bmad-retrospective` | main loop; Thor fixes, `Agent(avengers-dev:captain)` reviews, `Agent(avengers-dev:blackwidow)` verifies | interactive + verify |
 
-**Why the split:** the wrapped `bmad-*` skills are interactive. A subagent runs
-blind and cannot elicit, so every interactive phase runs in the main loop; only the
-non-interactive phases (whose real work belongs to a specialist Avenger anyway) are
-delegated.
+**Why the split:** the wrapped `bmad-*` skills halt for user input and write
+artifacts step by step; `bmad-code-review` also spawns its own subagents. A
+subagent runs blind and cannot elicit, and BlackWidow, Hulk and Captain have no
+Write, Edit or Agent tools. So the skills run in the main loop and those owners
+verify the output read-only. The main loop may read broadly and write BMAD
+artifacts while running a wrapped skill, but never modifies source code — code
+changes (including code-review patches) always go to Thor.
 
-<!-- SEAM: Phases 1b–4 could later be flipped to a fully-autonomous Vision subagent
-     if the wrapped bmad-* skills gain a batch / non-interactive mode. Until then
-     they must stay in the main loop because they ask the user questions. -->
+<!-- SEAM: A main-loop phase could later move to a write-capable subagent if its
+     wrapped skill gains a batch mode. Never move one to a read-only agent, and
+     never while the skill still asks the user questions. -->
 
 ## State File
 
@@ -67,8 +71,8 @@ loop_state:                      # Phase 7 only
   remaining: list
 ```
 
-Artifact paths are owned by the wrapped `bmad-*` skills (BMAD-METHOD writes under
-`docs/` by its own conventions) — the relay does not dictate them.
+Artifact paths are owned by the wrapped `bmad-*` skills and resolved from
+`_bmad/bmm/config.yaml` (see `§2.8`) — the relay does not dictate them.
 
 ## Protocol Directives
 
@@ -88,9 +92,23 @@ stays in Vision's voice.
 
 ### §2.7 Deterministic-First
 
-Readiness (Phase 5) is delegated to `bmad-check-implementation-readiness`, which
-maximizes deterministic checks. Trust the skill's verdict; surface LLM judgment as
-advisory, not blocking.
+Readiness (Phase 5) runs `bmad-check-implementation-readiness` in the main loop;
+its report carries a status of READY / NEEDS WORK / NOT READY. Hulk then gives an
+independent verdict (READY / READY-WITH-CONCERNS / NOT-READY) on that report. The
+gate shows **both**. If either is NOT READY / NOT-READY, IronMan recommends [2]
+Exit; the user decides. Neither verdict auto-advances or auto-blocks the gate.
+
+### §2.8 Artifact Path Resolution
+
+Before dispatching a verifying Avenger, the main loop reads
+`_bmad/bmm/config.yaml`, substitutes `{project-root}`, and passes **concrete file
+paths** — never globs or unresolved `{placeholders}`. Keys and installer defaults:
+
+| Key | Default | Written there |
+|-----|---------|---------------|
+| `project_knowledge` | `docs` | `bmad-document-project` output |
+| `planning_artifacts` | `_bmad-output/planning-artifacts` | `implementation-readiness-report-{date}.md` (pass the newest file) |
+| `implementation_artifacts` | `_bmad-output/implementation-artifacts` | story files, `sprint-status.yaml`, `deferred-work.md`, `investigations/{slug}-investigation.md`, `epic-{N}-retro-{date}.md` |
 
 ### §3.2 Resume Protocol
 
@@ -103,7 +121,8 @@ Re-enter at `current_phase`, respecting `design_implementation_boundary_passed`.
 
 Each interactive phase announces completion and waits for user confirmation before
 advancing. Format: "Phase N ({name}) complete. {summary}. Ready for Phase N+1?"
-Delegated phases report through their Avenger; IronMan relays, then advances.
+Phases with a verifying Avenger (1a, 5, 8) and the Phase 7 build report through
+that Avenger; IronMan relays, then advances.
 
 ### §3.6 Design-Implementation Boundary (Hard Gate)
 
@@ -122,8 +141,8 @@ During Phase 7, if implementation surfaces out-of-scope requirements:
 
 ## Execution Model — wrap, don't reimplement
 
-Each phase **invokes its real `bmad-*` skill** (main loop) or **dispatches its
-owner** (subagent). There are no persona overlays to load and no self-contained
+Each phase **invokes its real `bmad-*` skill** (main loop, then a read-only owner
+verifies where one is mapped) or, in Phase 7, **dispatches Thor** to build. There are no persona overlays to load and no self-contained
 phase logic — the wrapped skill carries the authoring instructions. The
 `references/bmad/phase-{N}-*.md` files are thin stubs documenting the mapping
 (skill + owner + mode) plus the wrapped skill's completion criteria, for quick

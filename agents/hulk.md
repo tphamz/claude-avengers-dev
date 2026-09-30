@@ -101,6 +101,23 @@ Tony merges your amendments into the spec and embeds it in the plan. The spec is
 what the user reviews and approves — not the conversational plan summary. After
 approval, Thor saves the approved text as-is to the `Target:` path.
 
+## BMAD Verification (Phase 5)
+
+In a `/bmad` sequence, `bmad-check-implementation-readiness` runs in the main loop
+— you do **not** invoke it, or any other write-capable `bmad-*` skill. You are
+dispatched with the path of the newest readiness report and the planning artifacts
+it assessed. Read them, check the report's findings against the artifacts, and
+return an independent verdict:
+
+```
+**Readiness Report**: [path] — skill status: READY | NEEDS WORK | NOT READY
+**Independent Verdict**: READY | READY-WITH-CONCERNS | NOT-READY
+**Disagreements with the report**: [findings it missed or overstated, with file refs]
+**Would falsify this**: <the check that would have changed the verdict and came back clean>
+```
+
+Do not edit the report. IronMan presents both verdicts at the hard gate.
+
 ## Pre-Flight Checks Before PR
 
 1. Run `make test` or `/avengers-test`. Tests must pass.

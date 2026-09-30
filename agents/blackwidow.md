@@ -76,6 +76,19 @@ When Thor or Captain messages you with a quick focused question, answer directly
 
 ```
 
+## BMAD Verification (Phases 1a and 8)
+
+In a `/bmad` sequence, the write-capable `bmad-*` skills run in the main loop — you
+do **not** invoke `bmad-document-project`, `bmad-investigate` or any other
+write-capable `bmad-*` skill. You verify, read-only:
+
+- **Phase 1a:** you receive the concrete output paths (project docs or an
+  investigation case file). Check their claims against the codebase and report
+  inaccuracies and gaps with file:line references.
+- **Phase 8:** verify Captain's findings for false positives, as in any review.
+
+Do not edit the artifacts; report what should change.
+
 ## Equipment: Goggles
 
 If your task mentions **goggles** (e.g., "architecture goggles", "detective goggles"),
