@@ -109,7 +109,7 @@ through the crew in Vision's voice. Ownership map:
 7. **HARD GATE** -> IronMan presents the report status and Hulk's verdict (recommends [2] on NOT READY / NOT-READY; flags NEEDS WORK / READY-WITH-CONCERNS with the cited gaps); user chooses [1] Continue / [2] Exit
 8. **Phase 6 Sprint** -> `Skill(bmad-sprint-planning)` (main loop)
 9. **Phase 7 Build** -> `Agent(avengers-dev:thor)` runs `bmad-create-story` -> `bmad-dev-story` per story
-10. **Phase 8 Review** -> per story: `Skill(bmad-code-review)` (main loop, patches left as action items) -> reconcile `### Review Findings` -> `Agent(avengers-dev:thor)` fixes `[Review][Patch]` items (explicit story path) -> `Agent(avengers-dev:captain)` reviews `<baseline_commit>..HEAD` -> `Agent(avengers-dev:blackwidow)` verifies (FAIL or CONDITIONAL PASS loops, max 3) -> close-out (main loop): story and `sprint-status.yaml` set `done`; `Skill(bmad-retrospective)` (main loop) once every story key for the epic is `done`
+10. **Phase 8 Review** -> per story: `Skill(bmad-code-review)` (main loop, story range, patches left as action items) -> reconcile `### Review Findings` -> `Agent(avengers-dev:thor)` fixes `[Review][Patch]` items (explicit story path) -> `Agent(avengers-dev:captain)` reviews `<baseline_commit>..<phase7_end_sha>` plus each fix commit -> `Agent(avengers-dev:blackwidow)` verifies (FAIL or CONDITIONAL PASS loops, max 3; then the user accepts the CONDITIONAL PASS or exits, and a FAIL cannot be accepted) -> close-out (main loop): story and `sprint-status.yaml` set `done`; `Skill(bmad-retrospective)` (main loop, epic number passed) once every story key for the epic is `done`
 11. User runs `/avengers-test`
 
 ---

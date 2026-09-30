@@ -12,7 +12,10 @@ Iterative, per-story.
 
 For each story in the sprint plan, Thor is dispatched to run `bmad-create-story`
 (fill the story with implementation context) then `bmad-dev-story` (implement, write
-tests, commit) autonomously, reporting back per story.
+tests, commit) autonomously, reporting back per story. After each report, the
+main loop records the story's `baseline_commit` (story frontmatter) and the commit
+SHA from Thor's report as `phase7_end_sha` in `loop_state.stories[<story_key>]`;
+Phase 8 uses them to scope the story's review range.
 
 ## Scope Creep
 

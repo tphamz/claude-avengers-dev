@@ -142,12 +142,19 @@ Phase-by-phase:
 9. **Phase 7 — Build.** For each story in the sprint plan, dispatch
    `Agent(avengers-dev:thor)` to run `bmad-create-story` then `bmad-dev-story`
    for that story autonomously (implement + tests + commit), reporting back.
+   After each report, record the story's `baseline_commit` (story frontmatter)
+   and the commit SHA from Thor's report as `phase7_end_sha` in the state file's
+   `loop_state.stories[<story_key>]`.
 10. **Phase 8 — Review.** Per story, in this order (full detail in
-    `references/bmad/phase-8-review.md`):
+    `references/bmad/phase-8-review.md`). The story's review range is
+    `<baseline_commit>..<phase7_end_sha>` plus each Phase 8 fix commit, from
+    `loop_state.stories[<story_key>]`; never `..HEAD`, which includes later
+    stories.
     1. **Code review (main loop).** Run `Skill(bmad-code-review)` with the story
-       file set as the spec. Resolve every `decision-needed` finding with the user
-       at its step 4. At the patch menu, tell the user to pick **"Leave as action
-       items"**, then **"Done"** at the next-steps menu. The main loop never
+       file set as the spec and the explicit range
+       `<baseline_commit>..<phase7_end_sha>`. Resolve every `decision-needed`
+       finding with the user at its step 4. At the patch menu, tell the user to
+       pick **"Leave as action items"**, then **"Done"** at the next-steps menu. The main loop never
        applies patches. If the user picks "Apply every patch" anyway, stop and
        hand the patch list to Thor instead of applying it. Because the story is
        passed as the spec file, code-review never sets `{story_key}`, so its own
@@ -155,35 +162,45 @@ Phase-by-phase:
     2. **Reconcile Review Findings (main loop).** In the story's
        `### Review Findings`, make sure every decision the user converted to a
        patch is recorded as an unchecked `- [ ] [Review][Patch] ...` bullet, and
-       mark each resolved `[Review][Decision]` bullet checked (`[x]`) or strike it
-       through. Unchecked Decision bullets make `bmad-dev-story` step 9 HALT.
+       mark each resolved `[Review][Decision]` bullet checked (`[x]`); striking
+       it through is optional and does not replace `[x]`. Unchecked Decision
+       bullets make `bmad-dev-story` step 9 HALT. Make sure `### Review Findings`
+       sits inside `## Tasks / Subtasks`, where dev-story looks for tasks. Set the
+       story's `sprint-status.yaml` entry to `in-progress`.
     3. **Fix (Thor).** If unchecked `[Review][Patch]` items exist after
        reconciliation, dispatch `Agent(avengers-dev:thor)` with the explicit story
        file path (dev-story auto-discovery only picks `ready-for-dev` stories) and
        the `[Review][Patch]` items named one by one (the skill's review-continuation
        check looks for the older "Senior Developer Review (AI)" section). Thor runs
        `bmad-dev-story` on that path, resolves the items, runs tests and commits.
-    4. **Review (Captain).** Read `baseline_commit` from the story file's
-       frontmatter (written by dev-story) and dispatch `Agent(avengers-dev:captain)`
-       with the story file path and the concrete range
-       `<baseline_commit>..HEAD`. Verdict: PASS | CONDITIONAL PASS | FAIL.
+       Record the commit SHA from Thor's report in `phase8_fix_shas`.
+    4. **Review (Captain).** Dispatch `Agent(avengers-dev:captain)` with the
+       story file path, the concrete range `<baseline_commit>..<phase7_end_sha>`
+       and each Phase 8 fix SHA (reviewed with `git show <sha>`). If
+       `baseline_commit` is `NO_VCS`, pass the story's File List instead; Captain
+       reviews those files as they stand now. Verdict: PASS | CONDITIONAL PASS |
+       FAIL.
     5. **Verify (BlackWidow).** Dispatch `Agent(avengers-dev:blackwidow)` to verify
        Captain's findings.
-    6. **Cycle.** A FAIL, or a CONDITIONAL PASS (Warnings), goes back to Thor with
-       the verified findings → Captain → BlackWidow. The limit is 3 cycles. After
+    6. **Cycle.** A FAIL, or a CONDITIONAL PASS (Warnings), goes back to Thor.
+       First append the verified Captain and BlackWidow findings to the story's
+       `### Review Findings` as unchecked `- [ ] [Review][Patch] ...` bullets
+       (dev-story implements only story tasks) and set the `sprint-status.yaml`
+       entry to `in-progress`; then Thor runs as in step 3 → Captain →
+       BlackWidow. The limit is 3 cycles, counted in `review_cycles`. After
        the third, present the verdict to the user, who either accepts the
        CONDITIONAL PASS or exits (`status: suspended`). A FAIL cannot be accepted.
     7. **Close-out (main loop).** After a PASS (or a user-accepted CONDITIONAL
        PASS at the cycle limit) and BlackWidow's verification, set the story
        file's `Status: done`, and in `{implementation_artifacts}/sprint-status.yaml`
-       set `development_status[<story_key>]: done` (the key is the story file's
-       basename, e.g. `1-2-user-auth`) and `last_updated` to today, preserving all
-       comments and structure. This is a BMAD artifact write, allowed under the
+       set `development_status[<story_key>]: done` (the key is the story file
+       name without `.md`, e.g. `1-2-user-auth`) and `last_updated` to today,
+       preserving all comments and structure. This is a BMAD artifact write, allowed under the
        wrapped-skill exception.
     8. **Retrospective (main loop, at epic completion).** Epic N is complete when
        every story key for epic N (keys starting `N-`, excluding `epic-N` and
        `epic-N-retrospective`) is `done` in `sprint-status.yaml`. Only then run
-       `Skill(bmad-retrospective)`. It writes
+       `Skill(bmad-retrospective)` with epic N passed explicitly. It writes
        `{implementation_artifacts}/epic-{N}-retro-{date}.md` and updates
        `sprint-status.yaml`. Relay its output; no Captain verification.
 

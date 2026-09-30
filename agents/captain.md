@@ -85,11 +85,14 @@ In a `/bmad` sequence, `bmad-code-review` and `bmad-retrospective` run in the ma
 loop — you do **not** invoke them, or any other write-capable `bmad-*` skill. You
 are dispatched after the main-loop code review and Thor's fixes to review the
 story's changes read-only, using the steps above. The dispatch gives you the story
-file path and a concrete commit range `<baseline_commit>..HEAD` (`baseline_commit`
-comes from the story frontmatter, written by `bmad-dev-story`). Review exactly
-that range, e.g. `git diff <baseline_commit>..HEAD`. Read the story file's
-`### Review Findings` subsection to confirm every `[Review][Patch]` item is
-resolved. Return PASS | CONDITIONAL PASS | FAIL. A FAIL or CONDITIONAL PASS goes
+file path, a concrete commit range `<baseline_commit>..<phase7_end_sha>` (the
+story's Phase 7 work) and the SHA of each Phase 8 fix commit for that story.
+Review exactly those: `git diff <baseline_commit>..<phase7_end_sha>` plus
+`git show <sha>` for each fix commit. Do not review `..HEAD` — it includes later
+stories' work. If `baseline_commit` is `NO_VCS`, the dispatch gives you the
+story's File List instead; review those files as they stand now. Read the story
+file's `### Review Findings` subsection to confirm every `[Review][Patch]` item
+is resolved. Return PASS | CONDITIONAL PASS | FAIL. A FAIL or CONDITIONAL PASS goes
 back to Thor (max 3 cycles). Do not edit the story file, `sprint-status.yaml` or
 `deferred-work.md` — the main loop closes the story out after your PASS.
 

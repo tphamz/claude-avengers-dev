@@ -46,15 +46,19 @@ The relay's own state file: `.avengers/relay-sequences/bmad-{name}.yaml`.
 
 ## Phase 8 Per-Story Flow
 
-Code review (main loop, "Leave as action items") → reconcile `### Review Findings`
-(converted decisions recorded as unchecked `[Review][Patch]`; resolved
-`[Review][Decision]` checked or struck) → Thor fixes unchecked `[Review][Patch]`
-items (explicit story path) → Captain reviews `<baseline_commit>..HEAD` →
-BlackWidow verifies → FAIL or CONDITIONAL PASS loops to Thor (max 3, then the user
-accepts the CONDITIONAL PASS or exits) → close-out (main loop): story
+Code review (main loop, range `<baseline_commit>..<phase7_end_sha>`, "Leave as
+action items") → reconcile `### Review Findings` inside Tasks/Subtasks (converted
+decisions recorded as unchecked `[Review][Patch]`; resolved `[Review][Decision]`
+checked `[x]`; sprint-status entry `in-progress`) → Thor fixes unchecked
+`[Review][Patch]` items (explicit story path; fix SHA recorded) → Captain reviews
+`<baseline_commit>..<phase7_end_sha>` plus each fix commit → BlackWidow verifies
+→ FAIL or CONDITIONAL PASS: verified findings appended as unchecked
+`[Review][Patch]`, loops to Thor (max 3, then the user accepts the CONDITIONAL
+PASS or exits; a FAIL cannot be accepted) → close-out (main loop): story
 `Status: done`, `sprint-status.yaml` entry `done` + `last_updated`. Epic N is
 complete when every story key for epic N is `done` in `sprint-status.yaml`; only
-then does `bmad-retrospective` run. See `references/bmad/phase-8-review.md`.
+then does `bmad-retrospective` run, with epic N passed explicitly. Per-story SHAs
+and the cycle count live in the state file's `loop_state.stories`. See `references/bmad/phase-8-review.md`.
 
 ## Completion Criteria
 - [ ] All phases completed (1a → 8)

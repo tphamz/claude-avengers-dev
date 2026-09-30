@@ -116,25 +116,32 @@ READY-WITH-CONCERNS, he flags it explicitly with the cited gaps. The user decide
 
 **Phase 7 (Build):** for each story in the sprint plan, dispatch
 `Agent(avengers-dev:thor)` to run `bmad-create-story` then `bmad-dev-story` for
-that story — implement, write tests, commit — and report back.
+that story — implement, write tests, commit — and report back. Record each
+story's `baseline_commit` and the commit SHA from Thor's report (`phase7_end_sha`)
+in `loop_state.stories`.
 
 **Phase 8 (Review):** per story, run `bmad-code-review` in the main loop with the
-story as the spec and have the user pick "Leave as action items" (patches are
-never applied in the main loop; if the user picks "Apply every patch", hand the
-list to Thor). Reconcile the story's `### Review Findings`: decisions converted to
+story as the spec and the explicit range `<baseline_commit>..<phase7_end_sha>`,
+and have the user pick "Leave as action items" (patches are never applied in the
+main loop; if the user picks "Apply every patch", hand the list to Thor). Reconcile the story's `### Review Findings`: decisions converted to
 patches become unchecked `[Review][Patch]` bullets, and resolved
-`[Review][Decision]` bullets are checked or struck. If unchecked `[Review][Patch]`
-items remain, `Agent(avengers-dev:thor)` gets the explicit story file path and the
-named items, resolves them via `bmad-dev-story`, runs tests and commits. Then
-`Agent(avengers-dev:captain)` reviews `<baseline_commit>..HEAD` (from the story
-frontmatter) and returns PASS | CONDITIONAL PASS | FAIL, and
-`Agent(avengers-dev:blackwidow)` verifies. A FAIL or CONDITIONAL PASS loops back
-through Thor, max 3 cycles; after that the user accepts the CONDITIONAL PASS or
-exits. Close-out (main loop): set the story `Status: done` and its
-`sprint-status.yaml` entry to `done` with `last_updated`, preserving comments —
-code-review's own sprint-status sync does not run in this flow. When every story
-key for epic N is `done` in `sprint-status.yaml`, run `bmad-retrospective` in the
-main loop and relay it. Full detail: `references/bmad/phase-8-review.md`.
+`[Review][Decision]` bullets are checked (`[x]`), with the section inside
+`## Tasks / Subtasks` and the `sprint-status.yaml` entry set to `in-progress`. If
+unchecked `[Review][Patch]` items remain, `Agent(avengers-dev:thor)` gets the
+explicit story file path and the named items, resolves them via `bmad-dev-story`,
+runs tests and commits; record the fix SHA. Then `Agent(avengers-dev:captain)`
+reviews `<baseline_commit>..<phase7_end_sha>` plus each fix commit (or the File
+List files as they stand if `NO_VCS`) and returns PASS | CONDITIONAL PASS | FAIL,
+and `Agent(avengers-dev:blackwidow)` verifies. A FAIL or CONDITIONAL PASS loops
+back through Thor — first append the verified findings as unchecked
+`[Review][Patch]` bullets — max 3 cycles (counted in `loop_state`); after that the
+user accepts the CONDITIONAL PASS or exits, and a FAIL cannot be accepted.
+Close-out (main loop): set the story `Status: done` and its `sprint-status.yaml`
+entry to `done` with `last_updated`, preserving comments — code-review's own
+sprint-status sync does not run in this flow. When every story key for epic N is
+`done` in `sprint-status.yaml`, run `bmad-retrospective` in the main loop with
+epic N passed explicitly and relay it. Full detail:
+`references/bmad/phase-8-review.md`.
 
 ## Reporting Format
 ```

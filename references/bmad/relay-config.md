@@ -64,11 +64,17 @@ last_active: timestamp
 relay_modifiers:
   existing_code_in_scope: bool   # Brownfield mode (drives Phase 1a skill choice)
 
-loop_state:                      # Phase 7 only
+loop_state:                      # Phases 7 and 8
   total_items: int
   completed: list
   in_progress: string | null
   remaining: list
+  stories:                       # per story key (story file name without .md)
+    <story_key>:
+      baseline_commit: string    # from story frontmatter (or NO_VCS)
+      phase7_end_sha: string     # commit SHA from Thor's Phase 7 report
+      phase8_fix_shas: list      # commit SHA from each Phase 8 Thor fix
+      review_cycles: int         # Phase 8 Thor → Captain → BlackWidow cycles (max 3)
 ```
 
 Artifact paths are owned by the wrapped `bmad-*` skills and resolved from
@@ -112,9 +118,10 @@ paths** — never globs or unresolved `{placeholders}`. Keys and installer defau
 | `planning_artifacts` | `_bmad-output/planning-artifacts` | `implementation-readiness-report-{date}.md` (pass the newest file) |
 | `implementation_artifacts` | `_bmad-output/implementation-artifacts` | story files, `sprint-status.yaml`, `deferred-work.md`, `investigations/{slug}-investigation.md`, `epic-{N}-retro-{date}.md` |
 
-Phase 8 also needs, per story: the story file path, `baseline_commit` from its
-frontmatter (Captain reviews `<baseline_commit>..HEAD`), and its story key (the
-file basename, e.g. `1-2-user-auth`) for the close-out write to
+Phase 8 also needs, per story: the story file path, its `loop_state.stories`
+entry (the review range is `<baseline_commit>..<phase7_end_sha>` plus each Phase 8
+fix commit; never `..HEAD`, which includes later stories), and its story key (the
+story file name without `.md`, e.g. `1-2-user-auth`) for the close-out write to
 `sprint-status.yaml`. See `references/bmad/phase-8-review.md`.
 
 ### §3.2 Resume Protocol
