@@ -55,9 +55,14 @@ If issues remain: Thor fixes -> Captain reviews -> BlackWidow verifies. Max 3 cy
 Conditional: runs only if the Phase 1 KB Sync start check did not skip. Runs once,
 after the final fix cycle of Phase 5 and after "Code committed" holds.
 
-Deferral: run `git status --porcelain --untracked-files=no`. If any listed path is
-outside `.avengers/`, `_bmad/`, `<kb-dir>` and `<output-dir>`, report "KB Sync
-deferred: uncommitted changes" and stop. Untracked files are ignored.
+Deferral: from the project dir, run
+`git status --porcelain -z --untracked-files=no -- .` (NUL-separated, so names are not
+quoted; `-- .` scopes it to the project; untracked files are ignored). Paths are
+repo-root-relative: strip the `git rev-parse --show-prefix` prefix, then compare to the
+project-relative `.avengers/`, `_bmad/`, `<kb-dir>/` and `<output-dir>/`. If any path is
+outside them, report "KB Sync deferred: uncommitted changes" and stop. If `<kb-dir>` or
+`<output-dir>` is the project root (`.` or empty), do not exclude the root: any tracked
+modification defers.
 
 Unknown stamp: if the start `status` reported an `unknown_stamp` signal, skip `impact`.
 Show the signal's `detail` as the reason, ask the user whether to run a `full_rescan`
@@ -66,7 +71,8 @@ refresh, and on yes go to Refresh with `full_rescan`.
 Base: `<start-sha>` if `<kb-state-at-start>` was `fresh`; otherwise the `commit` in
 `.avengers/kb.json`, so drift from before this scheme is included and the stamp stays
 honest. If `<start-sha>` was lost (e.g. after compaction), use the `kb.json` commit.
-If that is absent too, skip with a note.
+If that is absent too, skip with a note. If `<kb-dir>`, `<output-dir>` or the
+`unknown_stamp` flag was lost, re-derive them by re-running `status`.
 
 Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/bmad/scripts/bmad-kb.py impact --base <base>` and
 branch on the exit code, not the JSON: exit 2 -> nothing to sync. Exit 1 -> note the
@@ -94,7 +100,9 @@ Stamp, then commit:
    but not stamped" and still commit the docs.
 2. Dispatch Thor to commit the refreshed KB docs plus `.avengers/kb.json` (if tracked)
    in one commit, `docs: refresh project KB`. The commit touches only `<kb-dir>`,
-   `<output-dir>` and `.avengers/kb.json`; never amend it after stamping. The KB stays
+   `<output-dir>` and `.avengers/kb.json`; if either dir is the project root, list only
+   the generated files (index path, generated docs, `context_path`, `.avengers/kb.json`),
+   never the whole root. Never amend it after stamping. The KB stays
    fresh because `status` computes signals over stamped..HEAD and excludes those paths.
    The commit is generated documentation, not a code change, so Captain review is not
    required. If Thor's commit fails, report "KB stamped but docs not committed".
@@ -112,4 +120,4 @@ the absolute path if the variable is not set in the shell.
 - [ ] Tests passing
 - [ ] Captain verdict: PASS or CONDITIONAL PASS with no Critical findings
 - [ ] Code committed
-- [ ] KB refreshed if impact flagged
+- [ ] KB refreshed if impact flagged (outcome recorded: refreshed / declined / deferred / skipped)

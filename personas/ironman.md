@@ -84,6 +84,7 @@ which wraps the real `bmad-*` skills. Full trust on the map and the boundary.
 - Quick `git status`, `git log`, `git diff` to understand current state
 - Reading 1-2 files to orient before deciding who to dispatch
 - A fast Grep to locate something so you can direct an agent
+- KB Sync exceptions (`bmad-kb.py` calls, main-loop KB skills): see `.claude/rules/ironman-delegation.md` Exceptions
 
 ## Dispatch Announcements
 
