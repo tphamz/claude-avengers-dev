@@ -163,9 +163,10 @@ user (`§2.9`). Per story:
    and ask). Only then run `bmad-retrospective` with epic N passed explicitly
    (its auto-detection picks the highest epic with any `done` story) and relay
    its output. No Captain verification. **Epic sweep:** before advancing to
-   Phase 9 (fresh entry or resume), set `epic-N: done` the same way for every
-   epic whose story keys are all `done` and whose entry is not `done`; on
-   resume the sweep runs before any owed retrospective.
+   Phase 9 (fresh entry or resume), set `epic-N: done` the same way (with
+   `last_updated`, preserving comments and structure) for every epic complete
+   by the definition above (at least one story key, all `done`) whose `epic-N`
+   entry is not `done`; on resume the sweep runs before any owed retrospective.
 
 **Why close-out exists:** code-review sets the story `in-progress` when patches are
 left as action items, and dev-story sets it to `review`. Neither sets `done` in
@@ -197,9 +198,11 @@ Paths resolve from `_bmad/bmm/config.yaml` (relay-config `§2.8`):
   `trace_report` in `loop_state` and writes its untested ACs as `Cover AC <n>`
   bullets in the story's `### Review Findings` (step 1)
 
-When every epic is complete (all story keys `done` in `sprint-status.yaml`) and
-its retrospective has run, run the epic sweep (step 8) so every completed epic
-is `done`, then announce sprint completion and advance to **Phase 9**.
+When every epic is complete (step 8's definition: at least one story key, all
+`done` in `sprint-status.yaml`) and its retrospective has run, run the epic sweep
+(step 8) so every complete epic is `done`, tell the user which epics the sweep
+set to `done` (none → say nothing), then announce sprint completion and advance
+to **Phase 9**.
 Phase 8 no longer sets `complete`; Phase 9 does.
 
 Authoring instructions and completion criteria are owned by the skills. See

@@ -224,9 +224,10 @@ ranges and `review_cycles` 0; otherwise ask the user. In order:
    re-runs); `captain` → step 4; `verify` → step 5
    with the stored `captain_findings`. Never re-run code review past `pending`,
    never set a `closed` story back to `in-progress`, and carry `review_cycles`
-   over unchanged. Then run the epic sweep (set `epic-N: done` for every epic
-   whose story keys are all `done` and whose entry is not `done`), then any
-   retrospective still owed.
+   over unchanged. Then run the epic sweep (set `epic-N: done` as in Phase 8
+   step 8, with `last_updated`, preserving comments and structure, for every
+   complete epic per step 8 (at least one story key, all `done`) whose `epic-N`
+   entry is not `done`), then any retrospective still owed.
 
 On a new sequence: create the state file with `current_phase: 0`, `track`,
 `status: active`, `design_implementation_boundary_passed: false`,
@@ -462,9 +463,11 @@ Phase-by-phase (standard and full tracks; quick track is Step 6):
        `sprint-status.yaml`. Relay its output; no Captain verification.
 
     Phase 8 does **not** set `complete`; once every epic is closed out and its
-    retrospective has run, it runs the epic sweep (set `epic-N: done` for every
-    epic whose story keys are all `done` and whose entry is not `done`), then
-    advances to Phase 9.
+    retrospective has run, it runs the epic sweep (set `epic-N: done` as in
+    step 8, with `last_updated`, preserving comments and structure, for every
+    complete epic per step 8 (at least one story key, all `done`) whose `epic-N`
+    entry is not `done`), tells the user which epics the sweep set to `done`
+    (none → says nothing), then advances to Phase 9.
 13. **Phase 9 — KB Refresh.** Step 5.
 
 Update `current_phase` in the state file at each advance.

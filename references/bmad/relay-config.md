@@ -403,8 +403,10 @@ markers of stories that have none.
        exactly as Phase 8 step 1 writes it (`§3.13`). The trace never re-runs.
      - `captain` → step 4, Captain.
      - `verify` → step 5, BlackWidow, with the stored `captain_findings`.
-     - After the loop, set any owed epic `done` (the epic sweep), then run any
-       retrospective still owed (`§3.13` step 8).
+     - After the loop, set `epic-N: done` for every complete epic (`§3.13`
+       step 8's definition: at least one story key, all `done`) whose `epic-N`
+       entry is not `done` (the epic sweep), then run any retrospective still
+       owed (`§3.13` step 8).
    - Never re-run code review on a story past `pending`. Never set a `closed`
      story back to `in-progress`. Carry `review_cycles` over unchanged.
 
@@ -686,19 +688,21 @@ immediately, in the same write as the data that step produced.
   step 6: append the verified findings as unchecked `[Review][Patch]` bullets
   (skipping any already present, so a repeat is harmless), set the
   `sprint-status.yaml` entry to `in-progress`, then `fixing` and step 3.
-- **Step 8, epic done + retrospective.** Runs once every story key for the
-  epic (at least one) is `done`. The main loop first sets `epic-N: done` and
+- **Step 8, epic done + retrospective.** Runs once epic N is complete: every
+  story key for epic N (keys starting `N-`, excluding `epic-N` and
+  `epic-N-retrospective`; at least one) is `done`. The main loop first sets `epic-N: done` and
   `last_updated` (skip if already `done`); the `bmad-sprint-planning`
   sprint-status header marks `in-progress → done` as manual, so the relay owns
   it. The relay never downgrades `epic-N`; only the user reopens it (Phase 7's
   `done` → stop and ask). Neither write has a marker: the epic status lives in
   `epic-N`, and `bmad-retrospective` records its run in the
   `epic-N-retrospective` entry of `sprint-status.yaml`. Before advancing to
-  Phase 9 (fresh entry or resume), sweep: set `epic-N: done` for every epic
-  whose story keys are all `done` and whose entry is not `done`. After a
-  resume, run that sweep first, then the retrospective for every epic whose
-  story keys are all `done` and whose `epic-N-retrospective` entry is not
-  `done`.
+  Phase 9 (fresh entry or resume), sweep: set `epic-N: done` as above (with
+  `last_updated`, preserving comments and structure) for every complete epic
+  (as defined above, at least one story key) whose `epic-N` entry is not
+  `done`, and tell the user which epics the sweep set to `done` (none → say
+  nothing). After a resume, run that sweep first, then the retrospective for
+  every complete epic whose `epic-N-retrospective` entry is not `done`.
 
 ## Execution Model — wrap, don't reimplement
 
