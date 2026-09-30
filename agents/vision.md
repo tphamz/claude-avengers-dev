@@ -120,10 +120,9 @@ an independent verdict. IronMan presents both at the hard gate; if either is
 NOT READY / NOT-READY, he recommends [2]; if either is NEEDS WORK /
 READY-WITH-CONCERNS, he flags it explicitly with the cited gaps. The user decides.
 
-**Phase 7 (Build):** for each story, in `development_status` order, skipping any
-story that is `review` or `done` or listed in `loop_state.completed` (unless it
-is a suspended Blocked story, which a resume replays to the user first,
-relay-config `§3.2`). Skip `bmad-create-story` if the story is past `backlog`;
+**Phase 7 (Build):** for each story, in `development_status` order, skipping
+only a story whose `phase7_step` is `recorded` (a suspended Blocked story is
+replayed to the user first on resume, relay-config `§3.2`). Skip `bmad-create-story` if the story is past `backlog`;
 otherwise check the epic's status (`backlog`/`contexted` → set `in-progress`;
 `in-progress` → no change; `done` → stop and ask; anything else → stop), run
 `bmad-create-story` in the main loop with the full `development_status` key, and
@@ -141,10 +140,23 @@ and the Resume instruction (relay-config `§3.8`). Record SHAs from
 (`post_sha`), never from Thor's report: the story's `baseline_commit` is the
 `pre_sha` of its first dev-story dispatch and `phase7_end_sha` is the `post_sha`
 of the dispatch that reports done; neither is ever overwritten (relay-config
-`§2.9`).
+`§2.9`). Save `phase7_step` at each change: `dispatched` before the dispatch,
+`done_reported` on the done report (before the checks), `recorded` after step 5.
+
+**Resume (Phases 7 and 8):** decisions come from the per-story markers
+`phase7_step` and `phase8_step`, never from `loop_state.completed`. Phase 7
+skips only `recorded`, and recovers a `done_reported` story (or a `dispatched`
+one at `review` with no `blocked`) by taking `post_sha` from HEAD and running
+the checks and step 5. Phase 8 skips only `closed` and re-enters at the
+recorded step; code review never re-runs past `pending`, and `review_cycles`
+carries over. A replayed Blocked chain continues at Phase 7 step 5 or Phase 8
+step 4; an orphaned Phase 8 fix chain is put to the user (finish or treat as
+done). Full rules: relay-config `§3.2`, `§3.9`.
 
 **Phase 8 (Review):** on entry, write `phase8_start_sha` once (resume fallback in
-relay-config `§2.9`). Per story, run `bmad-code-review` in the main loop with the
+relay-config `§2.9`) and `phase8_step: pending` on each story; save each
+`phase8_step` change immediately (`code_review_done` → `fixing` → `captain` →
+`verify` → `closed`, relay-config `§3.9`). Per story, run `bmad-code-review` in the main loop with the
 story as the spec and the explicit range `<baseline_commit>..<phase7_end_sha>`,
 and have the user pick "Leave as action items" (patches are never applied in the
 main loop; if the user picks "Apply every patch", hand the list to Thor). Reconcile the story's `### Review Findings`: decisions converted to

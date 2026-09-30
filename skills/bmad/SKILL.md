@@ -103,16 +103,40 @@ If a sequence matching the name exists, ask (in Vision's voice):
 On resume: read `.avengers/relay-sequences/bmad-{name}.yaml`, then announce
 > 🔴 Vision — online. "Resuming BMAD '{name}' at Phase {N}: {phase-name}."
 and re-enter the sequence at `current_phase` (respecting
-`design_implementation_boundary_passed`). On re-entering Phase 7 or 8
-(relay-config `§3.2`): if any `loop_state.stories` entry has a `blocked` entry,
-first replay its stored HALT point, question, options and work state to the
-user and ask: answer, or keep it suspended. Do this before any dispatch. Keep
-suspended → leave `status: suspended` and stop. Answer → continue at Phase 7
-step 4's answer path (the `[Gate]` subtask and the status reset where they
-apply), re-dispatching Thor with the answer, the stored work state and the
-stored resume instruction; the chain start is the recorded `baseline_commit`
-(Phase 7) or `chain_start_sha` (Phase 8). Then continue the per-story loop,
-which skips finished stories.
+`design_implementation_boundary_passed`). On re-entering Phase 7 or 8, follow
+relay-config `§3.2`. Resume decisions come from each story's `phase7_step` /
+`phase8_step` marker, never from `loop_state.completed` (every story is in it
+once Phase 7 ends). In order:
+
+1. **Blocked replay.** If any `loop_state.stories` entry has a `blocked` entry,
+   first replay its stored HALT point, question, options and work state to the
+   user and ask: answer, or keep it suspended. Do this before any dispatch. Keep
+   suspended → leave `status: suspended` and stop. Answer → continue at Phase 7
+   step 4's answer path (the `[Gate]` subtask and the status reset where they
+   apply), re-dispatching Thor with the answer, the stored work state and the
+   stored resume instruction; the chain start is the recorded `baseline_commit`
+   (Phase 7) or `chain_start_sha` (Phase 8). When that chain reports done: a
+   Phase 7 chain continues at Phase 7 step 5; a Phase 8 fix chain records its
+   fix range (`§2.9` checks, `chain_start_sha` → null, `phase8_step: captain`)
+   and continues at Phase 8 step 4 (Captain).
+2. **Orphaned Phase 8 fix chain** (`chain_start_sha` set, `blocked` null,
+   `phase8_step: fixing`). Ask the user: re-dispatch Thor to finish the fix, or
+   treat the chain as done. Done → run the `§2.9` checks on
+   `<chain_start_sha>..<HEAD now>`, record that range, and continue at Phase 8
+   step 4.
+3. **The Phase 7 loop** (step 9 below) skips a story only at
+   `phase7_step: recorded`. `done_reported`, or `dispatched` with no `blocked`
+   and the story at `review` → take `post_sha` from HEAD now, run the `§2.9`
+   checks, do Phase 7 step 5, and tell the user the range was recovered.
+   `dispatched` with no `blocked` and not at `review` → re-dispatch at step 2 as
+   an agent-failure retry. `pending` → step 1.
+4. **The Phase 8 loop** (step 10 below) skips a story only at
+   `phase8_step: closed`. `pending` → step 1; `code_review_done` or `fixing` →
+   step 2 only if not already done, then step 3 if unchecked `[Review][Patch]`
+   or `[Gate]` items remain, else step 4; `captain` → step 4; `verify` → step 5
+   with the stored `captain_findings`. Never re-run code review past `pending`,
+   never set a `closed` story back to `in-progress`, and carry `review_cycles`
+   over unchanged. Then run any retrospective still owed.
 
 On a new sequence: create the state file with `current_phase: 1`,
 `status: active`, `design_implementation_boundary_passed: false`.
@@ -158,9 +182,9 @@ Phase-by-phase:
 7. **HARD GATE** — see step 4 below. Do not enter Phase 6 without it.
 8. **Phase 6 — Sprint Planning.** `Skill(bmad-sprint-planning)` in the main loop.
 9. **Phase 7 — Build.** For each story, in `development_status` order (full
-   detail in relay-config `§3.8`). Skip a story that is `review` or `done` in
-   `sprint-status.yaml` or listed in `loop_state.completed`, unless it has a
-   `blocked` entry (a suspended Blocked story, replayed first on resume).
+   detail in relay-config `§3.8`). Skip a story only when its `phase7_step` is
+   `recorded` (`pending` → `dispatched` → `done_reported` → `recorded`, each
+   saved immediately); other values re-enter as the resume rules above say.
    1. **Create (main loop).** Skip if the story is already past `backlog`.
       Otherwise check the epic's `sprint-status.yaml` entry: `backlog` or
       `contexted` → set it to `in-progress`; `in-progress` → no change; `done` →
@@ -172,8 +196,9 @@ Phase-by-phase:
    2. **Record `pre_sha`** (`git rev-parse HEAD`; the empty-tree hash if it
       fails), resolve the story file path, and set `loop_state.in_progress` to
       the story (at every dispatch). If the story has no `baseline_commit` in
-      `loop_state`, write this `pre_sha` as `baseline_commit` and save the state
-      file before dispatching; never overwrite an existing one.
+      `loop_state`, write this `pre_sha` as `baseline_commit`; never overwrite
+      an existing one. Set `phase7_step: dispatched` and save the state file
+      before dispatching.
    3. **Build (Thor).** Dispatch `Agent(avengers-dev:thor)` to run
       `bmad-dev-story` on the explicit story file path (implement + tests +
       commit). Instruct him: at any dev-story HALT or ask point, do not guess or
@@ -193,7 +218,8 @@ Phase-by-phase:
       `pre_sha`, and re-dispatch Thor with the answer, the previous Work state
       and the Resume instruction. No cap; real agent failures retry up to 2
       times, then escalate.
-   5. **Done.** Record `post_sha` (never the SHA from Thor's report) and run the
+   5. **Done.** On the done report set `phase7_step: done_reported` and save,
+      before any check. Record `post_sha` (never the SHA from Thor's report) and run the
       `§2.9` checks on `<baseline_commit>..<post_sha>`. The uncommitted-files
       check flags only paths in the story's File List or Thor's reported files;
       if it flags, Thor's commit dispatch joins the same chain, then take
@@ -201,11 +227,13 @@ Phase-by-phase:
       `baseline_commit` against the story frontmatter (a frontmatter `NO_VCS` in
       a git repository is ignored). Write `phase7_end_sha` (the final
       `post_sha`, never overwriting one) to `loop_state.stories[<story_key>]`,
-      add the key to `completed`, set `in_progress` to null, and update
-      `remaining`.
+      add the key to `completed`, set `in_progress` to null, update
+      `remaining`, and set `phase7_step: recorded`, in one state write.
 10. **Phase 8 — Review.** On entry, write `phase8_start_sha` (`git rev-parse
-    HEAD`) to `loop_state` once. Then per story, in this order (full detail in
-    `references/bmad/phase-8-review.md`). The story's review ranges are
+    HEAD`) to `loop_state` once, and set `phase8_step: pending` on every story
+    without one. Then per story, in this order (full detail in
+    `references/bmad/phase-8-review.md`; each `phase8_step` change is saved
+    immediately, relay-config `§3.9`). Skip a story at `phase8_step: closed`. The story's review ranges are
     `<baseline_commit>..<phase7_end_sha>` plus each range in
     `phase8_fix_ranges`, from `loop_state.stories[<story_key>]`; never `..HEAD`,
     which includes later stories. If a story has no `phase7_end_sha`, use the
@@ -220,6 +248,7 @@ Phase-by-phase:
        hand the patch list to Thor instead of applying it. Because the story is
        passed as the spec file, code-review never sets `{story_key}`, so its own
        `sprint-status.yaml` sync is skipped — close-out (step 7) does it instead.
+       Runs only at `phase8_step: pending`; after "Done", set `code_review_done`.
     2. **Reconcile Review Findings (main loop).** In the story's
        `### Review Findings`, make sure every decision the user converted to a
        patch is recorded as an unchecked `- [ ] [Review][Patch] ...` bullet, and
@@ -227,7 +256,9 @@ Phase-by-phase:
        it through is optional and does not replace `[x]`. Unchecked Decision
        bullets make `bmad-dev-story` step 9 HALT. Make sure `### Review Findings`
        sits inside `## Tasks / Subtasks`, where dev-story looks for tasks. Set the
-       story's `sprint-status.yaml` entry to `in-progress`.
+       story's `sprint-status.yaml` entry to `in-progress`. No unchecked
+       `[Review][Patch]` or `[Gate]` items → set `phase8_step: captain`, go to
+       step 4.
     3. **Fix (Thor).** If unchecked `[Review][Patch]` items exist after
        reconciliation, dispatch `Agent(avengers-dev:thor)` with the explicit story
        file path (dev-story auto-discovery only picks `ready-for-dev` stories) and
@@ -240,25 +271,28 @@ Phase-by-phase:
        answer, Work state and Resume instruction), and Blocked re-dispatches do
        not count toward `review_cycles`. Record `pre_sha` before every dispatch
        and `post_sha` after every report. Before the chain's first dispatch,
-       write its `pre_sha` as `chain_start_sha` (keep it if already set); on
-       the done report run the `§2.9` checks, append the fix range
-       `<chain_start_sha>..<done post_sha>` to `phase8_fix_ranges`, and set
-       `chain_start_sha` to null.
+       write its `pre_sha` as `chain_start_sha` (keep it if already set) and
+       set `phase8_step: fixing`, in one write; on the done report run the
+       `§2.9` checks, append the fix range `<chain_start_sha>..<done post_sha>`
+       to `phase8_fix_ranges`, set `chain_start_sha` to null and
+       `phase8_step: captain` in one write, and go to step 4.
     4. **Review (Captain).** Dispatch `Agent(avengers-dev:captain)` with the
        story file path, the concrete range `<baseline_commit>..<phase7_end_sha>`
        and each range in `phase8_fix_ranges`, each reviewed with
        `git diff <range>`. If `baseline_commit` is `NO_VCS`, pass the story's
        File List instead; Captain reviews those files as they stand now.
-       Verdict: PASS | CONDITIONAL PASS | FAIL. Increment `review_cycles` and
-       save the state file (relay-config `§2.10`).
+       Verdict: PASS | CONDITIONAL PASS | FAIL. Increment `review_cycles`,
+       store the verdict and findings in `captain_findings`, set
+       `phase8_step: verify`, and save, in one write (relay-config `§2.10`).
     5. **Verify (BlackWidow).** Dispatch `Agent(avengers-dev:blackwidow)` with
        the story file path, the same ranges (or File List) Captain received, and
        Captain's findings, to verify them for false positives.
     6. **Cycle.** A FAIL, or a CONDITIONAL PASS (Warnings), goes back to Thor.
        First append the verified Captain and BlackWidow findings to the story's
        `### Review Findings` as unchecked `- [ ] [Review][Patch] ...` bullets
-       (dev-story implements only story tasks) and set the `sprint-status.yaml`
-       entry to `in-progress`; then Thor runs as in step 3 → Captain →
+       (dev-story implements only story tasks; skip findings already present)
+       and set the `sprint-status.yaml` entry to `in-progress`; then set
+       `phase8_step: fixing` and Thor runs as in step 3 → Captain →
        BlackWidow. The limit is 3 cycles, counted in `review_cycles` (one cycle
        per Captain verdict). After the third, present the verdict to the user, who either accepts the
        CONDITIONAL PASS or exits (`status: suspended`). A FAIL cannot be accepted.
@@ -268,7 +302,7 @@ Phase-by-phase:
        set `development_status[<story_key>]: done` (the key is the story file
        name without `.md`, e.g. `1-2-user-auth`) and `last_updated` to today,
        preserving all comments and structure. This is a BMAD artifact write, allowed under the
-       wrapped-skill exception.
+       wrapped-skill exception. Then set `phase8_step: closed` and save.
     8. **Retrospective (main loop, at epic completion).** Epic N is complete when
        every story key for epic N (keys starting `N-`, excluding `epic-N` and
        `epic-N-retrospective`) is `done` in `sprint-status.yaml`. Only then run

@@ -71,12 +71,16 @@ relay_modifiers:
 
 loop_state:                      # Phases 7 and 8
   total_items: int
-  completed: list                # story keys whose Phase 7 build reported done
+  completed: list                # story keys whose Phase 7 step 5 finished (phase7_step: recorded);
+                                 # bookkeeping only, never a resume skip rule (§3.2)
   in_progress: string | null     # story key of the dispatch that last started (§3.8 step 2)
   remaining: list
   phase8_start_sha: string       # HEAD at Phase 8 entry, written once (or NO_VCS)
   stories:                       # per story key (story file name without .md)
     <story_key>:
+      phase7_step: enum          # pending | dispatched | done_reported | recorded (§3.8, §3.2)
+      phase8_step: enum          # pending | code_review_done | fixing | captain | verify | closed
+                                 # (§3.9, §3.2)
       baseline_commit: string    # Phase 7 chain start: pre_sha of the first dev-story dispatch,
                                  # written before that dispatch, never overwritten (or NO_VCS)
       phase7_end_sha: string     # post_sha of the Phase 7 dispatch that reported done,
@@ -85,6 +89,8 @@ loop_state:                      # Phases 7 and 8
                                  # dispatch, written before it; null once the fix range is recorded
       phase8_fix_ranges: list    # one <chain_start_sha>..<done post_sha> per Phase 8 fix (or NO_VCS)
       review_cycles: int         # Captain verdicts so far in Phase 8 (max 3, §2.10)
+      captain_findings: string | null  # latest Captain verdict + findings, written with
+                                 # review_cycles; read by a resume at phase8_step: verify
       blocked:                   # set while Thor's last report was Blocked (§3.8), else null
         halt_point: string       # skill step or file:line where dev-story stopped
         question: string         # what dev-story needs from the user
@@ -98,8 +104,17 @@ loop_state:                      # Phases 7 and 8
 Every SHA and range above is recorded by the main loop from `git rev-parse HEAD`
 (`§2.9`), never from the SHA in Thor's report.
 
+Every change to `phase7_step` or `phase8_step` is written to the state file
+immediately, together with any other field changed in the same step (so a crash
+never leaves a marker ahead of, or behind, the data it describes).
+
 **Legacy state files:** an older `phase8_fix_shas` list (one commit SHA per fix)
 is read as the ranges `<sha>^..<sha>` and written back as `phase8_fix_ranges`.
+A story with no `phase7_step` is read as `recorded` if it has a `phase7_end_sha`,
+else `dispatched` if it has a `baseline_commit`, else `pending`. A story with no
+`phase8_step` is read as `closed` if its `development_status` entry is `done`,
+else `pending` if it has no `phase8_fix_ranges` and `review_cycles` is 0; for
+any other story, ask the user which Phase 8 step it reached.
 
 Artifact paths are owned by the wrapped `bmad-*` skills and resolved from
 `_bmad/bmm/config.yaml` (see `§2.8`) — the relay does not dictate them.
@@ -187,26 +202,39 @@ loop records every SHA itself:
   1. `post_sha == <chain start>` → flag to the user that nothing was committed.
   2. `git merge-base --is-ancestor <chain start> <post_sha>` fails → history was
      rewritten; stop and ask the user.
-  3. Uncommitted story work. Run `git status --porcelain --untracked-files=all`
-     and flag only the paths that also appear in the story's File List or in
-     Thor's reported Files Changed or Work state. Every other path is ignored,
-     including the relay state file `.avengers/relay-sequences/*`, anything
-     under `{planning_artifacts}` or `{implementation_artifacts}`, and an
-     untracked `_bmad/`. A flagged path is work the range would miss: tell the
+  3. Uncommitted story work. Run
+     `git status --porcelain -z --untracked-files=all` (NUL-separated, so paths
+     are never quoted). Its paths are relative to the repository root. A rename
+     or copy entry carries a second NUL-terminated path, the original; both
+     paths count. Flag only the paths that also appear in the story's File List
+     or in Thor's reported Files Changed or Work state (only the File List when
+     the chain's reports are lost in a `§3.2` resume recovery). If the BMAD project root
+     is a subdirectory of the repository, the main loop first prefixes each File
+     List path with that subdirectory (`git rev-parse --show-prefix`, run from
+     the project root) so both sides are repo-root-relative. Every other path is
+     ignored, including the relay state file `.avengers/relay-sequences/*`,
+     anything under `{planning_artifacts}` or `{implementation_artifacts}`, and
+     an untracked `_bmad/`. A flagged path is work the range would miss: tell the
      user and dispatch Thor to commit exactly those paths. That dispatch is part
      of the same chain (it keeps the chain start). After its report, take
      `post_sha` again; it replaces the earlier `post_sha` as the chain's end.
      Rerun the checks on it and record it. If check 3 still flags, stop and ask
      the user.
-  4. `git log --oneline <chain start>..<post_sha>` does not match the commit(s)
-     Thor reported → flag the mismatch to the user.
+  4. Unreported commits. Compare `git log --oneline <chain start>..<post_sha>`
+     against every commit Thor reported across the whole chain: each Blocked
+     re-dispatch, each agent-failure retry, the check-3 follow-up and the done
+     report. Flag to the user only the commits that no report mentioned. When
+     the chain's reports are lost (a `§3.2` resume recovery), there is nothing
+     to compare against: list the chain's commits to the user instead.
 - **Unborn HEAD.** In a git repository with no commits yet, `git rev-parse HEAD`
-  fails; use the empty-tree hash `4b825dc642cb6eb9a060e54bf8d69288fbee4904` for
-  that `pre_sha` or `post_sha`. **This is the one rule for an empty-tree left
-  side**, used by every range consumer (Phase 8 code review, Captain,
-  BlackWidow, the checks above, the resume fallback). When a range's left side
-  is the empty-tree hash:
-  - diff it with `git diff 4b825dc642cb6eb9a060e54bf8d69288fbee4904 <sha>`;
+  fails; use the empty-tree hash for that `pre_sha` or `post_sha`. Compute it
+  with `git hash-object -t tree /dev/null` rather than hardcoding it, because it
+  depends on the repository's hash algorithm. (Note: in a SHA-1 repository it
+  is `4b825dc642cb6eb9a060e54bf8d69288fbee4904`.) **This is the one rule for an
+  empty-tree left side**, used by every range consumer (Phase 8 code review,
+  Captain, BlackWidow, the checks above, the resume fallback). When a range's
+  left side is the empty-tree hash `<empty-tree>`:
+  - diff it with `git diff <empty-tree> <sha>`;
   - list its commits with `git log --oneline <sha>`;
   - skip `git merge-base --is-ancestor` (check 2, and that link of the resume
     fallback's chain).
@@ -245,7 +273,10 @@ On resume, read the state file first. Surface to user:
 
 Re-enter at `current_phase`, respecting `design_implementation_boundary_passed`.
 
-On a resume into Phase 7 or 8, in this order:
+On a resume into Phase 7 or 8, in this order. Resume decisions come from the
+per-story markers `phase7_step` and `phase8_step`, never from
+`loop_state.completed` or a `development_status` value alone (every story is in
+`completed` once Phase 7 ends).
 
 1. **Suspended Blocked stories first.** If any `loop_state.stories` entry has a
    `blocked` entry, replay it to the user before any dispatch: the stored
@@ -255,10 +286,55 @@ On a resume into Phase 7 or 8, in this order:
    subtask and do the status reset where they apply, clear `blocked`, and
    re-dispatch Thor with the answer, the stored `work_state` and the stored
    `resume_instruction`. The chain start is the recorded `baseline_commit`
-   (Phase 7) or `chain_start_sha` (Phase 8), never a new `pre_sha`.
-2. **Then the loop.** Continue the `§3.8` per-story loop, which skips finished
-   stories. In Phase 8, keep the recorded `phase8_start_sha`, and rebuild any
-   missing story ranges with the `§2.9` resume fallback.
+   (Phase 7) or `chain_start_sha` (Phase 8), never a new `pre_sha`. When the
+   replayed chain reports done:
+   - **Phase 7 chain:** continue at `§3.8` step 5 (which first sets
+     `phase7_step: done_reported`).
+   - **Phase 8 fix chain:** run the `§2.9` checks on
+     `<chain_start_sha>..<post_sha>`, append that range to `phase8_fix_ranges`,
+     set `chain_start_sha` to null and `phase8_step: captain` (one state write),
+     and continue at Phase 8 step 4 (Captain, `§3.9`).
+2. **Orphaned Phase 8 fix chain.** For a story with `chain_start_sha` set,
+   `blocked` null and `phase8_step: fixing`, a fix chain started and never
+   reported. Show the user `git log --oneline <chain_start_sha>..HEAD` and
+   `git status`, and ask one plain question: re-dispatch Thor to finish the fix,
+   or treat the chain as done.
+   - **Finish:** keep `chain_start_sha`, record a new `pre_sha`, and dispatch
+     Thor as in Phase 8 step 3 with the still-unchecked `[Review][Patch]` and
+     `[Gate]` items; the chain continues from there.
+   - **Done:** take `post_sha` = `git rev-parse HEAD` now, run the `§2.9` checks
+     on `<chain_start_sha>..<post_sha>`, then record that range exactly as the
+     Phase 8 replay above does and continue at Phase 8 step 4. Tell the user the
+     range was recovered from HEAD.
+3. **Then the loop for the resumed phase.**
+   - **Phase 7 (`§3.8` loop).** Skip a story only when `phase7_step: recorded`.
+     - `pending` → start at `§3.8` step 1.
+     - `done_reported`, or `dispatched` with no `blocked` where the story's
+       `development_status` entry is `review` → a done report arrived (or
+       dev-story finished) before step 5 was written. Take `post_sha` =
+       `git rev-parse HEAD` now, run the `§2.9` checks on
+       `<baseline_commit>..<post_sha>` (Thor's reports are lost, so checks 3
+       and 4 use their lost-reports form), then do
+       `§3.8` step 5. Tell the user the range was recovered from HEAD.
+     - `dispatched` with `blocked` → handled by step 1 above.
+     - `dispatched` with no `blocked` and the story not at `review` → the
+       dispatch was interrupted with no report. Tell the user, show
+       `git status`, and re-dispatch at `§3.8` step 2 as an agent-failure retry
+       (the recorded `baseline_commit` is kept).
+   - **Phase 8 (`§3.9` loop).** Keep the recorded `phase8_start_sha`, and
+     rebuild any missing story ranges with the `§2.9` resume fallback. Skip a
+     story only when `phase8_step: closed`. Otherwise re-enter at the recorded
+     step:
+     - `pending` → step 1, code review.
+     - `code_review_done` or `fixing` → step 2 (reconcile) only if it is not
+       already done, then step 3 (Thor) if unchecked `[Review][Patch]` or
+       `[Gate]` items remain, otherwise step 4. (A `fixing` story with
+       `chain_start_sha` set is handled by step 1 or step 2 above first.)
+     - `captain` → step 4, Captain.
+     - `verify` → step 5, BlackWidow, with the stored `captain_findings`.
+     - After the loop, run any retrospective still owed (`§3.9` step 8).
+   - Never re-run code review on a story past `pending`. Never set a `closed`
+     story back to `in-progress`. Carry `review_cycles` over unchanged.
 
 ### §3.5 Phase Boundary Confirmation
 
@@ -286,10 +362,10 @@ During Phase 7, if implementation surfaces out-of-scope requirements:
 ### §3.8 Phase 7 Per-Story Sequence and Blocked Relay
 
 For each story, in `development_status` order in `sprint-status.yaml`. **Skip
-a story** whose `development_status` entry is `review` or `done`, or whose key is
-in `loop_state.completed`, unless it has a `blocked` entry (a suspended Blocked
-story; `§3.2` step 1 handles it before the loop). So a resume never re-runs a
-finished story.
+a story** only when its `phase7_step` is `recorded`. Every other value is
+re-entered as `§3.2` step 3 (Phase 7) says; a suspended Blocked story is
+handled by `§3.2` step 1 before the loop. A new story starts at
+`phase7_step: pending`.
 
 1. **Create the story (main loop).** Skip this step if the story's
    `development_status` entry is already past `backlog`. Otherwise check the
@@ -307,9 +383,9 @@ finished story.
    (`{implementation_artifacts}/<story_key>.md`). Set `loop_state.in_progress`
    to the story key; this happens at the start of every dispatch, re-dispatches
    and Phase 8 fixes included. If the story has no `baseline_commit` in
-   `loop_state` yet, write this `pre_sha` as its `baseline_commit` and save the
-   state file **before** dispatching. Never overwrite an existing
-   `baseline_commit`.
+   `loop_state` yet, write this `pre_sha` as its `baseline_commit`. Set
+   `phase7_step: dispatched` and save the state file **before** dispatching.
+   Never overwrite an existing `baseline_commit`.
 3. **Build (Thor).** Dispatch `Agent(avengers-dev:thor)` to run
    `bmad-dev-story` on the explicit story file path, with this instruction: at
    any dev-story HALT or ask point, do not guess and do not work around it — stop
@@ -343,20 +419,57 @@ finished story.
      carries all three. This loop has no cap, because the user answers each
      time. A real agent failure (no report, or a crash) still follows the retry
      rule: up to 2 retries, then escalate.
-5. **Done.** Record `post_sha` and run the `§2.9` checks on
-   `<baseline_commit>..<post_sha>` (check 3 may add a commit dispatch to the same
-   chain and a new `post_sha`). Cross-check `baseline_commit` against the story
-   frontmatter, then write `phase7_end_sha` (the final `post_sha`) to
-   `loop_state.stories[<story_key>]` unless one is already recorded. Add the key
-   to `completed`, set `in_progress` to null, and update `remaining`.
+5. **Done.** As soon as a done report arrives, set `phase7_step: done_reported`
+   and save the state file, before any check. Then record `post_sha` and run the
+   `§2.9` checks on `<baseline_commit>..<post_sha>` (check 3 may add a commit
+   dispatch to the same chain and a new `post_sha`). Cross-check
+   `baseline_commit` against the story frontmatter, then write `phase7_end_sha`
+   (the final `post_sha`) to `loop_state.stories[<story_key>]` unless one is
+   already recorded. Add the key to `completed`, set `in_progress` to null,
+   update `remaining`, and set `phase7_step: recorded`, all in one state write.
 
 Phase 8 step 3 (Thor resolving `[Review][Patch]` items) uses the same Blocked
-handling (steps 4-5 here): the stored `blocked` fields, the relay, the `[Gate]`
+handling as step 4 here: the stored `blocked` fields, the relay, the `[Gate]`
 subtask for regression or definition-of-done HALTs, the status reset, and
-re-dispatches that carry the answer, Work state and Resume instruction. Its chain
-start is `chain_start_sha`, written before the chain's first dispatch, and its
-fix range `<chain_start_sha>..<done post_sha>` spans the whole chain. Blocked
-re-dispatches never count toward `review_cycles`.
+re-dispatches that carry the answer, Work state and Resume instruction. Step 5
+here does not apply to it: a Phase 8 fix chain's done report continues at
+Phase 8 step 3's done path (`§3.9`: the `§2.9` checks, the fix range, then
+Phase 8 step 4, Captain). Its chain start is `chain_start_sha`, written before
+the chain's first dispatch, and its fix range `<chain_start_sha>..<done post_sha>`
+spans the whole chain. Blocked re-dispatches never count toward `review_cycles`.
+
+### §3.9 Phase 8 Per-Story Progress Markers
+
+Full step detail lives in `references/bmad/phase-8-review.md`; this section
+fixes when `phase8_step` changes. Each change is written to the state file
+immediately, in the same write as the data that step produced.
+
+- **Entry.** With `phase8_start_sha`, set `phase8_step: pending` on every story
+  that has no `phase8_step`.
+- **Step 1, code review.** Runs only at `pending`. When the user picks "Done" at
+  its next-steps menu → `code_review_done`.
+- **Step 2, reconcile.** Already done when the story's `### Review Findings`
+  (if code review wrote one) sits inside `## Tasks / Subtasks` and has no
+  unchecked `[Review][Decision]` bullet, and the story's `sprint-status.yaml`
+  entry is `in-progress`; skip it then. After it: unchecked `[Review][Patch]`
+  or `[Gate]` items → step 3; none → `captain`.
+- **Step 3, fix (Thor).** Before the chain's first dispatch → `fixing`, in the
+  same write as `chain_start_sha`. On the done report: the `§2.9` checks, then
+  append the fix range, set `chain_start_sha` to null and `captain` in one
+  write.
+- **Step 4, Captain.** After the verdict: increment `review_cycles`, store the
+  verdict and findings in `captain_findings`, and set `verify`, in one write.
+- **Step 5, BlackWidow.** After her verification: PASS (or a user-accepted
+  CONDITIONAL PASS at the cycle limit) → step 7 close-out, then `closed` in the
+  same write as the close-out's end. FAIL or CONDITIONAL PASS under the limit →
+  step 6: append the verified findings as unchecked `[Review][Patch]` bullets
+  (skipping any already present, so a repeat is harmless), set the
+  `sprint-status.yaml` entry to `in-progress`, then `fixing` and step 3.
+- **Step 8, retrospective.** Runs once every story key for the epic is `done`;
+  it has no marker, since `bmad-retrospective` records it in the
+  `epic-N-retrospective` entry of `sprint-status.yaml`. After a resume, run it
+  for every epic whose story keys are all `done` and whose
+  `epic-N-retrospective` entry is not `done`.
 
 ## Execution Model — wrap, don't reimplement
 

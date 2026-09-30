@@ -48,9 +48,8 @@ The relay's own state file: `.avengers/relay-sequences/bmad-{name}.yaml`.
 
 ## Phase 7 Per-Story Flow
 
-Stories that are `review` or `done`, or in `loop_state.completed`, are skipped
-unless suspended Blocked (a resume replays a stored `blocked` question to the user
-before any dispatch) → create-story skipped if the story is past `backlog`;
+Only stories at `phase7_step: recorded` are skipped (a resume replays a stored
+`blocked` question to the user before any dispatch) → create-story skipped if the story is past `backlog`;
 otherwise the epic status check (`backlog`/`contexted` → `in-progress`;
 `in-progress` → no change; `done` → stop and ask; anything else → stop) →
 `bmad-create-story` in the main loop with the full `development_status` key
@@ -83,6 +82,13 @@ then does `bmad-retrospective` run, with epic N passed explicitly. Per-story SHA
 and ranges (recorded by the main loop from `git rev-parse HEAD`, never from
 Thor's report), `phase8_start_sha` and the cycle count live in the state file's
 `loop_state` (relay-config `§2.9`, `§2.10`). See `references/bmad/phase-8-review.md`.
+
+## Resume
+
+Resume uses per-story markers, `phase7_step` and `phase8_step`, not
+`loop_state.completed`. Phase 7 skips `recorded`; Phase 8 skips `closed` and
+re-enters every other story at its recorded step. See relay-config `§3.2` and
+`§3.9`.
 
 ## Completion Criteria
 - [ ] All phases completed (1a → 8)

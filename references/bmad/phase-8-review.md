@@ -27,10 +27,25 @@ at Phase 7 start), diff, list commits and skip the ancestor check as relay-confi
 `§2.9` **Unborn HEAD** says; that is the one place the rule is stated.
 
 **On entry**, before any Phase 8 dispatch, the main loop writes
-`phase8_start_sha` (`git rev-parse HEAD`) to `loop_state` once; a resume keeps
-the recorded value. **Resume:** first replay any story's stored `blocked` entry
-to the user (answer or keep suspended) before any dispatch, as relay-config
-`§3.2` says. **Resume fallback:** if `loop_state.stories` has no
+`phase8_start_sha` (`git rev-parse HEAD`) to `loop_state` once, and sets
+`phase8_step: pending` on every story without one; a resume keeps the recorded
+values. Each story's `phase8_step` (`pending` → `code_review_done` → `fixing` →
+`captain` → `verify` → `closed`) is saved the moment it changes (relay-config
+`§3.9`).
+
+**Resume** (relay-config `§3.2`). First replay any story's stored `blocked`
+entry to the user (answer or keep suspended) before any dispatch; when the
+replayed fix chain reports done, record its fix range and continue at step 4.
+A story with `chain_start_sha` set, no `blocked` and `phase8_step: fixing` is an
+orphaned fix chain: ask the user whether to re-dispatch Thor to finish it or to
+treat it as done (then record `<chain_start_sha>..<HEAD now>` after the `§2.9`
+checks and continue at step 4). Then per story: `closed` → skip; `pending` →
+step 1; `code_review_done` or `fixing` → step 2 only if not already done, then
+step 3 if unchecked `[Review][Patch]` or `[Gate]` items remain, else step 4;
+`captain` → step 4; `verify` → step 5 with the stored `captain_findings`. Code
+review never re-runs past `pending`, a `closed` story is never set back to
+`in-progress`, and `review_cycles` carries over unchanged. After the loop, run
+any retrospective still owed (step 8). **Resume fallback:** if `loop_state.stories` has no
 `phase7_end_sha` for a story, its `baseline_commit` comes from `loop_state`,
 else from the story frontmatter (a frontmatter `NO_VCS` in a git repository means
 the empty-tree hash), and its end is the next story's `baseline_commit`
@@ -47,6 +62,7 @@ user (`§2.9`). Per story:
    At the patch menu, tell the user to pick **"Leave as action items"**, then
    **"Done"** at the next-steps menu. If the user picks "Apply every patch"
    anyway, stop and hand the patch list to Thor instead of applying it.
+   Runs only at `phase8_step: pending`; after "Done", set `code_review_done`.
 2. **Reconcile Review Findings (main loop).** In the story's `### Review Findings`:
    every decision the user converted to a patch is recorded as an unchecked
    `- [ ] [Review][Patch] ...` bullet; every resolved `[Review][Decision]` bullet
@@ -55,7 +71,9 @@ user (`§2.9`). Per story:
    `### Review Findings` sits inside `## Tasks / Subtasks` (before `## Dev Notes`)
    — code-review only says to "append" it, and dev-story looks for unchecked
    tasks only in Tasks/Subtasks. Set the story's `sprint-status.yaml` entry to
-   `in-progress` so dev-story does not warn "Unexpected story status".
+   `in-progress` so dev-story does not warn "Unexpected story status". A resume
+   skips this step if it is already done (relay-config `§3.9`). No unchecked
+   `[Review][Patch]` or `[Gate]` items → set `captain` and go to step 4.
 3. **Fix (Thor).** If unchecked `[Review][Patch]` items exist after
    reconciliation, dispatch Thor with the explicit story file path (dev-story
    auto-discovery only picks `ready-for-dev` stories) and the `[Review][Patch]`
@@ -74,26 +92,30 @@ user (`§2.9`). Per story:
    count toward `review_cycles`. The main loop records `pre_sha` before every
    dispatch and `post_sha` after every report. Before the chain's first dispatch
    it writes that `pre_sha` as the story's `chain_start_sha` (kept if already
-   set, and untouched when `blocked` is cleared). On the done report it runs the
-   `§2.9` checks and appends `<chain_start_sha>..<done post_sha>` (spanning any
-   Blocked re-dispatches) to the story's `phase8_fix_ranges` in
-   `loop_state.stories[<story_key>]`, then sets `chain_start_sha` to null.
+   set, and untouched when `blocked` is cleared) and sets `phase8_step: fixing`,
+   in one write. On the done report it runs the `§2.9` checks and appends
+   `<chain_start_sha>..<done post_sha>` (spanning any Blocked re-dispatches) to
+   the story's `phase8_fix_ranges` in `loop_state.stories[<story_key>]`, then
+   sets `chain_start_sha` to null and `phase8_step: captain` in the same write,
+   and continues at step 4. (Phase 7 step 5 does not apply to a fix chain.)
 4. **Review (Captain).** Pass Captain the story file path and the story's ranges
    from `loop_state`: `<baseline_commit>..<phase7_end_sha>` plus each range in
    `phase8_fix_ranges`, each reviewed with `git diff <range>` (an empty-tree
    left side follows `§2.9` **Unborn HEAD**). If
    `baseline_commit` is `NO_VCS`, pass the story's File List instead; Captain
    reviews those files as they stand now. Captain reviews read-only. Verdict:
-   PASS | CONDITIONAL PASS | FAIL. The main loop then increments `review_cycles`
-   and saves the state file (`§2.10`).
+   PASS | CONDITIONAL PASS | FAIL. The main loop then increments `review_cycles`,
+   stores the verdict and findings in `captain_findings`, sets
+   `phase8_step: verify`, and saves the state file in one write (`§2.10`).
 5. **Verify (BlackWidow).** Pass BlackWidow the story file path, the same ranges
    (or File List) Captain received, and Captain's findings. She checks the
    findings for false positives.
 6. **Cycle.** A FAIL, or a CONDITIONAL PASS (Warnings), goes back to Thor. First
    the main loop appends the verified Captain and BlackWidow findings to the
    story's `### Review Findings` as unchecked `- [ ] [Review][Patch] ...` bullets
-   (dev-story implements only story tasks) and sets the `sprint-status.yaml`
-   entry to `in-progress`; then Thor runs as in step 3 → Captain → BlackWidow.
+   (dev-story implements only story tasks; findings already present are not
+   added again) and sets the `sprint-status.yaml` entry to `in-progress`; then it
+   sets `phase8_step: fixing` and Thor runs as in step 3 → Captain → BlackWidow.
    The limit is 3 cycles, one per Captain verdict, counted in `review_cycles` so
    it survives a resume. After
    the third, the verdict goes to the user, who either accepts the CONDITIONAL
@@ -104,6 +126,7 @@ user (`§2.9`). Per story:
    `development_status[<story_key>]: done` (key = story file name without `.md`,
    e.g. `1-2-user-auth`) and `last_updated` to today, preserving all comments and
    structure. This is a BMAD artifact write under the wrapped-skill exception.
+   Then set `phase8_step: closed` and save. A `closed` story is never reopened.
 8. **Retrospective (main loop, at epic completion).** Epic N is complete when every
    story key for epic N (keys starting `N-`, excluding `epic-N` and
    `epic-N-retrospective`) is `done` in `sprint-status.yaml`. Only then run

@@ -51,3 +51,10 @@ Record every BMAD review range from `git rev-parse HEAD` in the main loop instea
 
 ## Status
 - [x] Spec approved by user
+
+## Implementation Notes (post-approval review cycles)
+- The `§2.9` checks run on the whole chain range `<chain start>..<post_sha>` (`baseline_commit` or `chain_start_sha`), not on the last dispatch alone. Check 4 flags only commits that no report in the chain mentioned.
+- Check 3 (uncommitted work) flags only paths in the story's File List or Thor's reported files, using `git status --porcelain -z --untracked-files=all` with repo-root-relative paths. Relay state and BMAD artifacts are ignored.
+- Resume uses per-story markers instead of status-based skipping: `phase7_step` (`pending | dispatched | done_reported | recorded`) and `phase8_step` (`pending | code_review_done | fixing | captain | verify | closed`), with `captain_findings` kept for a resume at `verify`.
+- `blocked` stores `halt_point`, `question`, `options`, `work_state`, `resume_instruction` and `dispatched_at_sha`, so a resumed replay carries the full Blocked context.
+- The empty-tree hash is computed with `git hash-object -t tree /dev/null` rather than hardcoded.

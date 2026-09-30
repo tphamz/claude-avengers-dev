@@ -15,9 +15,9 @@ input offers) and wants web research, so it runs in the main loop. It writes onl
 the story file and `sprint-status.yaml`. `bmad-dev-story` changes source code, so
 Thor runs it, and every stop that needs a human comes back as a Blocked report
 for the main loop to relay. Per story, in `development_status` order, skipping
-any story that is `review` or `done` in `sprint-status.yaml` or listed in
-`loop_state.completed`, unless it is a suspended Blocked story (full detail in
-relay-config `§3.8`):
+only a story whose `loop_state.stories[<story_key>].phase7_step` is `recorded`
+(full detail in relay-config `§3.8`; the marker is `pending` → `dispatched` →
+`done_reported` → `recorded`, each saved immediately):
 
 1. **Create the story (main loop).** Skip if the story is already past
    `backlog`. Otherwise check the epic first: `backlog` or `contexted` → set it
@@ -29,7 +29,7 @@ relay-config `§3.8`):
 2. **Record `pre_sha`**, resolve the story file path, and set
    `loop_state.in_progress` to the story. Before the story's first dispatch,
    write that `pre_sha` to `loop_state` as `baseline_commit`; never overwrite an
-   existing one.
+   existing one. Set `phase7_step: dispatched` and save before dispatching.
 3. **Build (Thor).** `Agent(avengers-dev:thor)` runs `bmad-dev-story` on the
    explicit story file path. At any HALT or ask point he stops without
    committing and returns a Blocked report. dev-story's step-10 completion
@@ -47,12 +47,20 @@ relay-config `§3.8`):
    `baseline_commit`) and re-dispatch Thor with the answer, the previous Work
    state and the Resume instruction. No cap on this loop; real agent failures
    retry up to 2 times, then escalate.
-5. **Done.** Record `post_sha`, run the `§2.9` checks, write `phase7_end_sha`
-   (never overwriting one), and update `loop_state`.
+5. **Done.** On the done report set `phase7_step: done_reported` and save,
+   before any check. Then record `post_sha`, run the `§2.9` checks, write
+   `phase7_end_sha` (never overwriting one), update `loop_state`, and set
+   `phase7_step: recorded` in the same write.
 
-**Resume.** Before any dispatch, a story with a stored `blocked` entry is
-replayed to the user (question and options: answer or keep suspended); an answer
-continues at step 4's answer path (relay-config `§3.2`).
+**Resume** (relay-config `§3.2`). Before any dispatch, a story with a stored
+`blocked` entry is replayed to the user (question and options: answer or keep
+suspended); an answer continues at step 4's answer path, and when that chain
+reports done it continues at step 5. Then, per story: `recorded` → skip;
+`pending` → step 1; `done_reported`, or `dispatched` with no `blocked` and the
+story at `review` → take `post_sha` from HEAD now, run the `§2.9` checks, do
+step 5, and tell the user the range was recovered; `dispatched` with no
+`blocked` and not at `review` → an interrupted dispatch, re-dispatched at step 2
+as an agent-failure retry.
 
 ## Commit tracking
 
@@ -71,7 +79,7 @@ reported files; if it flags, Thor's commit dispatch joins the same chain, and th
 main loop takes `post_sha` again, reruns the checks and records it. Phase 8 uses
 these values to scope the story's review range. In a repository with no commits
 yet, `rev-parse` fails and the empty-tree hash stands in (`§2.9` **Unborn
-HEAD**); only a project that is not a git repository records `NO_VCS`.
+HEAD**, computed with `git hash-object -t tree /dev/null`); only a project that is not a git repository records `NO_VCS`.
 
 ## Scope Creep
 
