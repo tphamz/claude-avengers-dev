@@ -1,12 +1,13 @@
-# BMAD Phase 8: Review & Completion (stub)
+# BMAD Phase 8: Review (stub)
 
 **Retired self-contained overlay — this phase now wraps the real `bmad-*` skills.**
 
-Final phase.
+Last implementation phase; advances to Phase 9 (KB Refresh).
 
-| Real skill(s) | Owner | Mode |
-| ------------- | ----- | ---- |
-| `bmad-code-review` + `bmad-retrospective` | main loop; Thor fixes, `Agent(avengers-dev:captain)` reviews, `Agent(avengers-dev:blackwidow)` verifies, main loop closes out | interactive + read-only verify |
+| Real skill(s) | Owner | Mode | Tracks |
+| ------------- | ----- | ---- | ------ |
+| `bmad-code-review` + `bmad-retrospective` | main loop; Thor fixes, `Agent(avengers-dev:captain)` reviews, `Agent(avengers-dev:blackwidow)` verifies, main loop closes out | interactive + read-only verify | standard |
+| `bmad-code-review` + `bmad-testarch-trace` + `bmad-retrospective` | same; the main loop also runs `bmad-testarch-trace` | interactive + read-only verify | full |
 
 ## What happens
 
@@ -65,7 +66,12 @@ user (`§2.9`). Per story:
    At the patch menu, tell the user to pick **"Leave as action items"**, then
    **"Done"** at the next-steps menu. If the user picks "Apply every patch"
    anyway, stop and hand the patch list to Thor instead of applying it.
-   Runs only at `phase8_step: pending`; after "Done", set `code_review_done`.
+   **Full track only:** after "Done", run `bmad-testarch-trace` for the story in
+   the main loop to map every acceptance criterion to a test; each AC it reports
+   uncovered (a trace FAIL) is added at step 2 as an unchecked
+   `- [ ] [Review][Patch] ...` bullet, so it loops back through Thor.
+   Runs only at `phase8_step: pending`; after "Done" (and, on the full track, the
+   trace), set `code_review_done`.
 2. **Reconcile Review Findings (main loop).** In the story's `### Review Findings`:
    every decision the user converted to a patch is recorded as an unchecked
    `- [ ] [Review][Patch] ...` bullet; every resolved `[Review][Decision]` bullet
@@ -164,10 +170,12 @@ Paths resolve from `_bmad/bmm/config.yaml` (relay-config `§2.8`):
   fix and after a Blocked report, `done` at close-out); epic retrospective status by `bmad-retrospective`.
   `bmad-code-review` does not sync it in this flow.
 - `{implementation_artifacts}/epic-{N}-retro-{date}.md` — by `bmad-retrospective`
+- Traceability matrix and gate decision (full track) — by `bmad-testarch-trace`,
+  at the path it resolves
 
 When every epic is complete (all story keys `done` in `sprint-status.yaml`) and
-its retrospective has run, announce sprint completion and transition the sequence
-to `complete` in the state file.
+its retrospective has run, announce sprint completion and advance to **Phase 9**.
+Phase 8 no longer sets `complete`; Phase 9 does.
 
 Authoring instructions and completion criteria are owned by the skills. See
 `references/bmad/relay-config.md` for the full phase map.

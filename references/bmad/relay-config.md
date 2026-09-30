@@ -10,42 +10,54 @@ parameters and the phase→skill+owner map.
 - **Name:** BMAD — the Avengers relay that conducts the real BMAD-METHOD framework
   (mnemonic: *Build More Architect Dreams*). It orchestrates the installed `bmad-*`
   skills through the crew; it is not a competing methodology.
-- **Type:** skill-wrapping methodology-relay
-- **Phases:** 8 (design 1-5, implementation 6-8)
+- **Type:** skill-wrapping, spec-driven methodology-relay
+- **Phases:** 0 KB check, design 1a-5 (with 4.5 Spec Hardening), implementation
+  6-8, 9 KB Refresh
+- **Tracks:** `quick` | `standard` (default) | `full`
 - **Conductor:** Vision agent (voice + map, not executor)
 
-## Phase Map — phase → real skill → owner → mode
+## Phase Map — phase → real skill → owner → tracks
 
-Every wrapped skill except `bmad-dev-story` runs **in the main loop** (Vision's
-voice), so the skill can elicit from the user and write its artifacts; that
-includes Phase 7's `bmad-create-story`. In Phases 1a, 5 and 8 the owning Avenger
-is then dispatched **read-only to verify** the result. In Phase 7 Thor runs
-`bmad-dev-story` to build, and the main loop relays each of its HALTs to the user
-(`§3.8`).
+Every wrapped skill except `bmad-dev-story` (and, on the full track,
+`bmad-testarch-atdd`) runs **in the main loop** (Vision's voice), so the skill can
+elicit from the user and write its artifacts; that includes Phase 7's
+`bmad-create-story`. In Phases 1a, 4.5, 5 and 8 the owning Avenger is then
+dispatched **read-only to verify** the result. In Phase 7 Thor runs
+`bmad-dev-story` (after `bmad-testarch-atdd` on the full track) to build, and the
+main loop relays each of its HALTs to the user (`§3.8`).
 
-| Phase | Real skill(s) | Owner | Mode |
-|-------|---------------|-------|------|
-| 1a Discovery | `bmad-document-project` / `bmad-investigate` | main loop; `Agent(avengers-dev:blackwidow)` verifies | interactive + verify |
-| 1b Brief | `bmad-product-brief` | main loop (Vision voice) | interactive |
-| 2 PRD | `bmad-prd` | main loop (Vision voice) | interactive |
-| 3 Architecture | `bmad-create-architecture` | main loop (Vision voice) | interactive |
-| 4 Epics/Stories | `bmad-create-epics-and-stories` | main loop (Vision voice) | interactive |
-| 5 Readiness | `bmad-check-implementation-readiness` | main loop; `Agent(avengers-dev:hulk)` verifies | interactive + verify |
+| Phase | Real skill(s) | Owner | Tracks |
+|-------|---------------|-------|--------|
+| 0 KB check | `bmad-kb.py status` | main loop | all |
+| 1a Discovery (conditional) | `bmad-document-project` + `bmad-generate-project-context`, then `bmad-kb.py stamp` | main loop (Vision voice); `Agent(avengers-dev:blackwidow)` verifies | standard, full |
+| 1b Brief | `bmad-product-brief` | main loop (Vision voice) | standard, full |
+| 2 PRD | `bmad-prd` create; optional validate / `bmad-advanced-elicitation` | main loop (Vision voice) | standard, full |
+| 3 Architecture | `bmad-create-architecture` | main loop (Vision voice) | standard, full |
+| 4 Epics/Stories | `bmad-create-epics-and-stories` | main loop (Vision voice) | standard, full |
+| 4.5 Spec Hardening | `bmad-review-adversarial-general` + `bmad-review-edge-case-hunter` | main loop; `Agent(avengers-dev:captain)` (`adversarial` lens) verifies and assigns severity | standard, full |
+| 5 Readiness | `bmad-check-implementation-readiness` | main loop; `Agent(avengers-dev:hulk)` verifies | standard, full |
 | — | **DESIGN-IMPLEMENTATION BOUNDARY** | IronMan | **hard gate** |
-| 6 Sprint plan | `bmad-sprint-planning` | main loop (Vision voice) | light |
-| 7 Build (per story) | `bmad-create-story` → `bmad-dev-story` | main loop runs `bmad-create-story`; `Agent(avengers-dev:thor)` runs `bmad-dev-story` per story | interactive + build (HALTs relayed) |
-| 8 Review | `bmad-code-review` + `bmad-retrospective` | main loop; Thor fixes, `Agent(avengers-dev:captain)` reviews, `Agent(avengers-dev:blackwidow)` verifies, main loop closes out | interactive + verify |
+| 6 Sprint plan | `bmad-sprint-planning` | main loop (Vision voice) | standard, full |
+| 7 Build (per story) | `bmad-create-story` → `bmad-testarch-atdd` (full only) → `bmad-dev-story` | main loop runs `bmad-create-story`; `Agent(avengers-dev:thor)` runs `bmad-testarch-atdd` (full only) and `bmad-dev-story` per story (HALTs relayed) | standard, full |
+| 8 Review | `bmad-code-review` + `bmad-testarch-trace` (full only) + `bmad-retrospective` | main loop; Thor fixes, `Agent(avengers-dev:captain)` reviews, `Agent(avengers-dev:blackwidow)` verifies, main loop closes out | standard, full |
+| 9 KB Refresh | `bmad-kb.py impact` → `bmad-document-project` + `bmad-generate-project-context` → `stamp` | main loop (Vision voice) | all |
+| Quick track | `bmad-quick-dev`, then Captain reviews the diff | main loop, then `Agent(avengers-dev:captain)` | quick |
+
+Per-phase stubs: `phase-0-kb.md`, `phase-1-assessment.md` … `phase-8-review.md`,
+`phase-4.5-hardening.md`, `phase-9-kb-refresh.md`, and `track-quick.md`.
 
 **Why the split:** the wrapped `bmad-*` skills halt for user input and write
 artifacts step by step; `bmad-code-review` also spawns its own subagents. A
 subagent runs blind and cannot elicit, and BlackWidow, Hulk and Captain have no
-Write, Edit or Agent tools. So the skills run in the main loop and those owners
-verify the output read-only. `bmad-dev-story` changes source code, so it runs in
-Thor, who returns a Blocked report whenever it stops for a human. The main loop
-may read broadly and write BMAD artifacts while running a wrapped skill and in the
-relay steps around it (the Phase 7 epic-status write, Blocked resets, Phase 8
-reconciliation and close-out), but never modifies source code — code changes
-(including code-review patches) always go to Thor.
+Write, Edit or Agent tools. So the skills run in the main loop (`§3.12`) and those
+owners verify the output read-only. `bmad-dev-story` and `bmad-testarch-atdd`
+change source code, so they run in Thor, who returns a Blocked report whenever
+one stops for a human. The main loop may read broadly and write BMAD artifacts
+while running a wrapped skill and in the relay steps around it (the Phase 7
+epic-status write, Blocked resets, Phase 8 reconciliation and close-out), but
+never modifies source code — code changes (including code-review patches) always
+go to Thor. The one exception is the quick track, where `bmad-quick-dev` runs in
+the main loop as mapped above.
 
 <!-- SEAM: A main-loop phase could later move to a write-capable subagent if its
      wrapped skill gains a batch mode. Never move one to a read-only agent, and
@@ -61,8 +73,17 @@ Location: `.avengers/relay-sequences/bmad-{name}.yaml`
 sequence_id: string           # Unique identifier: bmad-{name}
 name: string                  # Human name: {name}
 status: enum                  # active | suspended | complete | closed | abandoned
-current_phase: string         # 1a | 1b | 2 | 3 | 4 | 5 | 6 | 7 | 8
+track: enum                   # quick | standard | full   (missing -> standard)
+current_phase: string         # 0 | 1a | 1b | 2 | 3 | 4 | 4.5 | 5 | 6 | 7 | 8 | 9
+                              # (quick track: 0 | quick-dev | review | 9)
+                              # new sequences start at 0
 design_implementation_boundary_passed: bool  # Phase 5->6 hard gate
+gate_override:                # null, or set when the gate is passed despite blockers
+  reason: string              #   user-supplied reason (required)
+  at: timestamp
+kb_status_at_start: enum      # missing | unstamped | fresh | stale | unknown (Phase 0)
+kb_base_commit: string | null # HEAD at Phase 0; base for Phase 9 impact
+md_workstation: string | null # md workstation path from Step 0 (§3.13); null = in-repo
 created_at: timestamp
 last_active: timestamp
 
@@ -135,8 +156,10 @@ state file in one write.
 The Phase 8 entry step (`§3.9`) runs after inference and sets `pending` only on
 stories still unmarked.
 
-Artifact paths are owned by the wrapped `bmad-*` skills and resolved from
-`_bmad/bmm/config.yaml` (see `§2.8`) — the relay does not dictate them.
+Artifact paths are owned by the wrapped `bmad-*` skills (BMAD-METHOD writes under
+its configured `output_folder` and `project_knowledge`) and resolved from
+`_bmad/bmm/config.yaml` (see `§2.8`) — the relay does not dictate them. With an md
+workstation, `output_folder` is a symlink into it (`§3.13`).
 
 ## Protocol Directives
 
@@ -162,7 +185,8 @@ independent verdict (READY / READY-WITH-CONCERNS / NOT-READY) on that report. Th
 gate shows **both**. If either is NOT READY / NOT-READY, IronMan recommends [2]
 Exit. If either is NEEDS WORK / READY-WITH-CONCERNS, IronMan flags it explicitly
 and lists the cited gaps. In every case the user decides. Neither verdict
-auto-advances or auto-blocks the gate.
+auto-advances or auto-blocks the gate; a NOT READY / NOT-READY result only makes
+[1] require an override (`§3.11`).
 
 ### §2.8 Artifact Path Resolution
 
@@ -292,6 +316,18 @@ On resume, read the state file first. Surface to user:
 
 Re-enter at `current_phase`, respecting `design_implementation_boundary_passed`.
 
+**Resume defaults.** A **legacy state file** is one with **no `track` key**
+(written before tracks and Phases 0/4.5/9 existed). For legacy files only:
+
+- `track` → `standard`.
+- At `8` or `complete` → finish as before; **not** routed into Phase 9.
+- Otherwise → continue through Phase 9. With no `kb_base_commit`, Phase 9 uses the
+  `stamped_commit` reported by `bmad-kb.py status`; if there is none, Phase 9 is
+  skipped with a note.
+- Missing `gate_override` → `null`.
+
+State files with a `track` key follow the normal flow, including Phase 9.
+
 On a resume into Phase 7 or 8, in this order. Resume decisions come from the
 per-story markers `phase7_step` and `phase8_step`, never from
 `loop_state.completed` or a `development_status` value alone (every story is in
@@ -361,7 +397,7 @@ markers of stories that have none.
 
 Each interactive phase announces completion and waits for user confirmation before
 advancing. Format: "Phase N ({name}) complete. {summary}. Ready for Phase N+1?"
-Phases with a verifying Avenger (1a, 5, 8) and the Phase 7 build report through
+Phases with a verifying Avenger (1a, 4.5, 5, 8) and the Phase 7 build report through
 that Avenger; IronMan relays, then advances. A Thor Blocked report is relayed as a
 question to the user (`§3.8`), never advanced past.
 
@@ -372,7 +408,10 @@ The boundary between Phase 5 and Phase 6 is a hard gate. User must explicitly ch
 - [2] Exit (artifacts saved, relay suspended)
 
 No auto-advance. No batch-through. Set `design_implementation_boundary_passed: true`
-only on [1].
+only on [1]. The gate reads both readiness results (`§2.7`): the report status
+and the verdict **Hulk returns**, not the file alone. If either is NOT READY /
+NOT-READY, or Phase 4.5 left `[CRITICAL]` findings unresolved, [1] requires an
+override (§3.11).
 
 ### §3.7 Scope Creep Prevention
 
@@ -415,7 +454,11 @@ starts at `phase7_step: pending`.
    any dev-story HALT or ask point, do not guess and do not work around it — stop
    without committing and return a Blocked report (`agents/thor.md`). dev-story's
    step-10 completion explanation and next-step prompts are not stops: finish,
-   run tests, commit, and report done.
+   run tests, commit, and report done. **Full track only:** in the same dispatch,
+   before dev-story, Thor runs `bmad-testarch-atdd` on the story (failing
+   acceptance tests from its ACs; skipped on a re-dispatch once those tests
+   exist), under the same HALT instruction, so its tests fall inside the story's
+   chain range.
 4. **Blocked.** Record `post_sha` and write
    `loop_state.stories[<story_key>].blocked` = `{halt_point, question, options,
    work_state, resume_instruction, dispatched_at_sha}`: the first five from
@@ -473,7 +516,8 @@ immediately, in the same write as the data that step produced.
   stories still unmarked after inference. A story whose `development_status`
   entry is `done` was inferred `closed` and is never set to `pending`.
 - **Step 1, code review.** Runs only at `pending`. When the user picks "Done" at
-  its next-steps menu → `code_review_done`.
+  its next-steps menu (and, on the full track, `bmad-testarch-trace` has run for
+  the story in the main loop) → `code_review_done`.
 - **Step 2, reconcile.** Already done when the story's `### Review Findings`
   (if code review wrote one) sits inside `## Tasks / Subtasks` and has no
   unchecked `[Review][Decision]` bullet, and the story's `sprint-status.yaml`
@@ -501,13 +545,98 @@ immediately, in the same write as the data that step produced.
   for every epic whose story keys are all `done` and whose
   `epic-N-retrospective` entry is not `done`.
 
+### §3.10 KB Lifecycle
+
+The knowledge base (KB) is two files produced by the real BMAD skills, at paths
+read from `_bmad/bmm/config.yaml` (falling back to `_bmad/core/config.yaml`, then
+defaults `docs` / `_bmad-output`):
+
+- `{project_knowledge}/index.md` — `bmad-document-project`
+  (`initial_scan` | `full_rescan` | `deep_dive`)
+- `{output_folder}/project-context.md` — `bmad-generate-project-context`
+
+The freshness marker is `<workstation>/avengers/kb.json` with an md workstation,
+else `.avengers/kb.json`; reads fall back to the legacy `.avengers/kb.json` and
+`stamp` moves it into the workstation. Schema:
+`{version: 2, index_path, context_path, branches: {<branch>: {commit, stamped_at,
+arch_hashes}}}` — keyed per branch so worktrees on different branches do not
+overwrite each other (detached HEAD uses `HEAD@<sha7>`). A branch with no entry
+falls back to the newest entry and reports `stale` with a `branch_unstamped`
+signal. Paths are relative to the workstation (in-repo paths as
+`{project-root}/...`). Read the marker through `bmad-kb.py status`, not by path.
+
+- **Build only when missing** — Phase 0 `status` = `missing` → Phase 1a.
+- **Offer refresh when meaningfully stale** — `stale` means at least one impact
+  signal since the stamp (breaking-change commit, architecture doc under the output
+  folder, dependency manifest, migration, API contract, new top-level dir) or 20+
+  changed files outside the KB dirs, `output_folder`, `.avengers/`, and `_bmad/`.
+  An `unknown_stamp` signal (the stamped commit is no longer in history, e.g.
+  rebased away) also makes the KB `stale`. When the output folder is outside git
+  (an md workstation), architecture docs are compared by the sha256 hashes stored
+  at stamp time instead of by git diff. The user decides.
+- **Not a git repo** — `status` reports `unknown` (or `unstamped` with a null
+  `head`); `stamp` and `impact` exit 1, so they are skipped and freshness is not
+  tracked.
+- **Refresh at the end when the change is important or breaking** — Phase 9 runs
+  `impact --base <kb_base_commit>`; if `refresh_recommended`, the user confirms,
+  then `deep_dive` per area (3 or fewer `changed_areas`) or `full_rescan`, then
+  `bmad-generate-project-context`, then `stamp`.
+
+### §3.11 Gate Override
+
+When either readiness result is NOT READY / NOT-READY (`§2.7`), or Phase 4.5
+`[CRITICAL]` findings are unresolved, a bare [1] at the gate is refused. The user must type `override` plus a reason. Record
+`gate_override: {reason, at}` in the state file and set
+`design_implementation_boundary_passed: true`.
+
+### §3.12 Wrapped Skills Run in the Main Loop
+
+Every wrapped skill runs in the main loop via `Skill(bmad-X)` — including
+`bmad-document-project` and `bmad-generate-project-context` in Phases 1a and 9,
+the Phase 4.5 review skills, and `bmad-quick-dev` on the quick track — except the
+code-writing skills Thor runs in Phase 7 (`bmad-dev-story`, and
+`bmad-testarch-atdd` on the full track). Read-only Avengers are dispatched only to
+verify a skill's output (1a, 4.5, 5, 8), never to run a write-capable skill.
+
+### §3.13 md Workstation and md Commits
+
+**Step 0 (every run):** after preflight, `workstation.py resolve`. `ok` continues
+(a missing or mismatched symlink is repaired with `set`); `in_repo` continues
+in-repo; `guess` / `missing` / `broken` run the `/avengers-workstation` flow, where
+the user may still choose in-repo. Then `workstation.py check-config` (exit 1 — `_bmad/`
+missing or `output_folder` outside the project — is reported and skipped): keys
+outside `output_folder` are offered for an opt-in, per-key `repoint-config` (it edits the
+team's committed config — say so). Declined keys are recorded in
+`.avengers/settings.json` → `mdRepointDeclined` and not offered again. It runs on
+every run because a BMAD reinstall can undo a re-point and a symlink can dangle.
+Record `md_workstation` in the state file.
+
+**md commits:** offered after the Phase 1a stamp, at the hard gate, and at
+completion (end of Phase 9, any track), only when `md_workstation` is set.
+The workstation folder is `<md-root>/<repo-name>-mds/`.
+
+1. `workstation.py md-status` — exit 2 (clean, or not a git repo): skip silently.
+2. Exit 0: if `dedicated` is false (the md repo is `$HOME` or contains the project),
+   warn first that the commit lands in that repo. Then ask "Commit N md changes in
+   <md repo>?"
+3. On yes, Thor runs `git -C <toplevel> add -- <rel>`, then
+   `git -C <toplevel> commit -m "docs(<repo-name>): <phase> artifacts" -- <rel>`.
+   The pathspec commit leaves anything else staged in the md repo untouched.
+4. A hook or signing failure is reported and the relay continues. Never push.
+
+**Known limitation:** `bmad-story-automator` rejects artifact paths that resolve
+outside the repo root, so it does not work with a workstation. The relay's Phase 7
+(the main loop running `bmad-create-story`, Thor running `bmad-dev-story`) does
+not use it.
+
 ## Execution Model — wrap, don't reimplement
 
 Each phase **invokes its real `bmad-*` skill** (main loop, then a read-only owner
 verifies where one is mapped). In Phase 7 the main loop runs `bmad-create-story`
-and **dispatches Thor** to run `bmad-dev-story`, relaying his Blocked reports
+and **dispatches Thor** to run `bmad-dev-story` (after `bmad-testarch-atdd` on
+the full track), relaying his Blocked reports
 (`§3.8`). There are no persona overlays to load and no self-contained
 phase logic — the wrapped skill carries the authoring instructions. The
-`references/bmad/phase-{N}-*.md` files are thin stubs documenting the mapping
-(skill + owner + mode) plus the wrapped skill's completion criteria, for quick
-lookup at phase entry.
+`references/bmad/phase-{N}-*.md` and `track-quick.md` files are thin stubs
+documenting the mapping (skill + owner + mode) plus the wrapped skill's completion
+criteria, for quick lookup at phase entry.

@@ -3,14 +3,14 @@
   "owner": {
     "name": "Stark Industries"
   },
-  "description": "Avengers-themed agentic workflow plugin for Claude Code: IronMan orchestration, five subagents (BlackWidow, Thor, Captain, Hulk, Vision), an equipment system, and an 8-phase BMAD relay. Avengers, assemble!",
+  "description": "Avengers-themed agentic workflow plugin for Claude Code: IronMan orchestration, five subagents (BlackWidow, Thor, Captain, Hulk, Vision), an equipment system, and a spec-driven BMAD relay with quick/standard/full tracks. Avengers, assemble!",
   "license": "MIT",
   "plugins": [
     {
       "name": "avengers-dev",
       "source": "./",
-      "description": "Avengers-themed agentic workflow: orchestration skills, five subagents, equipment, and the BMAD 8-phase methodology relay.",
-      "version": "1.0.0",
+      "description": "Avengers-themed agentic workflow: orchestration skills, five subagents, equipment, and the spec-driven BMAD methodology relay (quick/standard/full tracks, KB lifecycle).",
+      "version": "1.1.0",
       "author": {
         "name": "Stark Industries"
       }

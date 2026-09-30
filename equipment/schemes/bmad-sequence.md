@@ -8,35 +8,44 @@ methodology" for a new initiative or sprint.
 This scheme **wraps the real BMAD-METHOD `bmad-*` skills** and conducts them through
 the crew in Vision's voice. It does not reimplement BMAD.
 
-## The Crew — phase → real skill → owner → mode
+Tracks: `quick` (0 → `bmad-quick-dev` → Captain diff review → 9), `standard`
+(default), `full` (standard + ATDD in 7 and trace in 8; needs the TEA module).
 
-| Phase | Real skill(s) | Owner | Mode |
-| ----- | ------------- | ----- | ---- |
-| 1a Discovery | `bmad-document-project` / `bmad-investigate` | main loop; BlackWidow verifies | interactive + verify |
-| 1b Brief | `bmad-product-brief` | main loop (Vision voice) | interactive |
-| 2 PRD | `bmad-prd` | main loop (Vision voice) | interactive |
-| 3 Architecture | `bmad-create-architecture` | main loop (Vision voice) | interactive |
-| 4 Epics/Stories | `bmad-create-epics-and-stories` | main loop (Vision voice) | interactive |
-| 5 Readiness | `bmad-check-implementation-readiness` | main loop; Hulk verifies | interactive + verify |
-| 6 Sprint plan | `bmad-sprint-planning` | main loop (Vision voice) | light |
-| 7 Build (per story) | `bmad-create-story` → `bmad-dev-story` | main loop runs create-story; Thor runs dev-story (per story) | interactive + build (HALTs relayed) |
-| 8 Review | `bmad-code-review` + `bmad-retrospective` | main loop; Thor fixes, Captain reviews, BlackWidow verifies, main loop closes out | interactive + verify |
+## The Crew — phase → real skill → owner → tracks
+
+| Phase | Real skill(s) | Owner | Tracks |
+| ----- | ------------- | ----- | ------ |
+| 0 KB check | `bmad-kb.py status` | main loop | all |
+| 1a Discovery (if KB missing / stale + accepted) | `bmad-document-project` + `bmad-generate-project-context` → `stamp` | main loop (Vision voice); BlackWidow verifies | standard, full |
+| 1b Brief | `bmad-product-brief` | main loop (Vision voice) | standard, full |
+| 2 PRD | `bmad-prd` (+ optional validate / elicitation) | main loop (Vision voice) | standard, full |
+| 3 Architecture | `bmad-create-architecture` | main loop (Vision voice) | standard, full |
+| 4 Epics/Stories | `bmad-create-epics-and-stories` | main loop (Vision voice) | standard, full |
+| 4.5 Spec Hardening | `bmad-review-adversarial-general` + `bmad-review-edge-case-hunter` | main loop; Captain (`adversarial` lens) verifies and assigns severity | standard, full |
+| 5 Readiness | `bmad-check-implementation-readiness` | main loop; Hulk verifies | standard, full |
+| 6 Sprint plan | `bmad-sprint-planning` | main loop (Vision voice) | standard, full |
+| 7 Build (per story) | `bmad-create-story` → `bmad-testarch-atdd` (full) → `bmad-dev-story` | main loop runs create-story; Thor runs atdd (full) and dev-story (per story, HALTs relayed) | standard, full |
+| 8 Review | `bmad-code-review` + `bmad-testarch-trace` (full) + `bmad-retrospective` | main loop; Thor fixes, Captain reviews, BlackWidow verifies, main loop closes out | standard, full |
+| 9 KB Refresh | `bmad-kb.py impact` → refresh if confirmed → `stamp` | main loop (Vision voice) | all |
 
 **Why the split:** the wrapped `bmad-*` skills ask the user questions and write
 artifacts as they go. A subagent runs blind and cannot elicit, and BlackWidow,
-Hulk and Captain are read-only, so every skill except `bmad-dev-story` runs in
-the main loop (Phase 7's `bmad-create-story` included) and the owner verifies the
-result. Thor runs `bmad-dev-story`; when it stops for a human he returns a
+Hulk and Captain are read-only, so every skill except `bmad-dev-story` (and
+`bmad-testarch-atdd` on the full track) runs in the main loop (Phase 7's
+`bmad-create-story` included) and the owner verifies the result. Thor runs
+`bmad-dev-story` (after atdd on the full track); when it stops for a human he returns a
 Blocked report and the main loop relays it to the user. The main loop writes BMAD
 artifacts only — code changes, including code-review patches, always go to Thor.
 
 ## Design-Implementation Boundary
 
 After Phase 5, the relay halts. IronMan presents both the readiness report's
-status and Hulk's independent verdict; if either is NOT READY / NOT-READY, he
-recommends [2]; if either is NEEDS WORK / READY-WITH-CONCERNS, he flags it
-explicitly with the cited gaps. The user makes an explicit choice — **[1] Continue into
-implementation / [2] Exit** — before Phase 6 begins. No auto-advance.
+status and Hulk's independent verdict, plus any unresolved Phase 4.5 Criticals;
+if either result is NOT READY / NOT-READY, he recommends [2]; if either is NEEDS
+WORK / READY-WITH-CONCERNS, he flags it explicitly with the cited gaps. The user
+makes an explicit choice — **[1] Continue into implementation / [2] Exit** —
+before Phase 6 begins. No auto-advance. If either result is NOT READY / NOT-READY
+or Phase 4.5 Criticals are unresolved, [1] needs `override` plus a reason.
 
 ## Artifacts
 
@@ -55,7 +64,8 @@ otherwise the epic status check (`backlog`/`contexted` → `in-progress`;
 `bmad-create-story` in the main loop with the full `development_status` key
 (story and sprint-status entry verified `ready-for-dev`) → `pre_sha` recorded,
 `in_progress` set, `baseline_commit` written before the first dispatch → Thor
-runs `bmad-dev-story` on the explicit story path → Blocked: stored in `blocked`,
+runs `bmad-testarch-atdd` (full track) then `bmad-dev-story` on the explicit
+story path → Blocked: stored in `blocked`,
 relayed to the user (answer or suspend), `[Gate]` subtask for a step-9
 regression or definition-of-done HALT, `review` reset to `in-progress`,
 re-dispatch with the answer, Work state and Resume instruction → done:
@@ -65,7 +75,8 @@ See `references/bmad/relay-config.md` §3.8.
 ## Phase 8 Per-Story Flow
 
 Code review (main loop, range `<baseline_commit>..<phase7_end_sha>`, "Leave as
-action items") → reconcile `### Review Findings` inside Tasks/Subtasks (converted
+action items"; full track: then `bmad-testarch-trace`, uncovered ACs become
+`[Review][Patch]`) → reconcile `### Review Findings` inside Tasks/Subtasks (converted
 decisions recorded as unchecked `[Review][Patch]`; resolved `[Review][Decision]`
 checked `[x]`; sprint-status entry `in-progress`) → Thor fixes unchecked
 `[Review][Patch]` items (explicit story path; Blocked reports handled as in
@@ -92,10 +103,12 @@ re-enters every other story at its recorded step. See relay-config `§3.2` and
 `§3.9`.
 
 ## Completion Criteria
-- [ ] All phases completed (1a → 8)
+- [ ] All phases for the chosen track completed (Phase 0 through Phase 9)
 - [ ] Design-implementation hard gate cleared with explicit user authorization
+      (any override recorded with a reason)
 - [ ] All stories built (Thor) and reviewed (Captain)
 - [ ] Captain verdict per story: PASS, or a CONDITIONAL PASS the user accepted at the 3-cycle limit
 - [ ] Every story closed out: `done` in its story file and in `sprint-status.yaml`
 - [ ] Retrospective run for each epic whose story keys are all `done`
+- [ ] Phase 9 KB refresh evaluated (refreshed and stamped, or not needed)
 - [ ] State file transitioned to `complete`

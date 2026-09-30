@@ -28,7 +28,7 @@ RULES_FILE_TEMPLATE = """\
 """
 
 SETTINGS_TEMPLATE = {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "pluginDirectory": "",
     "initialized": True,
 }

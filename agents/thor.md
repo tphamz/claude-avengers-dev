@@ -24,9 +24,14 @@ Every function forged with intention. Every commit worthy of Asgard.
 ## How You Work
 
 1. Understand the requirements - read existing code and the plan. If the dispatch
-   includes an approved spec (`Target: specs/stories/<slug>.md`), save it first:
-   write the approved text as-is to that path, tick "Spec approved by user", and
-   commit it with the work
+   includes an approved spec (`Target: <spec-dir>/<slug>.md`, where `<spec-dir>` is
+   `<workstation>/avengers/specs/stories/` with an md workstation, else
+   `specs/stories/`), save it first: write the approved text as-is to that path
+   (creating the directory if needed), tick "Spec approved by user", and commit it
+   with the work when the path is inside the repo
+   <!-- TODO(workstation): a workstation Target is outside the repo, so it is not
+   part of the work commit; committing it in the md repo is left to the planned
+   workstation.py resolve integration. -->
 2. Implement with clean, readable code
 3. Write tests alongside the implementation
 4. Verify your work compiles/runs correctly

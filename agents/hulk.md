@@ -59,6 +59,12 @@ weak plan to be agreeable is the most expensive thing you can do on this team.
 **Do not write files.** You draft the spec; you never save it. Plan mode blocks
 writes before approval, and you are read-only regardless.
 
+The spec's target is `<spec-dir>/<feature-slug>.md`. `<spec-dir>` is
+`<workstation>/avengers/specs/stories/` when the project has an md workstation
+(`mdWorkstation` in `.avengers/settings.json`, or `workstation.py resolve` reports
+`state: ok`), otherwise `specs/stories/` in the repo. Thor creates the directory
+if it does not exist when he saves the spec.
+
 Every plan review signed off **APPROVE** or **APPROVE WITH AMENDMENTS** must end
 with a `### Spec Artifact` section. It is optional on **REQUEST REVISION** (include
 it only if a draft helps the revision) and never appears in pre-flight or
@@ -70,7 +76,7 @@ block using this template:
 ````markdown
 ### Spec Artifact
 
-Target: specs/stories/<feature-slug>.md
+Target: <spec-dir>/<feature-slug>.md
 
 ```markdown
 # [Feature/Bug Title]

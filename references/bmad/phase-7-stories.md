@@ -4,9 +4,10 @@
 
 Iterative, per-story.
 
-| Real skill(s) | Owner | Mode |
-| ------------- | ----- | ---- |
-| `bmad-create-story` → `bmad-dev-story` | main loop runs `bmad-create-story`; `Agent(avengers-dev:thor)` runs `bmad-dev-story` per story | interactive + build (HALTs relayed) |
+| Real skill(s) | Owner | Mode | Tracks |
+| ------------- | ----- | ---- | ------ |
+| `bmad-create-story` → `bmad-dev-story` | main loop runs `bmad-create-story`; `Agent(avengers-dev:thor)` runs `bmad-dev-story` per story | interactive + build (HALTs relayed) | standard |
+| `bmad-create-story` → `bmad-testarch-atdd` → `bmad-dev-story` | main loop runs `bmad-create-story`; `Agent(avengers-dev:thor)` runs `bmad-testarch-atdd` then `bmad-dev-story` per story | interactive + build (HALTs relayed) | full |
 
 ## What happens
 
@@ -31,8 +32,11 @@ only a story whose `loop_state.stories[<story_key>].phase7_step` is `recorded`
    write that `pre_sha` to `loop_state` as `baseline_commit`; never overwrite an
    existing one. Set `phase7_step: dispatched` and save before dispatching.
 3. **Build (Thor).** `Agent(avengers-dev:thor)` runs `bmad-dev-story` on the
-   explicit story file path. At any HALT or ask point he stops without
-   committing and returns a Blocked report. dev-story's step-10 completion
+   explicit story file path. **Full track only:** in the same dispatch, before
+   dev-story, he runs `bmad-testarch-atdd` (write failing acceptance tests from
+   the story's ACs; skipped on a re-dispatch once those tests exist), so the
+   tests are part of the story's chain range. At any HALT or ask point he stops
+   without committing and returns a Blocked report. dev-story's step-10 completion
    prompts are not stops: he finishes, runs tests, commits and reports done.
 4. **Blocked.** Record `loop_state.stories[<story_key>].blocked` (HALT point,
    question, options, work state, resume instruction, `dispatched_at_sha`),
@@ -61,6 +65,9 @@ story at `review` → take `post_sha` from HEAD now, run the `§2.9` checks, do
 step 5, and tell the user the range was recovered; `dispatched` with no
 `blocked` and not at `review` → an interrupted dispatch, re-dispatched at step 2
 as an agent-failure retry.
+
+The full track requires the TEA module (`_bmad/tea/`), checked by
+`bmad-kb.py preflight --track full` before the sequence starts.
 
 ## Commit tracking
 
