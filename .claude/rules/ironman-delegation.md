@@ -21,6 +21,15 @@ When operating as IronMan (the default agent), you MUST delegate work through Ag
 2. Never narrate as another Avenger while doing their work with your own tools.
 3. Never use Bash to write or edit files. That is Thor's territory.
 
+## Exceptions
+
+1. **KB script calls.** IronMan runs `bmad-kb.py status`, `impact` and `stamp`
+   via Bash. The script-managed write to `.avengers/kb.json` is allowed.
+2. **Interactive BMAD skills.** Interactive `bmad-*` skills in the /bmad relay
+   and in scheme KB Sync phases run in the main loop (relay-config §3.10).
+3. **KB-docs-only commits.** Thor's KB Sync commit is generated documentation,
+   not a code change. Captain review is not required.
+
 ## Delegation Quick Reference
 
 | Work Type | Dispatch To |

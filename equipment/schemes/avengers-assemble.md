@@ -17,12 +17,14 @@ Use for standard feature implementation. IronMan's default scheme for new functi
 
 ## Phase 1: Recon
 
-KB Sync start: if `_bmad/` and `.avengers/kb.json` both exist, run
-`python3 ${CLAUDE_PLUGIN_ROOT}/skills/bmad/scripts/bmad-kb.py status` and record `head` as
-`<start-sha>` and `state` as `<kb-state-at-start>`. Skip KB Sync silently if either path is
-missing, `status` exits 1, `head` is null, or `state` is `unknown`. If `state` is `missing`,
-skip with the note "run /bmad to build the KB". If `status` warns on stderr that `kb.json`
-was malformed (it is backed up to `kb.json.bak`), mention it and skip.
+KB Sync start (IronMan, before dispatching BlackWidow): if `_bmad/` and `.avengers/kb.json`
+both exist, run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/bmad/scripts/bmad-kb.py status` and
+record `head` as `<start-sha>`, `state` as `<kb-state-at-start>`, the parent directories of
+`index_path` and `context_path` as `<kb-dir>` and `<output-dir>`, and whether `signals`
+contains an `unknown_stamp` entry (keep its `detail`). Skip KB Sync silently if either path
+is missing, `status` exits 1, `head` is null, or `state` is `unknown`. If `state` is
+`missing`, skip with the note "run /bmad to build the KB". If `status` warns on stderr that
+`kb.json` was malformed (it is backed up to `kb.json.bak`), mention it and skip.
 
 Dispatch BlackWidow to explore the codebase area.
 Equip: architecture goggles for multi-module features, detective goggles for complex existing logic.
@@ -52,8 +54,14 @@ If issues remain: Thor fixes -> Captain reviews -> BlackWidow verifies. Max 3 cy
 
 Conditional: runs only if the Phase 1 KB Sync start check did not skip. Runs once,
 after the final fix cycle of Phase 5 and after "Code committed" holds.
-If paths outside the KB docs are uncommitted, report "KB Sync deferred: uncommitted
-changes" and stop.
+
+Deferral: run `git status --porcelain --untracked-files=no`. If any listed path is
+outside `.avengers/`, `_bmad/`, `<kb-dir>` and `<output-dir>`, report "KB Sync
+deferred: uncommitted changes" and stop. Untracked files are ignored.
+
+Unknown stamp: if the start `status` reported an `unknown_stamp` signal, skip `impact`.
+Show the signal's `detail` as the reason, ask the user whether to run a `full_rescan`
+refresh, and on yes go to Refresh with `full_rescan`.
 
 Base: `<start-sha>` if `<kb-state-at-start>` was `fresh`; otherwise the `commit` in
 `.avengers/kb.json`, so drift from before this scheme is included and the stamp stays
@@ -67,21 +75,33 @@ error and skip. Exit 0 with `refresh_recommended: false` -> nothing to sync. Exi
 ask the user whether to refresh the KB as a plain chat question (not a structured
 question tool).
 
-On yes: follow steps 2-5 of `${CLAUDE_PLUGIN_ROOT}/references/bmad/phase-9-kb-refresh.md`
-in the main loop: `bmad-document-project` in `deep_dive` once per changed area (or
-`full_rescan` if more than 3 areas), then `bmad-generate-project-context`. Adaptation:
-use `<base>` wherever the reference says `kb_base_commit`; ignore every relay-state
-instruction (`status`, `complete`, `current_phase`) and the Resume defaults paragraph;
-speak as IronMan. These skills run in the main loop because they ask the user
-questions (`references/bmad/relay-config.md` §3.10); this is the one carve-out from
-Agent() delegation.
+Refresh (on yes): follow steps 3-4 of
+`${CLAUDE_PLUGIN_ROOT}/references/bmad/phase-9-kb-refresh.md` in the main loop:
+`bmad-document-project` in `deep_dive` once per changed area, or `full_rescan` if there
+are more than 3 areas or `changed_areas` is empty or contains `.`; then
+`bmad-generate-project-context`. The ask above and the stamp below replace the
+reference's other steps. Adaptation: use `<base>` wherever the reference says
+`kb_base_commit`; ignore every relay-state instruction (`status`, `complete`,
+`current_phase`) and the Resume defaults paragraph; speak as IronMan. These skills run
+in the main loop because they ask the user questions; this is a carve-out from Agent()
+delegation, as in the /bmad relay
+(`${CLAUDE_PLUGIN_ROOT}/references/bmad/relay-config.md` §3.10).
 
-Dispatch Thor to commit the refreshed KB docs (`docs: refresh project KB`). They are
-generated docs, not code, so Captain review is not required. Then run
-`python3 ${CLAUDE_PLUGIN_ROOT}/skills/bmad/scripts/bmad-kb.py stamp`: exit 0 -> stamped. Exit
-2 -> already stamped at HEAD, OK. Exit 1 -> report "KB refreshed but not stamped".
+Stamp, then commit:
+
+1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/bmad/scripts/bmad-kb.py stamp` first: exit
+   0 -> stamped. Exit 2 -> already stamped at HEAD, OK. Exit 1 -> report "KB refreshed
+   but not stamped" and still commit the docs.
+2. Dispatch Thor to commit the refreshed KB docs plus `.avengers/kb.json` (if tracked)
+   in one commit, `docs: refresh project KB`. The commit touches only `<kb-dir>`,
+   `<output-dir>` and `.avengers/kb.json`; never amend it after stamping. The KB stays
+   fresh because `status` computes signals over stamped..HEAD and excludes those paths.
+   The commit is generated documentation, not a code change, so Captain review is not
+   required. If Thor's commit fails, report "KB stamped but docs not committed".
 
 On no: record "KB refresh declined" in the final report.
+
+Record `<start-sha>` in the final report for traceability.
 
 `${CLAUDE_PLUGIN_ROOT}` is the plugin directory this scheme was loaded from; substitute
 the absolute path if the variable is not set in the shell.
