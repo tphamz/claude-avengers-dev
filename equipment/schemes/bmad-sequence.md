@@ -19,13 +19,15 @@ the crew in Vision's voice. It does not reimplement BMAD.
 | 4 Epics/Stories | `bmad-create-epics-and-stories` | main loop (Vision voice) | interactive |
 | 5 Readiness | `bmad-check-implementation-readiness` | main loop; Hulk verifies | interactive + verify |
 | 6 Sprint plan | `bmad-sprint-planning` | main loop (Vision voice) | light |
-| 7 Build (per story) | `bmad-create-story` → `bmad-dev-story` | Thor (per story) | autonomous |
+| 7 Build (per story) | `bmad-create-story` → `bmad-dev-story` | main loop runs create-story; Thor runs dev-story (per story) | interactive + build (HALTs relayed) |
 | 8 Review | `bmad-code-review` + `bmad-retrospective` | main loop; Thor fixes, Captain reviews, BlackWidow verifies, main loop closes out | interactive + verify |
 
 **Why the split:** the wrapped `bmad-*` skills ask the user questions and write
 artifacts as they go. A subagent runs blind and cannot elicit, and BlackWidow,
-Hulk and Captain are read-only, so every skill except the Phase 7 build runs in
-the main loop and the owner verifies the result. The main loop writes BMAD
+Hulk and Captain are read-only, so every skill except `bmad-dev-story` runs in
+the main loop (Phase 7's `bmad-create-story` included) and the owner verifies the
+result. Thor runs `bmad-dev-story`; when it stops for a human he returns a
+Blocked report and the main loop relays it to the user. The main loop writes BMAD
 artifacts only — code changes, including code-review patches, always go to Thor.
 
 ## Design-Implementation Boundary
@@ -44,14 +46,25 @@ Written by the wrapped `bmad-*` skills to paths set in `_bmad/bmm/config.yaml`:
 `_bmad-output/`) for everything else. See `references/bmad/relay-config.md` §2.8.
 The relay's own state file: `.avengers/relay-sequences/bmad-{name}.yaml`.
 
+## Phase 7 Per-Story Flow
+
+Epic status check (`backlog`/`contexted` → `in-progress`; `done` → stop and ask)
+→ `bmad-create-story` in the main loop with the full `development_status` key
+(skipped if the story is past `backlog`; story and sprint-status entry verified
+`ready-for-dev`) → `pre_sha` recorded → Thor runs `bmad-dev-story` on the
+explicit story path → Blocked: relayed to the user (answer or suspend), `[Gate]`
+subtask for a step-9 gate HALT, `review` reset to `in-progress`, re-dispatch →
+done: `post_sha` recorded, `baseline_commit` and `phase7_end_sha` written. See
+`references/bmad/relay-config.md` §3.8.
+
 ## Phase 8 Per-Story Flow
 
 Code review (main loop, range `<baseline_commit>..<phase7_end_sha>`, "Leave as
 action items") → reconcile `### Review Findings` inside Tasks/Subtasks (converted
 decisions recorded as unchecked `[Review][Patch]`; resolved `[Review][Decision]`
 checked `[x]`; sprint-status entry `in-progress`) → Thor fixes unchecked
-`[Review][Patch]` items (explicit story path; fix range `<pre_sha>..<post_sha>`
-recorded from HEAD) → Captain reviews `git diff` of
+`[Review][Patch]` items (explicit story path; Blocked reports handled as in
+Phase 7; fix range `<first pre_sha>..<done post_sha>` recorded from HEAD) → Captain reviews `git diff` of
 `<baseline_commit>..<phase7_end_sha>` and each fix range → BlackWidow verifies
 (story path, same ranges, Captain's findings) → FAIL or CONDITIONAL PASS: verified
 findings appended as unchecked `[Review][Patch]`, loops to Thor (max 3 Captain

@@ -22,8 +22,11 @@ When operating as IronMan (the default agent), you MUST delegate work through Ag
 3. Never use Bash to write or edit files. That is Thor's territory.
 
 **Exception — wrapped `bmad-*` skills during `/bmad`:** while a wrapped skill runs
-in the main loop, IronMan may read broadly and write BMAD artifacts. It must never
-modify source code — code changes, including code-review patches, always go to Thor.
+in the main loop, and in the relay steps around it, IronMan may read broadly and
+write BMAD artifacts — including the Phase 7 epic-status write before
+`bmad-create-story` and the Blocked report resets (`[Gate]` subtask, story and
+sprint-status back to `in-progress`). It must never modify source code — code
+changes, including code-review patches, always go to Thor.
 
 ## Delegation Quick Reference
 

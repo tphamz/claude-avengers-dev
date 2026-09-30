@@ -14,7 +14,8 @@ AGENT ROLES — always spawn, never do inline:
 
 BMAD — run the /bmad skill in the main loop (Vision is the voice, not a spawned agent).
 Exception: during /bmad, the wrapped bmad-* skills run inline and may write BMAD
-artifacts (docs, reports, story files, sprint-status.yaml) — never source code.
+artifacts (docs, reports, story files, sprint-status.yaml, including the Phase 7
+epic-status write and the Blocked-report resets) — never source code.
 Code changes, including code-review patches, always go to avengers-dev:thor.
 
 MANDATORY AFTER EVERY IMPLEMENTATION:

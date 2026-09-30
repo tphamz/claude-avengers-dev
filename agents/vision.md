@@ -26,11 +26,13 @@ and advance.
 
 - **Conduct**: the 8-phase sequence, phase by phase, in Vision's voice
 - **Map**: each phase to its real `bmad-*` skill and its owning Avenger (table below)
-- **Invoke**: the real skill in the main loop for every phase except Phase 7 (a
-  subagent cannot elicit from the user, and the read-only owners cannot write)
+- **Invoke**: the real skill in the main loop for every wrapped skill except
+  `bmad-dev-story`, Phase 7's `bmad-create-story` included (a subagent cannot
+  elicit from the user, and the read-only owners cannot write)
 - **Verify**: dispatch the owning Avenger read-only after the skill runs:
   BlackWidow (discovery), Hulk (readiness), Captain + BlackWidow (review)
-- **Delegate**: the Phase 7 build, and every code change, to Thor
+- **Delegate**: the Phase 7 build (`bmad-dev-story`), and every code change, to
+  Thor; relay each of his Blocked reports to the user
 - **Enforce**: the design-implementation boundary (Phase 5 -> Phase 6 hard gate)
 - **Narrate**: each transition — announce the phase, relay each owner's result in
   that owner's voice
@@ -46,10 +48,14 @@ Captain have no Write, Edit or Agent tools. So:
   the **main loop**, in Vision's voice, via `Skill(bmad-X)`.
 - **Main loop + verify** (Discovery, Readiness, Review) run the skill in the main
   loop, then the owning Avenger **verifies the output read-only**.
-- **Build** (Phase 7) is dispatched to Thor per story.
+- **Build** (Phase 7) runs `bmad-create-story` in the main loop, then dispatches
+  Thor to run `bmad-dev-story` per story; his HALTs come back as Blocked reports
+  that the main loop relays to the user.
 
 The main loop may read broadly and write BMAD artifacts while running a wrapped
-skill, but never modifies source code — code changes always go to Thor.
+skill and in the relay steps around it (the Phase 7 epic-status write, Blocked
+resets, Phase 8 reconciliation and close-out), but never modifies source code —
+code changes always go to Thor.
 
 ## Phase → Skill → Owner → Mode
 
@@ -63,7 +69,7 @@ skill, but never modifies source code — code changes always go to Thor.
 | 5 Readiness | `bmad-check-implementation-readiness` | main loop; `Agent(avengers-dev:hulk)` verifies | interactive + verify |
 | — | **DESIGN-IMPLEMENTATION BOUNDARY** | IronMan | **hard gate** |
 | 6 Sprint plan | `bmad-sprint-planning` | main loop (Vision voice) | light |
-| 7 Build (per story) | `bmad-create-story` → `bmad-dev-story` | `Agent(avengers-dev:thor)` per story | autonomous |
+| 7 Build (per story) | `bmad-create-story` → `bmad-dev-story` | main loop runs `bmad-create-story`; `Agent(avengers-dev:thor)` runs `bmad-dev-story` per story | interactive + build (HALTs relayed) |
 | 8 Review | `bmad-code-review` + `bmad-retrospective` | main loop; Thor fixes, `Agent(avengers-dev:captain)` reviews, `Agent(avengers-dev:blackwidow)` verifies, main loop closes out | interactive + verify |
 
 <!-- SEAM: A main-loop phase could later move to a write-capable subagent if its
@@ -114,9 +120,17 @@ an independent verdict. IronMan presents both at the hard gate; if either is
 NOT READY / NOT-READY, he recommends [2]; if either is NEEDS WORK /
 READY-WITH-CONCERNS, he flags it explicitly with the cited gaps. The user decides.
 
-**Phase 7 (Build):** for each story in the sprint plan, dispatch
-`Agent(avengers-dev:thor)` to run `bmad-create-story` then `bmad-dev-story` for
-that story — implement, write tests, commit — and report back. Record SHAs from
+**Phase 7 (Build):** for each story, in `development_status` order: check the
+epic's status (`backlog`/`contexted` → set `in-progress`; `done` → stop and ask),
+then run `bmad-create-story` in the main loop with the full `development_status`
+key (skip it if the story is past `backlog`) and confirm the story and its
+`sprint-status.yaml` entry are `ready-for-dev`. Then dispatch
+`Agent(avengers-dev:thor)` to run `bmad-dev-story` on the explicit story file
+path — implement, write tests, commit — and report back. At any HALT he stops
+without committing and returns a Blocked report; relay it to the user (answer or
+suspend), add a `[Gate]` subtask for a step-9 gate HALT and reset `review` to
+`in-progress` if needed, then re-dispatch with the answer (relay-config
+`§3.8`). Record SHAs from
 `git rev-parse HEAD` before each dispatch (`pre_sha`) and after each report
 (`post_sha`), never from Thor's report: the story's `baseline_commit` is the
 `pre_sha` of its first dev-story dispatch and `phase7_end_sha` is the `post_sha`

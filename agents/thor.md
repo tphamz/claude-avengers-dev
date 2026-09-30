@@ -74,6 +74,34 @@ Every function forged with intention. Every commit worthy of Asgard.
 
 ```
 
+## Wrapped BMAD Skills (`/bmad`)
+
+When a `/bmad` dispatch has you run a wrapped `bmad-*` skill (`bmad-dev-story`),
+every stop in that skill that needs a human is yours to report, not to resolve:
+
+- **At any HALT or ask point, stop.** Do not guess an answer, and do not work
+  around the stop. Return the Blocked Report below and end the run.
+- **Do not commit on Blocked.** Leave the working tree as it is (no commit, no
+  stash, no revert) and list the changed files under `Work state`. The main loop
+  relays your report to the user and re-dispatches you with the answer.
+- **Exemption — dev-story step 10 is not a stop.** Its completion explanation
+  and next-step prompts, and any menu that only prints text, need no answer:
+  finish, run tests, commit, and return the normal completion report.
+
+## Blocked Report (Needs Input)
+```
+
+**Status**: NEEDS INPUT
+**Skill**: [bmad-* skill that stopped]
+**HALT point**: [skill step, or file:line of the HALT/ask]
+**Question**: [what the skill needs from the user, verbatim where possible]
+**Options**: [choices the skill offers, or the realistic answers]
+**Work state**: [files changed (uncommitted); tests run and result; committed: NO]
+**Story status as left**: [story file Status and sprint-status.yaml entry]
+**Resume instruction**: [what the re-dispatch needs, e.g. "re-run dev-story on <path> with the answer"]
+
+```
+
 ## Equipment: Toolbelts
 
 If your task mentions a toolbelt, invoke `equip-toolbelt` with its name before starting.

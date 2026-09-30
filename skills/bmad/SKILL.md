@@ -2,11 +2,12 @@
 name: bmad
 description: >
   Initiate or resume a BMAD sequence. Wraps the real BMAD-METHOD `bmad-*` skills
-  and conducts them through the 8 phases in Vision's voice — every write-capable
-  skill except the Phase 7 build runs in the main loop; the owning Avenger
-  (BlackWidow, Hulk, Captain) then verifies the result read-only, and Thor builds.
-  IronMan holds the design-implementation hard gate.
-allowed-tools: Skill, Agent, Bash, Read, Write, Edit
+  and conducts them through the 8 phases in Vision's voice — every wrapped skill
+  except `bmad-dev-story` runs in the main loop (Phase 7's `bmad-create-story`
+  included); the owning Avenger (BlackWidow, Hulk, Captain) then verifies the
+  result read-only, and Thor builds with `bmad-dev-story`, his HALTs relayed to
+  the user. IronMan holds the design-implementation hard gate.
+allowed-tools: Skill, Agent, Bash, Read, Write, Edit, WebSearch, WebFetch
 argument-hint: "[sequence-name] [resume]"
 ---
 
@@ -19,14 +20,18 @@ map — not a subagent (a subagent runs blind and cannot elicit from the user, s
 every interactive phase must run in this main loop).
 
 **IronMan's job here:** run the sequence, speak in Vision's voice at each phase
-boundary, dispatch the owning Avenger to verify (or, in Phase 7, build), and hold
-the design-implementation hard gate (Phase 5 → 6).
+boundary, dispatch the owning Avenger to verify (or, in Phase 7, dispatch Thor
+to run `bmad-dev-story` and relay his Blocked reports to the user), and hold the
+design-implementation hard gate (Phase 5 → 6).
 
 **Why the main loop:** the wrapped skills write artifacts step by step, halt for
 user input, and (`bmad-code-review`) spawn their own subagents. BlackWidow, Hulk
 and Captain are read-only subagents with no Write, Edit or Agent tools, so they
-cannot run these skills. They verify instead. The main loop may read broadly and
-write BMAD artifacts while running a wrapped skill, but never modifies source
+cannot run these skills. They verify instead. `bmad-dev-story` changes source
+code, so Thor runs it, and each stop that needs a human comes back as a Blocked
+report. The main loop may read broadly and write BMAD artifacts while running a
+wrapped skill and in the relay steps around it (the Phase 7 epic-status write,
+Blocked resets, Phase 8 reconciliation and close-out), but never modifies source
 code — code changes always go to Thor.
 
 ## Ownership Map — phase → real skill → owner → mode
@@ -41,20 +46,22 @@ code — code changes always go to Thor.
 | 5 Readiness | `bmad-check-implementation-readiness` | main loop; `Agent(avengers-dev:hulk)` verifies | interactive + read-only verify |
 | — | **DESIGN-IMPLEMENTATION BOUNDARY** | IronMan | **hard gate** |
 | 6 Sprint plan | `bmad-sprint-planning` | IronMan (Vision voice), main loop | light / interactive |
-| 7 Build (per story) | `bmad-create-story` → `bmad-dev-story` | `Agent(avengers-dev:thor)` per story | autonomous subagent |
+| 7 Build (per story) | `bmad-create-story` → `bmad-dev-story` | main loop runs `bmad-create-story`; `Agent(avengers-dev:thor)` runs `bmad-dev-story` per story | interactive + build (HALTs relayed) |
 | 8 Review | `bmad-code-review` + `bmad-retrospective` | main loop; Thor fixes, `Agent(avengers-dev:captain)` reviews, `Agent(avengers-dev:blackwidow)` verifies, main loop closes out | interactive + read-only verify |
 
-<!-- SEAM: Every wrapped skill above except Phase 7 runs in the main loop because
-     it elicits from the user and writes artifacts, and the read-only owners
-     cannot do either. If those skills later gain a batch mode, a phase could move
-     to a write-capable subagent. Do not move it to a read-only agent, and do not
-     move it while the skill still asks the user questions. -->
+<!-- SEAM: Every wrapped skill above except bmad-dev-story runs in the main loop
+     because it elicits from the user and writes artifacts, and the read-only
+     owners cannot do either. bmad-dev-story runs in Thor because it changes
+     source code; its HALTs return as a Blocked report that the main loop relays.
+     If those skills later gain a batch mode, a phase could move to a
+     write-capable subagent. Do not move it to a read-only agent, and do not move
+     it while the skill still asks the user questions. -->
 
 ## Steps
 
 > **Prompting (avoid "Invalid tool parameters"):** every user-facing question in
-> this skill — the sequence name, the resume choice, and the Phase 5→6 [1]/[2]
-> gate — is a **plain conversational question**. Ask it directly in the chat in
+> this skill — the sequence name, the resume choice, the Phase 5→6 [1]/[2]
+> gate, and each Blocked relay (answer or suspend) — is a **plain conversational question**. Ask it directly in the chat in
 > Vision's voice and wait for the user's reply. Do **NOT** use a structured
 > question/elicitation tool for these prompts; a plain text question has no schema
 > to malform.
@@ -116,7 +123,9 @@ catchphrase (see `agents/vision.md`), then execute the phase per its **mode**:
   `§2.8`) and dispatch the owning Avenger read-only to verify them. Pass real
   file paths, never globs or unresolved `{placeholders}`. Relay the result in that
   agent's voice ("BlackWidow reports…", "Hulk says…", "Captain's verdict…").
-- **Build (7)** — dispatch `Agent(avengers-dev:thor)` per story (unchanged).
+- **Build (7)** — run `Skill(bmad-create-story)` in this main loop, then
+  dispatch `Agent(avengers-dev:thor)` to run `bmad-dev-story`, per story; relay
+  each Blocked report to the user (relay-config `§3.8`).
 
 Phase-by-phase:
 
@@ -139,15 +148,38 @@ Phase-by-phase:
    it assessed, for an independent verdict: READY / READY-WITH-CONCERNS / NOT-READY.
 7. **HARD GATE** — see step 4 below. Do not enter Phase 6 without it.
 8. **Phase 6 — Sprint Planning.** `Skill(bmad-sprint-planning)` in the main loop.
-9. **Phase 7 — Build.** For each story in the sprint plan, dispatch
-   `Agent(avengers-dev:thor)` to run `bmad-create-story` then `bmad-dev-story`
-   for that story autonomously (implement + tests + commit), reporting back.
-   Record SHAs from git HEAD, never from Thor's report (relay-config `§2.9`):
-   run `git rev-parse HEAD` just before each dispatch (`pre_sha`) and just after
-   each report (`post_sha`). The story's `baseline_commit` is the `pre_sha` of
-   its first dev-story dispatch, cross-checked against the story frontmatter;
-   `phase7_end_sha` is the `post_sha` of the dispatch that reports done. Run the
-   `§2.9` checks, then write both to `loop_state.stories[<story_key>]`.
+9. **Phase 7 — Build.** For each story, in `development_status` order (full
+   detail in relay-config `§3.8`):
+   1. **Create (main loop).** Skip if the story is already past `backlog`.
+      Check the epic's `sprint-status.yaml` entry: `backlog` or `contexted` →
+      set it to `in-progress`; `done` → stop and ask the user; any other status
+      except `in-progress` → stop. Run `Skill(bmad-create-story)` with the full
+      `development_status` key (e.g. `1-2-user-auth`). The user answers its
+      menus; this main loop does its web research. Afterwards, check that the
+      story file and its `sprint-status.yaml` entry are both `ready-for-dev`;
+      stop if not.
+   2. **Record `pre_sha`** (`git rev-parse HEAD`) and resolve the story file
+      path.
+   3. **Build (Thor).** Dispatch `Agent(avengers-dev:thor)` to run
+      `bmad-dev-story` on the explicit story file path (implement + tests +
+      commit). Instruct him: at any dev-story HALT or ask point, do not guess or
+      work around it — stop without committing and return a Blocked report; the
+      step-10 completion prompts are not stops.
+   4. **Blocked.** Record `blocked` in `loop_state.stories[<story_key>]`, show
+      the user the HALT point, question, options and work state, and ask:
+      answer or suspend. On an answer: for a step-9 gate HALT, append an
+      unchecked `- [ ] [Gate] Fix <failure>: <user answer>` subtask to
+      `## Tasks / Subtasks` ("File List is incomplete" excepted: Thor fixes the
+      File List directly); if dev-story already set `review`, reset the story
+      file and `sprint-status.yaml` entry to `in-progress`. Clear `blocked`,
+      record a new `pre_sha`, and re-dispatch Thor with the answer. No cap; real
+      agent failures retry up to 2 times, then escalate.
+   5. **Done.** Record `post_sha` (never the SHA from Thor's report) and run the
+      `§2.9` checks. The story's `baseline_commit` is the `pre_sha` of its first
+      dev-story dispatch, cross-checked against the story frontmatter;
+      `phase7_end_sha` is this `post_sha`. Write both to
+      `loop_state.stories[<story_key>]` and update `completed`, `in_progress`
+      and `remaining`.
 10. **Phase 8 — Review.** On entry, write `phase8_start_sha` (`git rev-parse
     HEAD`) to `loop_state` once. Then per story, in this order (full detail in
     `references/bmad/phase-8-review.md`). The story's review ranges are
@@ -178,9 +210,12 @@ Phase-by-phase:
        the `[Review][Patch]` items named one by one (the skill's review-continuation
        check looks for the older "Senior Developer Review (AI)" section). Thor runs
        `bmad-dev-story` on that path, resolves the items, runs tests and commits.
-       Record `pre_sha` before the dispatch and `post_sha` after the report, run
-       the `§2.9` checks, and append the fix range
-       `<first pre_sha>..<done post_sha>` to `phase8_fix_ranges`.
+       The dispatch carries the Phase 7 stop instruction; a Blocked report is
+       handled as in Phase 7 step 4 (relay, `[Gate]` subtask, `in-progress`
+       reset, re-dispatch), and Blocked re-dispatches do not count toward
+       `review_cycles`. Record `pre_sha` before every dispatch and `post_sha`
+       after every report; on the done report run the `§2.9` checks and append
+       the fix range `<first pre_sha>..<done post_sha>` to `phase8_fix_ranges`.
     4. **Review (Captain).** Dispatch `Agent(avengers-dev:captain)` with the
        story file path, the concrete range `<baseline_commit>..<phase7_end_sha>`
        and each range in `phase8_fix_ranges`, each reviewed with
@@ -235,6 +270,7 @@ set `status: suspended` and stop.
 At each main-loop phase completion, surface the boundary confirmation
 (`§3.5`) in Vision's voice and wait for the user before advancing. For phases
 with a verifying Avenger (1a, 5, 8) and the Phase 7 build, IronMan relays the
-Avenger's result, then advances.
+Avenger's result, then advances. A Thor Blocked report is relayed to the user as
+a question and never advanced past.
 
 State file lives at `.avengers/relay-sequences/bmad-{name}.yaml` throughout.

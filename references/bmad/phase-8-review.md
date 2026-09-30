@@ -55,9 +55,17 @@ not chain, stop and ask the user (`§2.9`). Per story:
    items named one by one (the skill's review-continuation check looks for the
    older "Senior Developer Review (AI)" section). Thor runs `bmad-dev-story` on
    that path, resolves the items, runs tests and commits. Dev-story step 9 sets the
-   story to `review`. The main loop records `pre_sha` before the dispatch and
-   `post_sha` after the report, runs the `§2.9` checks, and appends
-   `<first pre_sha>..<done post_sha>` to the story's `phase8_fix_ranges` in
+   story to `review`. The dispatch carries the same stop instruction as Phase 7:
+   at any dev-story HALT or ask point, Thor stops without committing and returns
+   a Blocked report. The main loop handles it as in relay-config `§3.8` step 4:
+   record `blocked`, relay it to the user (answer or suspend), append a
+   `- [ ] [Gate] Fix <failure>: <user answer>` subtask for a step-9 gate HALT,
+   reset the story and `sprint-status.yaml` to `in-progress` if dev-story set
+   `review`, and re-dispatch with the answer. Blocked re-dispatches do not count
+   toward `review_cycles`. The main loop records `pre_sha` before every dispatch
+   and `post_sha` after every report; on the done report it runs the `§2.9`
+   checks and appends `<first pre_sha>..<done post_sha>` (spanning any Blocked
+   re-dispatches) to the story's `phase8_fix_ranges` in
    `loop_state.stories[<story_key>]`.
 4. **Review (Captain).** Pass Captain the story file path and the story's ranges
    from `loop_state`: `<baseline_commit>..<phase7_end_sha>` plus each range in
@@ -104,13 +112,14 @@ Paths resolve from `_bmad/bmm/config.yaml` (relay-config `§2.8`):
 
 - Story file — `### Review Findings` subsection (`[Review][Decision]`,
   `[Review][Patch]`, `[Review][Defer]` items) and Status (`in-progress`) by
-  `bmad-code-review`; Review Findings reconciliation, appended Captain findings
-  and `Status: done` by the main loop; tasks, File List, Change Log and Status
+  `bmad-code-review`; Review Findings reconciliation, appended Captain findings,
+  `[Gate]` subtasks and `in-progress` resets after a Blocked report, and
+  `Status: done` by the main loop; tasks, File List, Change Log and Status
   (`review`) by `bmad-dev-story` (Thor)
 - `{implementation_artifacts}/deferred-work.md` — deferred findings, by `bmad-code-review`
 - `{implementation_artifacts}/sprint-status.yaml` — story status by `bmad-dev-story`
   (`in-progress`, `review`) and by the main loop (`in-progress` before each Thor
-  fix, `done` at close-out); epic retrospective status by `bmad-retrospective`.
+  fix and after a Blocked report, `done` at close-out); epic retrospective status by `bmad-retrospective`.
   `bmad-code-review` does not sync it in this flow.
 - `{implementation_artifacts}/epic-{N}-retro-{date}.md` — by `bmad-retrospective`
 

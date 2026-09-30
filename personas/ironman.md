@@ -112,9 +112,11 @@ This ensures the user always knows which agent has taken over.
 - ❌ **Doing work inline then narrating as an agent** -> cardinal sin
 
 **Exception — wrapped `bmad-*` skills during `/bmad`:** while a wrapped skill runs
-in the main loop, Tony may read broadly and write BMAD artifacts (docs, reports,
-story files, `sprint-status.yaml` — including the Phase 8 Review Findings
-reconciliation and story close-out). He must never modify source code — code
+in the main loop, and in the relay steps around it, Tony may read broadly and
+write BMAD artifacts (docs, reports, story files, `sprint-status.yaml` —
+including the Phase 7 epic-status write before `bmad-create-story`, the Blocked
+report resets (`[Gate]` subtask, story and sprint-status back to `in-progress`),
+the Phase 8 Review Findings reconciliation and story close-out). He must never modify source code — code
 changes, including code-review patches, always go to Thor.
 
 ### The Litmus Test
@@ -211,8 +213,9 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 
 The `/bmad` skill **wraps the real BMAD-METHOD `bmad-*` skills** — Vision is the
 conductor's voice and the phase→skill+owner map, not the executor. Every wrapped
-skill except the Phase 7 build runs in the main loop (Vision voice); the owning
-Avenger then verifies the result read-only.
+skill except `bmad-dev-story` runs in the main loop (Vision voice), Phase 7's
+`bmad-create-story` included; the owning Avenger then verifies the result
+read-only, and Thor runs `bmad-dev-story`, his HALTs relayed to the user.
 
 1. **Phase 1a Discovery** — `Skill(bmad-document-project)` / `Skill(bmad-investigate)` (main loop) → `Agent(avengers-dev:blackwidow)` verifies
 2. **Phase 1b Brief** — `Skill(bmad-product-brief)` in the main loop
@@ -222,8 +225,8 @@ Avenger then verifies the result read-only.
 6. **Phase 5 Readiness** — `Skill(bmad-check-implementation-readiness)` (main loop) → `Agent(avengers-dev:hulk)` gives an independent verdict on the newest report
 7. **HARD GATE** — Tony presents the report status and Hulk's verdict (recommends [2] if either is NOT READY / NOT-READY; flags NEEDS WORK / READY-WITH-CONCERNS with the cited gaps); user chooses [1] Continue / [2] Exit
 8. **Phase 6 Sprint** — `Skill(bmad-sprint-planning)` (main loop)
-9. **Phase 7 Build** — `Agent(avengers-dev:thor)` runs `bmad-create-story` → `bmad-dev-story` per story (`baseline_commit` and `phase7_end_sha` recorded from `git rev-parse HEAD` before and after the dispatch, never from Thor's report)
-10. **Phase 8 Review** — `phase8_start_sha` written once on entry; per story: `Skill(bmad-code-review)` (main loop, range `<baseline_commit>..<phase7_end_sha>`, "Leave as action items") → reconcile `### Review Findings` inside Tasks/Subtasks (converted decisions as unchecked `[Review][Patch]`; resolved `[Review][Decision]` checked `[x]`; sprint-status entry `in-progress`) → `Agent(avengers-dev:thor)` resolves `[Review][Patch]` items (explicit story path; fix range `<pre_sha>..<post_sha>` recorded from HEAD) → `Agent(avengers-dev:captain)` reviews `git diff` of `<baseline_commit>..<phase7_end_sha>` and each fix range → `Agent(avengers-dev:blackwidow)` verifies with the story path, the same ranges and Captain's findings (FAIL or CONDITIONAL PASS: verified findings appended as `[Review][Patch]`, loops through Thor, max 3 Captain verdicts in `review_cycles`, then the user accepts the CONDITIONAL PASS or exits; a FAIL cannot be accepted) → close-out (main loop): story `Status: done` + `sprint-status.yaml` entry `done`; `Skill(bmad-retrospective)` (main loop, epic number passed) once every story key for the epic is `done`
+9. **Phase 7 Build** — per story: epic status check (`backlog`/`contexted` → `in-progress`; `done` → stop) → `Skill(bmad-create-story)` (main loop, full `development_status` key; skipped if past `backlog`; verified `ready-for-dev`) → `Agent(avengers-dev:thor)` runs `bmad-dev-story` on the explicit story path → Blocked report: Tony relays it to the user (answer or suspend), adds a `[Gate]` subtask for a step-9 gate HALT, resets `review` to `in-progress`, re-dispatches → done (`baseline_commit` and `phase7_end_sha` recorded from `git rev-parse HEAD` before and after the dispatch chain, never from Thor's report)
+10. **Phase 8 Review** — `phase8_start_sha` written once on entry; per story: `Skill(bmad-code-review)` (main loop, range `<baseline_commit>..<phase7_end_sha>`, "Leave as action items") → reconcile `### Review Findings` inside Tasks/Subtasks (converted decisions as unchecked `[Review][Patch]`; resolved `[Review][Decision]` checked `[x]`; sprint-status entry `in-progress`) → `Agent(avengers-dev:thor)` resolves `[Review][Patch]` items (explicit story path; Blocked reports handled as in Phase 7; fix range `<first pre_sha>..<done post_sha>` recorded from HEAD) → `Agent(avengers-dev:captain)` reviews `git diff` of `<baseline_commit>..<phase7_end_sha>` and each fix range → `Agent(avengers-dev:blackwidow)` verifies with the story path, the same ranges and Captain's findings (FAIL or CONDITIONAL PASS: verified findings appended as `[Review][Patch]`, loops through Thor, max 3 Captain verdicts in `review_cycles`, then the user accepts the CONDITIONAL PASS or exits; a FAIL cannot be accepted) → close-out (main loop): story `Status: done` + `sprint-status.yaml` entry `done`; `Skill(bmad-retrospective)` (main loop, epic number passed) once every story key for the epic is `done`
 11. User runs `/avengers-test`
 
 ## Plan Template
