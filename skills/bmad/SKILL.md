@@ -111,13 +111,17 @@ Look for state files matching `.avengers/relay-sequences/bmad-*.yaml`. If one
 matching the name exists, ask (in Vision's voice):
 "A BMAD sequence named '{name}' already exists. Resume it?"
 
-On resume: read `.avengers/relay-sequences/bmad-{name}.yaml`, apply the
-**resume defaults** for older state files (relay-config §3.2):
+On resume: read `.avengers/relay-sequences/bmad-{name}.yaml`. If it is
+a **legacy state file** — one with no `track` key (written before tracks and Phases 0/4.5/9 existed), apply the **resume defaults** (relay-config §3.2):
 
-- missing `track` → `standard`
-- missing `kb_base_commit` → Phase 9 uses the commit in `.avengers/kb.json`, or is
-  skipped with a note if there is none
-- a sequence already at `8` or `complete` is never routed into Phase 9
+- treat `track` as `standard`
+- if it is at `8` or `complete`, finish as before — it is **not** routed into
+  Phase 9
+- otherwise it continues through Phase 9 at the end; with no `kb_base_commit`,
+  Phase 9 uses the commit in `.avengers/kb.json`, or is skipped with a note if
+  there is none
+
+State files that have a `track` key follow the normal flow, including Phase 9.
 
 then announce
 > 🔴 Vision — online. "Resuming BMAD '{name}' ({track}) at Phase {N}: {phase-name}."
@@ -148,13 +152,19 @@ Phase-by-phase (standard and full tracks; quick track is Step 6):
    - `missing` → run Phase 1a.
    - `stale` → show the `signals` and offer a refresh; run 1a only if the user accepts.
    - `unstamped` → the KB exists but its age is unknown; offer a refresh as for
-     `stale`. If declined, run `bmad-kb.py stamp` so later runs can measure drift,
-     and skip 1a.
+     `stale`. If declined, run `bmad-kb.py stamp` (git repos only) so later runs
+     can measure drift, and skip 1a.
    - `fresh` or `unknown` → skip 1a (note `unknown` = not a git repo).
+   - A `signals` entry of type `unknown_stamp` means the stamped commit is no
+     longer in history (e.g. rebased away); treat it as `stale`.
+
+   **Not a git repo** (`head` is null): never run `bmad-kb.py stamp` — it would
+   exit 1. Freshness cannot be tracked; note it in the state file.
 2. **Phase 1a — Discovery (main loop).** `Skill(bmad-document-project)` —
    `initial_scan` when missing, `full_rescan` when refreshing a stale KB — then
-   `Skill(bmad-generate-project-context)`, then `bmad-kb.py stamp` (exit 0 stamped;
-   exit 2 already stamped at HEAD, fine; exit 1 error, report it). Greenfield with
+   `Skill(bmad-generate-project-context)`, then — git repos only — `bmad-kb.py
+   stamp` (exit 0 stamped; exit 2 already stamped at HEAD, fine; exit 1 error,
+   report it). Greenfield with
    no code: skip 1a and note it in the state file.
 3. **Phase 1b — Brief.** `Skill(bmad-product-brief)`.
 4. **Phase 2 — PRD.** `Skill(bmad-prd)` in create mode (it runs its own reviewer
@@ -230,7 +240,17 @@ No auto-advance, no batch-through.
    Captain's `bmad-code-review`.
 3. Dispatch `Agent(avengers-dev:captain)` to review the resulting diff — a project
    rule: every code change gets Captain's review.
-4. Phase 9 as in Step 5.
+4. **Fix loop.** On FAIL, or CONDITIONAL PASS with any `[CRITICAL]`, fix the
+   flagged items — dispatch `Agent(avengers-dev:thor)`, or re-run
+   `Skill(bmad-quick-dev)` in the main loop when the fix needs user input — then
+   dispatch Captain to re-review. Max 3 review cycles, then escalate to the user.
+   Advance only on PASS, or CONDITIONAL PASS with no `[CRITICAL]`.
+5. **Commit before Phase 9.** `bmad-quick-dev` commits its own work when the
+   project is a git repo, but not in every case. Phase 9 measures committed
+   history only, so confirm the quick-dev work (and any review fixes) is
+   committed; if anything is left uncommitted, dispatch `Agent(avengers-dev:thor)`
+   to commit it with a conventional message.
+6. Phase 9 as in Step 5.
 
 ### 7. Phase Boundary Handling
 

@@ -46,6 +46,12 @@ MIGRATION_DIRS = {"migrations", "migrate"}
 BREAKING_SUBJECT = re.compile(r"^[A-Za-z]+(\([^)]*\))?!:")
 BREAKING_BODY = re.compile(r"BREAKING[ -]CHANGE")
 
+
+
+class KBError(Exception):
+    """Unrecoverable error; main() prints it to stderr and exits 1."""
+
+
 INSTALL_HINT = "BMAD-METHOD is not installed here. Run `npx bmad-method install` in the project root."
 TEA_HINT = "Full track needs the TEA module (_bmad/tea/). Run `npx bmad-method install` and add TEA."
 
@@ -146,6 +152,13 @@ def git_commit_exists(project_dir: Path, sha: str) -> str | None:
     return proc.stdout.strip()
 
 
+def _nul_split(proc: subprocess.CompletedProcess | None) -> list[str]:
+    """Split -z output (NUL-separated, unquoted paths) into a list."""
+    if proc is None or proc.returncode != 0:
+        return []
+    return [entry for entry in proc.stdout.split("\0") if entry]
+
+
 def git_count_since(project_dir: Path, base: str) -> int:
     proc = run_git(project_dir, "rev-list", "--count", f"{base}..HEAD")
     if proc is None or proc.returncode != 0:
@@ -188,7 +201,8 @@ def collect_signals(project_dir: Path, base: str, config: dict[str, Path]) -> di
     """
     signals: list[dict[str, str]] = []
 
-    log = run_git(project_dir, "log", "--format=%h%x1f%s%x1f%b%x1e", f"{base}..HEAD")
+    # Path-limited to the project dir so monorepo commits elsewhere are not flagged.
+    log = run_git(project_dir, "log", "--format=%h%x1f%s%x1f%b%x1e", f"{base}..HEAD", "--", ".")
     for record in (log.stdout if log and log.returncode == 0 else "").split("\x1e"):
         fields = record.strip("\n").split("\x1f")
         if len(fields) < 3:
@@ -197,8 +211,9 @@ def collect_signals(project_dir: Path, base: str, config: dict[str, Path]) -> di
         if BREAKING_SUBJECT.match(subject) or BREAKING_BODY.search(body):
             signals.append({"type": "breaking_change", "detail": f"{short} {subject}"})
 
-    diff = run_git(project_dir, "diff", "--name-only", "--relative", base, "HEAD")
-    all_files = [f for f in (diff.stdout.splitlines() if diff and diff.returncode == 0 else []) if f]
+    # -z: NUL-separated, unquoted paths (non-ASCII names are not octal-escaped).
+    all_files = _nul_split(run_git(project_dir, "diff", "--name-only", "-z", "--relative",
+                                   base, "HEAD"))
 
     output_rel = _rel(config["output_folder"], project_dir).rstrip("/") + "/"
     for path in all_files:
@@ -214,8 +229,7 @@ def collect_signals(project_dir: Path, base: str, config: dict[str, Path]) -> di
         if signal:
             signals.append(signal)
 
-    tree = run_git(project_dir, "ls-tree", "--name-only", base)
-    base_entries = set(tree.stdout.splitlines()) if tree and tree.returncode == 0 else set()
+    base_entries = set(_nul_split(run_git(project_dir, "ls-tree", "--name-only", "-z", base)))
     new_dirs = sorted({
         f.split("/", 1)[0] for f in changed
         if "/" in f and not f.startswith(".") and f.split("/", 1)[0] not in base_entries
@@ -244,7 +258,10 @@ def read_marker(project_dir: Path) -> dict | None:
         return data
     except (ValueError, UnicodeDecodeError) as exc:
         backup = marker.with_name("kb.json.bak")
-        marker.replace(backup)
+        try:
+            marker.replace(backup)
+        except OSError as move_exc:
+            raise KBError(f"malformed {KB_MARKER} and cannot back it up: {move_exc}") from exc
         print(f"WARNING: malformed {KB_MARKER} ({exc}); backed up to {_rel(backup, project_dir)}",
               file=sys.stderr)
         return None
@@ -292,13 +309,13 @@ def cmd_status(project_dir: Path) -> int:
         report["state"] = "unstamped"
     elif head is None:
         report["state"] = "unknown"
-    elif git_commit_exists(project_dir, str(stamped)) is None:
+    elif (resolved := git_commit_exists(project_dir, str(stamped))) is None:
         report["state"] = "stale"
         report["signals"] = [{"type": "unknown_stamp",
                               "detail": f"stamped commit {stamped} not found in history"}]
     else:
-        report["commits_since"] = git_count_since(project_dir, str(stamped))
-        found = collect_signals(project_dir, str(stamped), config)
+        report["commits_since"] = git_count_since(project_dir, resolved)
+        found = collect_signals(project_dir, resolved, config)
         report["signals"] = found["signals"]
         report["state"] = "stale" if found["signals"] else "fresh"
 
@@ -411,13 +428,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: project directory not found: {project_dir}", file=sys.stderr)
         return 1
 
-    if args.command == "preflight":
-        return cmd_preflight(project_dir, args.track)
-    if args.command == "status":
-        return cmd_status(project_dir)
-    if args.command == "impact":
-        return cmd_impact(project_dir, args.base)
-    return cmd_stamp(project_dir, args.dry_run)
+    try:
+        if args.command == "preflight":
+            return cmd_preflight(project_dir, args.track)
+        if args.command == "status":
+            return cmd_status(project_dir)
+        if args.command == "impact":
+            return cmd_impact(project_dir, args.base)
+        return cmd_stamp(project_dir, args.dry_run)
+    except KBError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

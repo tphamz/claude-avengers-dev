@@ -8,6 +8,8 @@
 | 0 KB check | `bmad-kb.py status` | main loop | deterministic script |
 | Build | `bmad-quick-dev` | main loop (Vision voice) | interactive |
 | Review | diff review | `Agent(avengers-dev:captain)` | autonomous subagent |
+| Fix loop | fixes, then re-review (max 3 cycles) | `Agent(avengers-dev:thor)` or main loop, then Captain | as needed |
+| Commit check | commit any uncommitted quick-dev work | `Agent(avengers-dev:thor)` | as needed |
 | 9 KB Refresh | `bmad-kb.py impact` → refresh → `stamp` | main loop | see Phase 9 |
 
 ## What happens
@@ -19,6 +21,13 @@
   `bmad-code-review`.
 - **Captain still reviews the diff** — a project rule: every code change is
   reviewed by Captain.
+- **Fix loop** — on FAIL, or CONDITIONAL PASS with any `[CRITICAL]`, fix the
+  flagged items (Thor, or `bmad-quick-dev` in the main loop when user input is
+  needed) and have Captain re-review. Max 3 cycles, then escalate to the user.
+  Advance only on PASS, or CONDITIONAL PASS with no `[CRITICAL]`.
+- **Commit before Phase 9** — `bmad-quick-dev` commits its own work when the
+  project is a git repo, but not in every case. Phase 9 reads committed history
+  only, so any uncommitted work is committed (by Thor) first.
 - **Phase 9** evaluates whether the change warrants a KB refresh.
 
 There is no Phase 1b–8 and no design-implementation gate on this track.

@@ -22,8 +22,13 @@ prints JSON with a `state`:
 | `missing` | no `index.md` | run Phase 1a (standard/full); note it on quick |
 | `unstamped` | KB present, no marker | offer refresh; if declined, `stamp` and skip 1a |
 | `fresh` | no refresh signals since the stamp | skip 1a |
-| `stale` | an impact signal, or 20+ non-KB files changed | show signals, offer refresh (1a) |
-| `unknown` | not a git repo | skip 1a, note it |
+| `stale` | an impact signal, 20+ non-KB files changed, or `unknown_stamp` | show signals, offer refresh (1a) |
+| `unknown` | not a git repo | skip 1a, note it; never `stamp` |
+
+`unknown_stamp` is a signal meaning the commit recorded in `.avengers/kb.json` is
+no longer in git history (e.g. rebased or squashed away); drift cannot be
+measured, so the KB is reported `stale`. In a non-git project `head` is null and
+`stamp` exits 1 — skip it.
 
 Record `kb_status_at_start` (the state) and `kb_base_commit` (the `head` value) in
 the state file — Phase 9 measures impact from `kb_base_commit`.

@@ -116,13 +116,16 @@ On resume, read the state file first. Surface to user:
 
 Re-enter at `current_phase`, respecting `design_implementation_boundary_passed`.
 
-**Resume defaults for state files written before tracks and Phases 0/4.5/9:**
+**Resume defaults.** A **legacy state file** is one with **no `track` key**
+(written before tracks and Phases 0/4.5/9 existed). For legacy files only:
 
-- Missing `track` → `standard`.
-- Missing `kb_base_commit` → Phase 9 uses the `commit` in `.avengers/kb.json`; if
-  there is none, Phase 9 is skipped with a note.
-- A sequence already at `8` or `complete` is never routed into Phase 9.
+- `track` → `standard`.
+- At `8` or `complete` → finish as before; **not** routed into Phase 9.
+- Otherwise → continue through Phase 9. With no `kb_base_commit`, Phase 9 uses the
+  `commit` in `.avengers/kb.json`; if there is none, Phase 9 is skipped with a note.
 - Missing `gate_override` → `null`.
+
+State files with a `track` key follow the normal flow, including Phase 9.
 
 ### §3.5 Phase Boundary Confirmation
 
@@ -165,7 +168,11 @@ The freshness marker is `.avengers/kb.json`
   signal since the stamp (breaking-change commit, architecture doc under the output
   folder, dependency manifest, migration, API contract, new top-level dir) or 20+
   changed files outside the KB dirs, `output_folder`, `.avengers/`, and `_bmad/`.
-  The user decides.
+  An `unknown_stamp` signal (the stamped commit is no longer in history, e.g.
+  rebased away) also makes the KB `stale`. The user decides.
+- **Not a git repo** — `status` reports `unknown` (or `unstamped` with a null
+  `head`); `stamp` and `impact` exit 1, so they are skipped and freshness is not
+  tracked.
 - **Refresh at the end when the change is important or breaking** — Phase 9 runs
   `impact --base <kb_base_commit>`; if `refresh_recommended`, the user confirms,
   then `deep_dive` per area (3 or fewer `changed_areas`) or `full_rescan`, then

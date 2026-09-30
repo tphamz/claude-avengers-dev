@@ -22,8 +22,12 @@ track's review) advances here instead of setting `complete`.
 5. `stamp`, then set `status: complete`.
 6. No refresh recommended, or the user declines → set `complete` directly.
 
-**Resume defaults:** a missing `kb_base_commit` falls back to the commit in
-`.avengers/kb.json`, or Phase 9 is skipped with a note. A sequence already at `8`
-or `complete` from before this phase existed is never routed into Phase 9.
+**Resume defaults** apply only to a **legacy state file** — one with no `track`
+key. A legacy sequence already at `8` or `complete` is not routed into Phase 9;
+any other legacy sequence reaches Phase 9 and, with no `kb_base_commit`, uses the
+commit in `.avengers/kb.json`, or skips Phase 9 with a note if there is none.
+State files with a `track` key always go through Phase 9.
+
+**Not a git repo:** `impact` exits 1; note it and set `complete` (no `stamp`).
 
 See `references/bmad/relay-config.md` §3.8 for the KB lifecycle.

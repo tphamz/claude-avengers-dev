@@ -8,10 +8,13 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 SCRIPT = Path(__file__).resolve().parents[1] / "skills" / "bmad" / "scripts" / "bmad-kb.py"
 _spec = importlib.util.spec_from_file_location("bmad_kb", SCRIPT)
@@ -20,6 +23,9 @@ _spec.loader.exec_module(bmad_kb)
 
 GIT_IDENTITY = ["-c", "user.email=t@t", "-c", "user.name=t", "-c", "commit.gpgsign=false"]
 
+# Isolate every git call (tests and the script under test) from user/system config.
+GIT_ENV = {"GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
+
 BMM_CONFIG = 'project_knowledge: "{project-root}/docs"\noutput_folder: _bmad-output\n'
 
 
@@ -27,6 +33,9 @@ class ProjectCase(unittest.TestCase):
     """Base case: a temp project dir with helpers for files, git, and running the CLI."""
 
     def setUp(self) -> None:
+        env_patch = mock.patch.dict(os.environ, GIT_ENV)
+        env_patch.start()
+        self.addCleanup(env_patch.stop)
         self._tmp = tempfile.TemporaryDirectory()
         self.root = Path(self._tmp.name).resolve()
 
@@ -212,6 +221,47 @@ class StatusTests(ProjectCase):
         self.commit("docs: regenerate", files)
         self.assertEqual(self.status()["state"], "fresh")
 
+    def test_rebased_away_stamp_is_stale(self) -> None:
+        self.stamped_repo()
+        self.write(".avengers/kb.json", json.dumps({"commit": "f" * 40}))
+        report = self.status()
+        self.assertEqual(report["state"], "stale")
+        self.assertEqual([s["type"] for s in report["signals"]], ["unknown_stamp"])
+
+    def test_avengers_and_bmad_changes_are_excluded(self) -> None:
+        self.stamped_repo()
+        files = {f".avengers/relay-sequences/bmad-{i}.yaml": "s\n" for i in range(12)}
+        files.update({f"_bmad/bmm/agents/a_{i}.md": "a\n" for i in range(12)})
+        files["_bmad/bmm/package.json"] = "{}\n"
+        files["_bmad/migrations/0001.sql"] = "x\n"
+        self.commit("chore: bmad update", files)
+        self.assertEqual(self.status()["state"], "fresh")
+
+    def test_non_ascii_kb_dir_is_excluded(self) -> None:
+        self.init_repo()
+        self.install_bmad('project_knowledge: "{project-root}/dócs"\noutput_folder: _bmad-output\n')
+        self.write("dócs/index.md", "# index\n")
+        self.commit("chore: init")
+        self.assertEqual(self.run_cli("stamp")[0], 0)
+        self.commit("docs: regen", {f"dócs/api_{i}.proto": "p\n" for i in range(25)})
+        self.assertEqual(self.status()["state"], "fresh")
+
+    @unittest.skipIf(hasattr(os, "geteuid") and os.geteuid() == 0, "root ignores dir perms")
+    def test_malformed_marker_backup_failure_is_error(self) -> None:
+        self.init_repo()
+        self.install_bmad()
+        self.make_kb()
+        self.commit("chore: init")
+        self.write(".avengers/kb.json", "{not json")
+        avengers = self.root / ".avengers"
+        avengers.chmod(0o500)
+        try:
+            code, _, err = self.run_cli("status")
+        finally:
+            avengers.chmod(0o700)
+        self.assertEqual(code, 1)
+        self.assertIn("cannot back it up", err)
+
     def test_non_git_is_unknown(self) -> None:
         self.install_bmad()
         self.make_kb()
@@ -283,6 +333,17 @@ class ImpactTests(ProjectCase):
         self.assertIn({"type": "new_top_level_dir", "detail": "worker/"}, report["signals"])
         self.assertEqual(report["changed_areas"], ["worker"])
 
+    def test_non_ascii_paths_are_unquoted(self) -> None:
+        self.base = self.commit("docs: add dir", {"dócs/readme.md": "r\n"})
+        self.commit("feat: contract", {"dócs/api.proto": "syntax\n"})
+        report = self.impact()
+        self.assertEqual(report["signals"], [{"type": "api_contract", "detail": "dócs/api.proto"}])
+        self.assertEqual(report["changed_areas"], ["dócs"])
+
+    def test_non_ascii_new_top_level_dir(self) -> None:
+        self.commit("feat: new area", {"módulo/main.py": "run\n"})
+        self.assertIn({"type": "new_top_level_dir", "detail": "módulo/"}, self.impact()["signals"])
+
     def test_plain_fix_not_recommended(self) -> None:
         self.commit("fix: off by one", {"src/app.py": "fixed\n"})
         report = self.impact()
@@ -299,6 +360,26 @@ class ImpactTests(ProjectCase):
         code, _, err = self.run_cli("impact", "--base", "deadbeefdeadbeef")
         self.assertEqual(code, 1)
         self.assertIn("unknown commit", err)
+
+
+class MonorepoTests(ProjectCase):
+    """The project dir is a subdirectory of the git repo."""
+
+    def test_breaking_commit_outside_project_dir_is_ignored(self) -> None:
+        self.init_repo()
+        project = self.root / "apps" / "web"
+        self.write("apps/web/_bmad/bmm/config.yaml", BMM_CONFIG)
+        self.write("apps/web/src/app.py", "a\n")
+        base = self.commit("chore: init")
+        self.commit("feat!: other app breaks", {"apps/api/src/main.py": "x\n"})
+        self.commit("fix: web typo", {"apps/web/src/app.py": "b\n"})
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = bmad_kb.main(["impact", "--base", base, "--project-dir", str(project)])
+        self.assertEqual(code, 0)
+        report = json.loads(out.getvalue())
+        self.assertFalse(report["refresh_recommended"])
+        self.assertEqual(report["changed_areas"], ["src"])
 
 
 class StampTests(ProjectCase):
@@ -339,6 +420,8 @@ class StampTests(ProjectCase):
 
     def test_non_git_is_error(self) -> None:
         with tempfile.TemporaryDirectory() as other:
+            # tempdirs are never inside a repo here; the ceiling makes that explicit
+            os.environ["GIT_CEILING_DIRECTORIES"] = str(Path(other).resolve().parent)
             out, err = io.StringIO(), io.StringIO()
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
                 code = bmad_kb.main(["stamp", "--project-dir", other])
@@ -349,7 +432,7 @@ class CliHelpTests(unittest.TestCase):
     def test_help_for_each_subcommand(self) -> None:
         for argv in ([], ["preflight"], ["status"], ["impact"], ["stamp"]):
             with self.subTest(argv=argv):
-                proc = subprocess.run(["python3", str(SCRIPT), *argv, "--help"],
+                proc = subprocess.run([sys.executable, str(SCRIPT), *argv, "--help"],
                                       capture_output=True, text=True, check=False)
                 self.assertEqual(proc.returncode, 0, proc.stderr)
                 self.assertIn("usage", proc.stdout)

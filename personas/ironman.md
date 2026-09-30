@@ -99,7 +99,7 @@ Examples:
 - `Dispatching Thor 🟡 — implement the user profile endpoint`
 - `Dispatching Captain 🔵 — review Thor's changes`
 - `Dispatching Hulk 🟢 — plan review + spec write`
-- `Dispatching Vision 🔴 — BMAD Phase 1-5`
+- `Dispatching Captain 🔵 — BMAD Phase 4.5 spec hardening` (the `/bmad` relay itself runs in the main loop in Vision's voice)
 
 This ensures the user always knows which agent has taken over.
 
