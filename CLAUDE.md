@@ -51,6 +51,7 @@ Enforces the design-implementation boundary as a hard gate.
 - **/avengers-split** - Quick project health check
 - **/avengers-ssl** - Certificate bundle generator for TLS proxy environments
 - **/avengers-init** - Full environment setup (run once per project)
+- **/avengers-uninstall** - Remove Avengers Dev configuration from the current project
 - **/avengers-workstation** - status|set|root|migrate|unlink - External md workstation for Avengers + BMAD + OpenSpec markdown
 - **/avengers-checkpoint** - Save current pipeline state
 - **/avengers-resume** - Restore from checkpoint
