@@ -91,7 +91,16 @@ Every script MUST:
 Every skill change MUST be validated with a debug session before committing.
 
 1. Make changes
-2. Open a test session: `claude --debug --plugin-dir /path/to/avengers-dev`
-3. Run the skill being tested
+2. Build a fixture with `python3 tools/make-debug-fixture.py --dest <dir>` and open
+   a test session: `claude --debug --plugin-dir /path/to/avengers-dev`
+3. Run the skill being tested, following the matching scenarios in the
+   "Debug-session checklist" in `TESTING.md`
 4. Return and run `/debug-session`
 5. Verdict must be CLEAN before committing
+
+### Version Floors
+
+- Python >= 3.9 for every script and test (CI runs 3.9 and 3.12). Use
+  `from __future__ import annotations` for `X | None` annotations.
+- git >= 2.32 for the tests (`GIT_CONFIG_GLOBAL`); the scripts need >= 2.31
+  (`rev-parse --path-format=absolute`).

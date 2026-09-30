@@ -4,7 +4,9 @@ A fake `openspec` executable on PATH (a temp dir) prints canned output per
 subcommand and records its argv and telemetry env. HOME is patched to a temp dir.
 
 The integration test at the end runs the real CLI and is skipped unless OPENSPEC_BIN
-points at an `openspec` binary; it isolates HOME and XDG_CONFIG_HOME itself.
+points at an `openspec` binary; it isolates HOME and XDG_CONFIG_HOME itself. With
+OPENSPEC_REQUIRED=1 (set in CI) it fails instead of skipping when OPENSPEC_BIN is
+missing or not an executable file.
 
 Run: python3 -m unittest discover -s tests -v
 """
@@ -694,15 +696,23 @@ python3 -m unittest tests.test_greet
 """
 
 
-@unittest.skipUnless(os.environ.get("OPENSPEC_BIN"),
+OPENSPEC_REQUIRED = os.environ.get("OPENSPEC_REQUIRED") == "1"
+
+
+@unittest.skipUnless(os.environ.get("OPENSPEC_BIN") or OPENSPEC_REQUIRED,
                      "set OPENSPEC_BIN to a real openspec binary to run the integration test")
 class IntegrationTests(unittest.TestCase):
     """End to end with the real CLI: avengers-sdd schema through a symlinked openspec/."""
 
     def setUp(self) -> None:
-        binary = Path(os.environ["OPENSPEC_BIN"]).expanduser()
+        raw = os.environ.get("OPENSPEC_BIN", "")
+        if not raw:
+            self.fail("OPENSPEC_REQUIRED=1 but OPENSPEC_BIN is not set")
+        binary = Path(raw).expanduser()
         if not binary.is_file():
             self.fail(f"OPENSPEC_BIN={binary} is not a file")
+        if not os.access(binary, os.X_OK):
+            self.fail(f"OPENSPEC_BIN={binary} is not executable")
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.base = Path(self._tmp.name).resolve()
