@@ -58,12 +58,15 @@ after the final fix cycle of Phase 5 and after "Code committed" holds.
 
 Deferral: from the project dir, run
 `git status --porcelain -z --untracked-files=no -- .` (NUL-separated, so names are not
-quoted; `-- .` scopes it to the project; untracked files are ignored). Paths are
-repo-root-relative: strip the `git rev-parse --show-prefix` prefix, then compare to the
-project-relative `.avengers/`, `_bmad/`, `<kb-dir>/` and `<output-dir>/`. If any path is
-outside them, report "KB Sync deferred: uncommitted changes" and stop. If `<kb-dir>` or
-`<output-dir>` is the project root (`.` or empty), do not exclude the root: any tracked
-modification defers.
+quoted; `-- .` scopes it to the project; untracked files are ignored). An `R` or `C`
+entry is followed by a second NUL-separated field (the original path, no status prefix);
+check both paths. Paths are repo-root-relative: strip the `git rev-parse --show-prefix`
+prefix, then compare to the project-relative `.avengers/`, `_bmad/`, `<kb-dir>/` and
+`<output-dir>/`. If any path is outside them, report "KB Sync deferred: uncommitted
+changes" and stop. If `<kb-dir>` or `<output-dir>` is the project root (`.` or empty), do
+not exclude the root: any tracked modification outside `.avengers/` and `_bmad/` defers.
+An absolute `<kb-dir>` or `<output-dir>` (the KB lives outside the project) is never an
+exclusion; the `-- .` scope already drops those paths.
 
 Unknown stamp: if the start `status` reported an `unknown_stamp` signal, skip `impact`.
 Show the signal's `detail` as the reason, ask the user whether to run a `full_rescan`
@@ -103,7 +106,10 @@ Stamp, then commit:
    in one commit, `docs: refresh project KB`. The commit touches only `<kb-dir>`,
    `<output-dir>` and `.avengers/kb.json`; if either dir is the project root, list only
    the generated files (index path, generated docs, `context_path`, `.avengers/kb.json`),
-   never the whole root. Never amend it after stamping. The KB stays
+   never the whole root. If either dir is absolute (outside the project), commit only the
+   project-internal generated files plus `.avengers/kb.json` (if tracked); external KB
+   files are not committed by this phase, so list them in the final report instead. Never
+   amend it after stamping. The KB stays
    fresh because `status` computes signals over stamped..HEAD and excludes those paths.
    The commit is generated documentation, not a code change, so Captain review is not
    required. If Thor's commit fails, report "KB stamped but docs not committed".
