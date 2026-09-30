@@ -1,5 +1,7 @@
 # Avengers Dev
 
+[![tests](https://github.com/tphamz/claude-avengers-dev/actions/workflows/tests.yml/badge.svg)](https://github.com/tphamz/claude-avengers-dev/actions/workflows/tests.yml)
+
 An Avengers-themed agentic workflow plugin for Claude Code. Avengers, assemble!
 
 ## Installation
@@ -206,6 +208,14 @@ All skills are namespaced — invoke as `/avengers-dev:<name>`:
 - **`/avengers-dev:avengers-vibes`** - Avengers-themed spinner verbs
 
 Type `/avengers-dev:` in the prompt to browse the full list.
+
+## Development
+
+Run the tests from the plugin root with `python3 -m unittest discover -s tests -v`
+(Python >= 3.9, git >= 2.32). CI runs the same suite on every pull request; see
+[TESTING.md](TESTING.md) for the CI jobs and the debug-session checklist.
+`tools/` holds dev-only tooling, such as `tools/make-debug-fixture.py` for building
+a debug-session fixture. It is not part of the plugin surface.
 
 ## License
 
