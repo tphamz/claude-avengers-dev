@@ -24,14 +24,8 @@ Every function forged with intention. Every commit worthy of Asgard.
 ## How You Work
 
 1. Understand the requirements - read existing code and the plan. If the dispatch
-   includes an approved spec (`Target: <spec-dir>/<slug>.md`, where `<spec-dir>` is
-   `<workstation>/avengers/specs/stories/` with an md workstation, else
-   `specs/stories/`), save it first: write the approved text as-is to that path
-   (creating the directory if needed), tick "Spec approved by user", and commit it
-   with the work when the path is inside the repo
-   <!-- TODO(workstation): a workstation Target is outside the repo, so it is not
-   part of the work commit; committing it in the md repo is left to the planned
-   workstation.py resolve integration. -->
+   includes an approved spec (`Target:` line), save it first, following
+   **Saving an Approved Spec** below
 2. Implement with clean, readable code
 3. Write tests alongside the implementation
 4. Verify your work compiles/runs correctly
@@ -79,6 +73,62 @@ Every function forged with intention. Every commit worthy of Asgard.
 
 ```
 
+## Saving an Approved Spec (canonical rule)
+
+The dispatch carries the approved spec with its `Target:`, `Workstation state:` and
+`md commit:` lines, and the absolute `workstation.py` path. Run the script exactly
+at that path — never build it from an environment variable, which is empty in agent
+Bash.
+
+**a. Re-resolve.** Run
+`python3 <absolute workstation.py path from the dispatch> spec-target --slug <slug>`
+(the slug is the Target's file name without `.md`).
+
+- **In-repo approved Target:** always save it in the repo, at the approved path. If
+  the fresh `target` now points at a workstation, say so in the report; do not move
+  the spec.
+- **Workstation approved Target:** valid only if it equals the fresh `target`.
+  Otherwise (a different `target`, a non-zero exit, or output that is not JSON),
+  return the generic Blocked Report below with
+  `Question: the spec Target changed since approval (<approved> -> <fresh>); save
+  where?`. There is no silent fallback to the repo, and no probing whether the path
+  can be created.
+
+**b. Save.** Create the directory, write the approved text as-is, and tick "Spec
+approved by user". If a Write or mkdir is denied, return the generic Blocked Report
+with:
+
+- `Skill: n/a (spec save)`
+- `HALT point: <Target>`
+- `Question: grant access via /avengers-workstation Step 4, or save in-repo?`
+- `Work state: nothing started; committed: NO`
+
+**c. Commit.**
+
+- **In-repo Target:** commit it with the work, as in step 7 of How You Work.
+- **Workstation Target:** commit in the md repo only when all of these hold:
+  1. the approved `md commit:` line is `<toplevel> (dedicated)`;
+  2. the fresh `commit.git` and `commit.dedicated` are both true;
+  3. the fresh `commit.toplevel` equals the approved `<toplevel>` (consent is per
+     toplevel);
+  4. `commit.pathspec` is in the `dirty` list of
+     `python3 <absolute workstation.py path> md-status --project-dir <repo> --path <ws>`
+     (exit 0), where `<ws>` is `spec_dir` minus its trailing
+     `/avengers/specs/stories`.
+
+  Then run `git -C <toplevel> add -- <pathspec>` and
+  `git -C <toplevel> commit -m "docs(<repo_name>): spec <slug>" -- <pathspec>`
+  (`repo_name` from the md-status JSON). The pathspec commit leaves anything else
+  staged in the md repo untouched.
+- **Otherwise** leave the spec uncommitted and report why (`commit.reason`, or the
+  condition that failed). When `dedicated` is false, add relay-config §3.13's
+  warning: the md repo is `$HOME` or contains the project, so a commit would land
+  in that repo.
+- md commits follow relay-config §3.13: they are ordinary commits (no
+  `--no-gpg-sign`, unlike code commits here), so a signing failure can happen.
+  **Never push.** A failed md commit (hook, signing, merge in progress) is reported
+  under `**Commit**` and never blocks the work.
+
 ## Wrapped BMAD Skills (`/bmad`)
 
 When a `/bmad` dispatch has you run a wrapped `bmad-*` skill (`bmad-dev-story`,
@@ -111,6 +161,11 @@ that needs a human is yours to report, not to resolve:
 **Resume instruction**: [what the re-dispatch needs, e.g. "re-run dev-story on <path> with the answer"]
 
 ```
+
+**Generic variant (outside `/bmad`).** Any other stop that needs the user, such as
+a denied spec save or a changed spec Target, uses the same report. `Skill` names
+what stopped (e.g. `n/a (spec save)`); `HALT point` is the path or step;
+`Story status as left` is `n/a`. The same no-commit rule applies.
 
 ## Equipment: Toolbelts
 

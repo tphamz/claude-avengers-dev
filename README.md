@@ -91,7 +91,9 @@ only if the folder is gone.
   so the committed config is still portable for the team, and every `bmad-*`
   skill follows the link.
 - **What lands there:** BMAD planning and implementation artifacts,
-  `project-context.md`, Hulk specs (`avengers/specs/stories/`), and the KB marker
+  `project-context.md`, Hulk specs (`avengers/specs/stories/`; the Target comes
+  from `workstation.py spec-target`, and Thor commits a spec in the md repo only
+  when it is dedicated and the approved plan says so), and the KB marker
   (`avengers/kb.json`). Per-clone relay state stays in `.avengers/`.
 - **Keys outside the output folder** (usually `project_knowledge: {project-root}/docs`)
   stay in the repo unless you opt in, per key, to re-point them. Re-pointing edits

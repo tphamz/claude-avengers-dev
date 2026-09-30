@@ -90,7 +90,7 @@ are prefixed onto `gh` commands.
 1. **IronMan** -> `Agent(avengers-dev:blackwidow)` to explore
 2. **IronMan** -> plans -> `Agent(avengers-dev:hulk)` to review plan (Hulk returns the spec artifact; he does not write it)
 3. **IronMan** merges amendments into the spec, embeds it in the plan, presents for user approval
-4. **IronMan** -> `Agent(avengers-dev:thor)` to save the approved spec to Hulk's `Target:` path (`<workstation>/avengers/specs/stories/<slug>.md` with an md workstation, else `specs/stories/<slug>.md`), then implement + tests
+4. **IronMan** -> `Agent(avengers-dev:thor)` to save the approved spec to Hulk's `Target:` path (from `workstation.py spec-target`; see `agents/hulk.md` and `agents/thor.md`), then implement + tests
 5. **IronMan** -> `Agent(avengers-dev:captain)` to review
 6. **IronMan** -> `Agent(avengers-dev:blackwidow)` to verify Captain's findings
 7. If issues: Thor fixes -> Captain reviews -> BlackWidow verifies (max 3 cycles)

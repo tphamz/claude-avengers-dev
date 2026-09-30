@@ -18,7 +18,7 @@ example in one central md repo that holds the docs for many code repos. Layout:
 ```
 <md-root>/<repo-name>-mds/      <- BMAD output_folder (_bmad-output) symlinks here
   planning-artifacts/ implementation-artifacts/ project-knowledge/ project-context.md
-  avengers/specs/stories/<slug>.md    (Hulk specs)
+  avengers/specs/stories/<slug>.md    (specs: Hulk drafts, Thor saves)
   avengers/kb.json                    (KB freshness marker)
 ```
 
@@ -176,6 +176,28 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-init/scripts/manage-settings.py li
 ```
 
 Exit 0: write the printed JSON with the Write tool. Exit 2: nothing to remove.
+
+### Spec Target (`spec-target`, used by Hulk and Thor)
+
+```bash
+python3 <absolute plugin root>/skills/avengers-workstation/scripts/workstation.py spec-target --slug <slug>
+```
+
+Read-only; creates nothing. Agents run it with the absolute path Tony passes from
+the `Avengers plugin root:` session line, since the plugin-root variable is empty
+in agent Bash.
+
+Exit 0: JSON `{state, spec_dir, target, commit: {git, toplevel, pathspec,
+dedicated, reason}}`. `spec_dir` is `<workstation>/avengers/specs/stories` (realpath)
+when resolve's `source` is `project` or `registry` and that folder exists, whatever
+the link state; otherwise `<repo>/specs/stories` (`guess`, `in_repo`, `missing`, or
+the folder is gone). `pathspec` is relative to `toplevel` and matches `md-status`
+`dirty` entries exactly. `dedicated` is `null` for an in-repo Target.
+Exit 1: error — the slug does not match `^[a-z0-9][a-z0-9-]{0,79}$`, or the project
+directory is missing. It never exits 2.
+
+The drafting rule is in `agents/hulk.md`; the save and md-commit rule is in
+`agents/thor.md`.
 
 ### 8. Report
 

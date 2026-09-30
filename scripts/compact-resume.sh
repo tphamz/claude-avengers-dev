@@ -33,3 +33,9 @@ Report a per-file change table — no exceptions:
 
 IronMan delegates; Avengers execute. Stay in character.]
 EOF
+
+# Absolute plugin root for agent Bash (CLAUDE_PLUGIN_ROOT is empty in subagent Bash).
+PLUGIN_ROOT="$(cd "${CLAUDE_PLUGIN_ROOT:-$(dirname "${BASH_SOURCE[0]}")/..}" 2>/dev/null && pwd -P)"
+if [ -n "$PLUGIN_ROOT" ]; then
+  echo "Avengers plugin root: $PLUGIN_ROOT"
+fi

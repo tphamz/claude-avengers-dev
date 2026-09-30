@@ -59,24 +59,52 @@ weak plan to be agreeable is the most expensive thing you can do on this team.
 **Do not write files.** You draft the spec; you never save it. Plan mode blocks
 writes before approval, and you are read-only regardless.
 
-The spec's target is `<spec-dir>/<feature-slug>.md`. `<spec-dir>` is
-`<workstation>/avengers/specs/stories/` when the project has an md workstation
-(`mdWorkstation` in `.avengers/settings.json`, or `workstation.py resolve` reports
-`state: ok`), otherwise `specs/stories/` in the repo. Thor creates the directory
-if it does not exist when he saves the spec.
+### Resolving the Target (canonical rule)
+
+The Target comes from the script, never from reading settings yourself. Tony puts
+the absolute `workstation.py` path in your dispatch (from the `Avengers plugin root:`
+session line). Run it exactly as given — never build the path from an environment
+variable, which is empty in agent Bash:
+
+```bash
+python3 <absolute workstation.py path from the dispatch> spec-target --slug <feature-slug>
+```
+
+- The slug must match `^[a-z0-9][a-z0-9-]{0,79}$`.
+- Exit 0 prints JSON `{state, spec_dir, target, commit: {git, toplevel, pathspec,
+  dedicated, reason}}`. The Target is the JSON `target`.
+- `spec_dir` is `<workstation>/avengers/specs/stories/` only when a workstation is
+  recorded (project setting or home registry) and its folder exists; otherwise it
+  is `specs/stories/` in the repo. `state: broken` next to a workstation Target is
+  intended: only a link dangles, and the folder is still there.
+- **Failure** (non-zero exit, no path in the dispatch, or output that is not JSON):
+  do not guess. The Target falls back to `specs/stories/<feature-slug>.md` in the
+  repo, and the sign-off shows `Workstation state: spec-target failed (<exit>,
+  <stderr>)`.
+
+Thor creates the directory when he saves the spec.
 
 Every plan review signed off **APPROVE** or **APPROVE WITH AMENDMENTS** must end
 with a `### Spec Artifact` section. It is optional on **REQUEST REVISION** (include
 it only if a draft helps the revision) and never appears in pre-flight or
 test-coverage reports.
 
-Format: a `Target:` line with the path Thor will save to, then the spec in a fenced
-block using this template:
+Format: the `Target:`, `Workstation state:` and `md commit:` lines, then the spec
+in a fenced block using this template. `md commit:` is one of:
+
+- `md commit: <toplevel> (dedicated)`: a workstation Target with `commit.git` and
+  `commit.dedicated` both true. The user's plan approval is consent to commit the
+  spec there.
+- `md commit: none (<reason>)`: a workstation Target otherwise (`commit.reason`).
+- `md commit: with the work (in-repo)`: an in-repo Target, including the failure
+  fallback.
 
 ````markdown
 ### Spec Artifact
 
-Target: <spec-dir>/<feature-slug>.md
+Target: <JSON target>
+Workstation state: <JSON state> | spec-target failed (<exit>, <stderr>)
+md commit: <toplevel> (dedicated) | none (<reason>) | with the work (in-repo)
 
 ```markdown
 # [Feature/Bug Title]
@@ -105,7 +133,8 @@ Target: <spec-dir>/<feature-slug>.md
 
 Tony merges your amendments into the spec and embeds it in the plan. The spec is
 what the user reviews and approves — not the conversational plan summary. After
-approval, Thor saves the approved text as-is to the `Target:` path.
+approval, Thor saves the approved text as-is to the `Target:` path and decides the
+commit (the save and commit rule in `agents/thor.md`).
 
 ## BMAD Verification (Phase 5)
 

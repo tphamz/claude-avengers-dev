@@ -143,17 +143,25 @@ Before using Read/Grep/Glob/Bash, ask: _"Am I doing this to PLAN, or to DO the w
 1. Quick reconnaissance (1-2 reads, git status)
 2. Dispatch BlackWidow to explore (unless location is known with zero ambiguity)
 3. Break into subtasks
-4. Dispatch Hulk to review the plan - **mandatory**
+4. Dispatch Hulk to review the plan - **mandatory**. Every Hulk and Thor dispatch
+   carries the **absolute** script path
+   `<plugin root>/skills/avengers-workstation/scripts/workstation.py`, where
+   `<plugin root>` comes from the `Avengers plugin root:` session line (printed at
+   startup and after compaction). If that line is missing, say so in the plan and
+   do not guess the path; Hulk then falls back to an in-repo Target.
 5. Consider Hulk's suggestions, amend if needed
-6. Hulk returns a `### Spec Artifact` (target `<spec-dir>/<feature-slug>.md`) -
-   **mandatory before approval**
-   (`<spec-dir>` = `<workstation>/avengers/specs/stories/` with an md workstation, else `specs/stories/`).
-   Tony merges Hulk's amendments into it and embeds it in the plan. Nobody writes
+6. Hulk returns a `### Spec Artifact` - **mandatory before approval** - with the
+   `Target:`, `Workstation state:` and `md commit:` lines from `workstation.py
+   spec-target` (the rule is in `agents/hulk.md`). Tony merges Hulk's amendments
+   into it and embeds it in the plan, with those three lines shown. Nobody writes
    the file yet.
-7. Enter plan mode, present the spec to user for review and approval
-8. Only after approval: dispatch Thor with the approved spec text. Thor's first step
-   is to save it as-is to the target path (ticking "Spec approved by user") and
-   commit it with the work (when the target is inside the repo)
+7. Enter plan mode, present the spec to user for review and approval. Approval is
+   consent to an md-repo commit **only** when the plan shows
+   `md commit: <toplevel> (dedicated)`.
+8. Only after approval: dispatch Thor with the approved spec text, its three lines
+   and the script path. Thor re-resolves, saves the spec as-is (ticking "Spec
+   approved by user") and decides the commit per `agents/thor.md` (Saving an
+   Approved Spec)
 
 ### Step 2: Dispatch in Parallel When Possible
 
@@ -201,9 +209,9 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 
 1. `Agent(avengers-dev:blackwidow)` -> Explore relevant area
 2. Tony plans based on findings
-3. `Agent(avengers-dev:hulk)` -> Review plan + return spec artifact (target `<spec-dir>/<feature-slug>.md`)
+3. `Agent(avengers-dev:hulk)` -> Review plan + return spec artifact (Target from `workstation.py spec-target`)
 4. Tony merges amendments into the spec, embeds it in the plan, presents to user for approval
-5. `Agent(avengers-dev:thor)` -> Save approved spec as-is, implement + tests
+5. `Agent(avengers-dev:thor)` -> Save approved spec as-is (re-resolved; gated md commit), implement + tests
 6. `Agent(avengers-dev:captain)` -> Review
 7. `Agent(avengers-dev:blackwidow)` -> Verify Captain's findings
 8. If issues: Thor fixes -> Captain reviews -> BlackWidow verifies (max 3 cycles)
@@ -212,9 +220,9 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 
 1. `Agent(avengers-dev:blackwidow)` -> Trace the bug, find root cause
 2. Tony plans the fix
-3. `Agent(avengers-dev:hulk)` -> Review plan + return spec artifact (target `<spec-dir>/<bug-slug>.md`)
+3. `Agent(avengers-dev:hulk)` -> Review plan + return spec artifact (Target from `workstation.py spec-target`)
 4. Tony merges amendments into the spec, embeds it in the plan, presents to user for approval
-5. `Agent(avengers-dev:thor)` -> Save approved spec as-is, fix + regression test
+5. `Agent(avengers-dev:thor)` -> Save approved spec as-is (re-resolved; gated md commit), fix + regression test
 6. `Agent(avengers-dev:captain)` -> Review
 7. `Agent(avengers-dev:blackwidow)` -> Verify
 
