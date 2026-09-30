@@ -52,6 +52,7 @@ KB_RULES = Path(".claude") / "rules" / "avengers-kb.md"
 WORKSTATION = (Path(__file__).resolve().parents[2] / "avengers-workstation" / "scripts"
                / "workstation.py")
 OPTIONAL_KEYS = ("planning_artifacts",)
+OPENSPEC_DIR = "openspec"
 STALE_FILE_THRESHOLD = 20
 TRACKS = ("quick", "standard", "full")
 
@@ -179,7 +180,11 @@ def _rel(path: Path, project_dir: Path) -> str:
 
 
 def arch_hashes(config: dict[str, Path]) -> dict[str, str]:
-    """sha256 of *architecture*.md under planning_artifacts and output_folder."""
+    """sha256 of *architecture*.md under planning_artifacts and output_folder.
+
+    <output_folder>/openspec/ is skipped: with an md workstation it holds the OpenSpec
+    changes and specs (workstation.py's openspec link), which are not BMAD architecture.
+    """
     output = config["output_folder"]
     hashes: dict[str, str] = {}
     for key in ("planning_artifacts", "output_folder"):
@@ -187,6 +192,8 @@ def arch_hashes(config: dict[str, Path]) -> dict[str, str]:
         if root is None or not root.is_dir():
             continue
         for path in sorted(root.rglob("*architecture*.md")):
+            if path.is_relative_to(output / OPENSPEC_DIR):
+                continue
             if path.is_file():
                 hashes[_rel(path, output)] = hashlib.sha256(path.read_bytes()).hexdigest()
     return hashes

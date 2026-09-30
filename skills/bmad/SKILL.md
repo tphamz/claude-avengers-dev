@@ -127,8 +127,9 @@ Run it every time — a symlink can dangle and a BMAD reinstall can undo a re-po
 Exit 0: JSON with `state` and `symlink`. Exit 1: report the error and continue
 in-repo.
 
-- `ok` with `symlink: ok` — nothing to ask.
-- `ok` with any other `symlink` — repair silently with `workstation.py set --path <path>`.
+- `ok` with every `symlinks` value `ok` — nothing to ask.
+- `ok` with any other `symlinks` value — repair silently with
+  `workstation.py set --path <path>` (it keeps any link `/sdd` added).
 - `in_repo` — the user keeps markdown in the repo; continue.
 - `guess`, `missing`, or `broken` — run the interactive flow of
   `/avengers-dev:avengers-workstation` (Steps 1–4 of that skill: confirm or ask for

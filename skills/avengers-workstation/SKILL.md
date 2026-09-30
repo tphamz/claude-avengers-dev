@@ -2,8 +2,9 @@
 name: avengers-workstation
 description: >
   Set up or inspect the md workstation — a folder outside the code repo that holds
-  all Avengers + BMAD markdown for it, at <md-root>/<repo-name>-mds/. BMAD's
-  output_folder becomes a symlink to it. Commands: status, set, root, migrate, unlink.
+  all Avengers + BMAD + OpenSpec markdown for it, at <md-root>/<repo-name>-mds/.
+  BMAD's output_folder and (for /sdd) openspec/ become symlinks into it.
+  Commands: status, set, root, migrate, unlink.
 allowed-tools: Bash, Read, Write
 argument-hint: "[status|set <path>|root <md-root>|migrate|unlink]"
 ---
@@ -20,9 +21,19 @@ example in one central md repo that holds the docs for many code repos. Layout:
   planning-artifacts/ implementation-artifacts/ project-knowledge/ project-context.md
   avengers/specs/stories/<slug>.md    (specs: Hulk drafts, Thor saves)
   avengers/kb.json                    (KB freshness marker)
+  openspec/                           <- openspec/ symlinks here (/sdd only)
 ```
 
-- The symlink is ignored through `.git/info/exclude` (per clone), never `.gitignore`.
+- **Managed links.** Each link is a directory symlink in the project, recorded in
+  `.avengers/settings.json` → `mdLinks`:
+
+  | Link | In the project | Target | Managed when |
+  | ---- | -------------- | ------ | ------------ |
+  | `bmad` | BMAD `output_folder` (`_bmad-output`) | the workstation | `_bmad/` exists, `mdLinks` lists it, or no `mdLinks` is recorded yet (older installs) |
+  | `openspec` | `openspec/` | `<workstation>/openspec/` | `set --link openspec` (run by `/sdd`) |
+
+  Without BMAD, `/sdd` wires only the `openspec` link — there is no `_bmad-output`.
+- The symlinks are ignored through `.git/info/exclude` (per clone), never `.gitignore`.
 - `.claude/rules/avengers-kb.md` (also excluded) tells agents where the markdown
   lives. Default `rg`, `grep -r` and `find` do not follow the symlink, so agents
   search by explicit path or with `grep -R` / `find -L`. Once
@@ -52,37 +63,54 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py
 ```
 
 Exit 0: JSON `{state, path, source, root, remote_key, repo_name, suggested_path,
-output_folder, symlink}`.
+output_folder, symlink, symlinks}`. `symlinks` maps each managed link to
+`ok|missing|dangling|mismatch|real_dir`, or `in_repo` for a link the user keeps in
+the repo (`mdLinksInRepo`); `symlink` is the `bmad` link, kept for
+older callers. `resolve --link openspec` also reports the `openspec` link before it
+is managed (`/sdd` uses this).
 Exit 1: error — report it and stop.
 
 With `status` (or no argument), report the JSON in plain words, then act on `state`:
 
 | `state` | Meaning | Action |
 | ------- | ------- | ------ |
-| `ok` | workstation found | if `symlink` is not `ok`, run Step 2 with `path` (repair, no question) |
+| `ok` | workstation found | if any `symlinks` value is not `ok`, run Step 2 with `path` (repair, no question) |
 | `guess` | `<root>/<repo-name>-mds/` exists but is not registered | ask "Use `<path>` as the md workstation for this repo?"; on yes, Step 2 |
 | `missing` | nothing recorded | ask for the md root folder, or "in-repo" to keep markdown in the repo |
-| `broken` | the recorded folder is gone, or the symlink dangles | say so, then ask as for `missing` |
+| `broken` | the recorded folder is gone, or a managed symlink dangles | say so, then ask as for `missing` |
 | `in_repo` | the user chose to keep markdown in the repo | report it; nothing to do |
 
 For `missing`/`broken`: the answer is the md **root**; the workstation path is
 `<root>/<repo_name>-mds` (`set --root <root>` uses it by default). If the user
 answers "in-repo", run `workstation.py set --in-repo` and stop. It removes any
-existing `_bmad-output` symlink, its exclude lines and `avengers-kb.md` (a real
-directory is never touched). Exit 0 recorded; exit 2 already recorded.
+existing managed symlink (`_bmad-output`, `openspec`), its exclude lines,
+`mdLinks` and `avengers-kb.md` (a real directory is never touched). Exit 0
+recorded; exit 2 already recorded.
 
 ### 2. Set (`set <path>`)
 
-If the output folder is a non-empty real directory, go to Step 3 instead.
+If a link folder (the output folder, or `openspec/` with `--link openspec`) is a
+non-empty real directory, go to Step 3 instead.
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py set --path <path> [--root <md-root>] [--dry-run]
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py set --path <path> [--root <md-root>] [--link openspec] [--dry-run]
 ```
 
-Exit 0: wired — JSON lists the actions taken. Exit 2: already set (no-op).
-Exit 1: refused or failed — relay stderr. Common refusals:
+Each link's target is created before the link. Pass `--link openspec` when the
+caller (e.g. `/sdd`) needs `openspec/` managed; it is recorded in `mdLinks`, so a
+later plain `set` keeps it. Re-pointing a link lists its old target in `actions`.
 
-- output folder is a non-empty directory, or tracked in git → Step 3 (`migrate`)
+To keep only `openspec/` in the repo, run `workstation.py set --in-repo --link
+openspec`: it records `mdLinksInRepo: ["openspec"]`, removes an `openspec` symlink
+(never a real directory) and its exclude line, and leaves `mdWorkstation` and the
+`bmad` link alone. Exit 0 recorded; exit 2 already recorded. A later
+`set --link openspec` (without `--in-repo`) wires it into the workstation again.
+
+Exit 0: wired — JSON lists the `links` and the actions taken. Exit 2: already set
+(no-op). Exit 1: refused or failed — relay stderr. Common refusals:
+
+- a link folder is a non-empty directory, or tracked in git → Step 3 (`migrate`,
+  with `--link openspec` for `openspec/`; teams often commit `openspec/`)
 - the folder is already registered to another repo → suggest the `<org>-<repo>-mds`
   name from stderr and ask the user to confirm it
 
@@ -96,8 +124,11 @@ Moves existing in-repo output into the workstation, then wires it as in Step 2.
 Always preview first:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py migrate --path <path> --dry-run
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py migrate --path <path> [--link openspec] --dry-run
 ```
+
+`--link openspec` moves `openspec/` into `<path>/openspec/`; the default is the
+BMAD output folder.
 
 Show the moves and any `.conflict` names (a name clash with different content keeps
 both copies), then ask to proceed. Run again without `--dry-run`.
@@ -162,8 +193,8 @@ skip the revoke below). Then:
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py unlink [--dry-run]
 ```
 
-Removes the symlink, the project setting, `.claude/rules/avengers-kb.md`, and the
-`.git/info/exclude` lines. The exclude file is shared by all worktrees of a clone,
+Removes every managed symlink, the project settings (`mdWorkstation`, `mdLinks`),
+`.claude/rules/avengers-kb.md`, and the `.git/info/exclude` lines. The exclude file is shared by all worktrees of a clone,
 so lines another worktree still uses are kept — JSON `exclude_kept` names them;
 report it. Never touches the workstation contents or `~/.avengers/workstations.json`.
 Exit 0: removed — JSON `kept` is the preserved workstation path; report it. Exit 2:
@@ -206,7 +237,7 @@ md workstation
 ==============
 Repo:       {repo_name} ({remote_key})
 Workstation: {path}
-Symlink:    {output_folder} -> {path}
+Symlinks:   {output_folder} -> {path}; openspec -> {path}/openspec (if managed)
 Granted:    {grant-path}
 Outside keys: {re-pointed / declined / none}
 ```
