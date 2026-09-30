@@ -15,11 +15,21 @@ its own review subagents, so it runs in the main loop. The main loop never
 applies patches — code changes always go to Thor.
 
 Per-story commit tracking lives in the state file's `loop_state.stories`
-(relay-config): `baseline_commit`, the Phase 7 end SHA (`phase7_end_sha`, from
-Thor's Phase 7 report), each Phase 8 fix SHA, and the review cycle count. The
-story's review range is `<baseline_commit>..<phase7_end_sha>` plus each Phase 8
-fix commit. `<baseline_commit>..HEAD` is never used: Phase 7 builds every story
-before Phase 8 starts, so it would include every later story's work. Per story:
+(relay-config): `baseline_commit`, the Phase 7 end SHA (`phase7_end_sha`), each
+Phase 8 fix range (`phase8_fix_ranges`), and the review cycle count
+(`review_cycles`, `§2.10`). The main loop records all of them from
+`git rev-parse HEAD`, never from the SHA in Thor's report (`§2.9`). The story's
+review ranges are `<baseline_commit>..<phase7_end_sha>` plus each range in
+`phase8_fix_ranges`. `<baseline_commit>..HEAD` is never used: Phase 7 builds every
+story before Phase 8 starts, so it would include every later story's work.
+
+**On entry**, before any Phase 8 dispatch, the main loop writes
+`phase8_start_sha` (`git rev-parse HEAD`) to `loop_state` once; a resume keeps
+the recorded value. **Resume fallback:** if `loop_state.stories` has no entry for
+a story, its `baseline_commit` comes from the story frontmatter and its end is the
+next story's `baseline_commit` (`development_status` order); the last story ends
+at `phase8_start_sha`. If the stories are not in build order or the baselines do
+not chain, stop and ask the user (`§2.9`). Per story:
 
 1. **Code review (main loop).** Run `bmad-code-review` with the story file set as
    the spec and the story's explicit range `<baseline_commit>..<phase7_end_sha>`
@@ -45,21 +55,27 @@ before Phase 8 starts, so it would include every later story's work. Per story:
    items named one by one (the skill's review-continuation check looks for the
    older "Senior Developer Review (AI)" section). Thor runs `bmad-dev-story` on
    that path, resolves the items, runs tests and commits. Dev-story step 9 sets the
-   story to `review`. Record the commit SHA from Thor's report in
-   `loop_state.stories[<story_key>]` as a Phase 8 fix SHA.
-4. **Review (Captain).** Pass Captain the story file path and the story's range
-   from `loop_state`: `<baseline_commit>..<phase7_end_sha>` plus each Phase 8 fix
-   SHA (reviewed with `git show <sha>`). If `baseline_commit` is `NO_VCS`, pass
-   the story's File List instead; Captain reviews those files as they stand now.
-   Captain reviews read-only. Verdict: PASS | CONDITIONAL PASS | FAIL.
-5. **Verify (BlackWidow).** BlackWidow checks Captain's findings for false
-   positives.
+   story to `review`. The main loop records `pre_sha` before the dispatch and
+   `post_sha` after the report, runs the `§2.9` checks, and appends
+   `<first pre_sha>..<done post_sha>` to the story's `phase8_fix_ranges` in
+   `loop_state.stories[<story_key>]`.
+4. **Review (Captain).** Pass Captain the story file path and the story's ranges
+   from `loop_state`: `<baseline_commit>..<phase7_end_sha>` plus each range in
+   `phase8_fix_ranges`, each reviewed with `git diff <range>`. If
+   `baseline_commit` is `NO_VCS`, pass the story's File List instead; Captain
+   reviews those files as they stand now. Captain reviews read-only. Verdict:
+   PASS | CONDITIONAL PASS | FAIL. The main loop then increments `review_cycles`
+   and saves the state file (`§2.10`).
+5. **Verify (BlackWidow).** Pass BlackWidow the story file path, the same ranges
+   (or File List) Captain received, and Captain's findings. She checks the
+   findings for false positives.
 6. **Cycle.** A FAIL, or a CONDITIONAL PASS (Warnings), goes back to Thor. First
    the main loop appends the verified Captain and BlackWidow findings to the
    story's `### Review Findings` as unchecked `- [ ] [Review][Patch] ...` bullets
    (dev-story implements only story tasks) and sets the `sprint-status.yaml`
    entry to `in-progress`; then Thor runs as in step 3 → Captain → BlackWidow.
-   The limit is 3 cycles, counted in `loop_state` so it survives a resume. After
+   The limit is 3 cycles, one per Captain verdict, counted in `review_cycles` so
+   it survives a resume. After
    the third, the verdict goes to the user, who either accepts the CONDITIONAL
    PASS or exits (`status: suspended`). A FAIL cannot be accepted.
 7. **Close-out (main loop).** After a PASS (or a user-accepted CONDITIONAL PASS at

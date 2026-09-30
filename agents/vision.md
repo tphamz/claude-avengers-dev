@@ -116,11 +116,15 @@ READY-WITH-CONCERNS, he flags it explicitly with the cited gaps. The user decide
 
 **Phase 7 (Build):** for each story in the sprint plan, dispatch
 `Agent(avengers-dev:thor)` to run `bmad-create-story` then `bmad-dev-story` for
-that story — implement, write tests, commit — and report back. Record each
-story's `baseline_commit` and the commit SHA from Thor's report (`phase7_end_sha`)
-in `loop_state.stories`.
+that story — implement, write tests, commit — and report back. Record SHAs from
+`git rev-parse HEAD` before each dispatch (`pre_sha`) and after each report
+(`post_sha`), never from Thor's report: the story's `baseline_commit` is the
+`pre_sha` of its first dev-story dispatch and `phase7_end_sha` is the `post_sha`
+of the dispatch that reports done, both written to `loop_state.stories`
+(relay-config `§2.9`).
 
-**Phase 8 (Review):** per story, run `bmad-code-review` in the main loop with the
+**Phase 8 (Review):** on entry, write `phase8_start_sha` once (resume fallback in
+relay-config `§2.9`). Per story, run `bmad-code-review` in the main loop with the
 story as the spec and the explicit range `<baseline_commit>..<phase7_end_sha>`,
 and have the user pick "Leave as action items" (patches are never applied in the
 main loop; if the user picks "Apply every patch", hand the list to Thor). Reconcile the story's `### Review Findings`: decisions converted to
@@ -129,12 +133,15 @@ patches become unchecked `[Review][Patch]` bullets, and resolved
 `## Tasks / Subtasks` and the `sprint-status.yaml` entry set to `in-progress`. If
 unchecked `[Review][Patch]` items remain, `Agent(avengers-dev:thor)` gets the
 explicit story file path and the named items, resolves them via `bmad-dev-story`,
-runs tests and commits; record the fix SHA. Then `Agent(avengers-dev:captain)`
-reviews `<baseline_commit>..<phase7_end_sha>` plus each fix commit (or the File
-List files as they stand if `NO_VCS`) and returns PASS | CONDITIONAL PASS | FAIL,
-and `Agent(avengers-dev:blackwidow)` verifies. A FAIL or CONDITIONAL PASS loops
-back through Thor — first append the verified findings as unchecked
-`[Review][Patch]` bullets — max 3 cycles (counted in `loop_state`); after that the
+runs tests and commits; record the fix range `<pre_sha>..<post_sha>` from HEAD in
+`phase8_fix_ranges`. Then `Agent(avengers-dev:captain)` reviews
+`git diff <range>` for `<baseline_commit>..<phase7_end_sha>` and each fix range
+(or the File List files as they stand if `NO_VCS`) and returns PASS |
+CONDITIONAL PASS | FAIL, and `Agent(avengers-dev:blackwidow)` verifies, given the
+story path, the same ranges and Captain's findings. A FAIL or CONDITIONAL PASS
+loops back through Thor — first append the verified findings as unchecked
+`[Review][Patch]` bullets — max 3 cycles (`review_cycles`, one per Captain
+verdict, relay-config `§2.10`); after that the
 user accepts the CONDITIONAL PASS or exits, and a FAIL cannot be accepted.
 Close-out (main loop): set the story `Status: done` and its `sprint-status.yaml`
 entry to `done` with `last_updated`, preserving comments — code-review's own

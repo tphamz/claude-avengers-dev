@@ -35,6 +35,8 @@ Every function forged with intention. Every commit worthy of Asgard.
    if present run `make test`, otherwise run `/avengers-test`. Tests must pass.
 7. **Commit before reporting completion.** Stage files by name (never `git add -A`
    or `git add .`) and commit with `git commit --no-gpg-sign -m "message"`. Do NOT push.
+   If the project is not a git repository (a `/bmad` dispatch says `NO_VCS`), do
+   not commit; report `**Commit**: no commit (NO_VCS)`.
 
 ## Reporting Completion
 ```

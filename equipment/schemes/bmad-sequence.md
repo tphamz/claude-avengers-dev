@@ -50,15 +50,19 @@ Code review (main loop, range `<baseline_commit>..<phase7_end_sha>`, "Leave as
 action items") → reconcile `### Review Findings` inside Tasks/Subtasks (converted
 decisions recorded as unchecked `[Review][Patch]`; resolved `[Review][Decision]`
 checked `[x]`; sprint-status entry `in-progress`) → Thor fixes unchecked
-`[Review][Patch]` items (explicit story path; fix SHA recorded) → Captain reviews
-`<baseline_commit>..<phase7_end_sha>` plus each fix commit → BlackWidow verifies
-→ FAIL or CONDITIONAL PASS: verified findings appended as unchecked
-`[Review][Patch]`, loops to Thor (max 3, then the user accepts the CONDITIONAL
+`[Review][Patch]` items (explicit story path; fix range `<pre_sha>..<post_sha>`
+recorded from HEAD) → Captain reviews `git diff` of
+`<baseline_commit>..<phase7_end_sha>` and each fix range → BlackWidow verifies
+(story path, same ranges, Captain's findings) → FAIL or CONDITIONAL PASS: verified
+findings appended as unchecked `[Review][Patch]`, loops to Thor (max 3 Captain
+verdicts in `review_cycles`, then the user accepts the CONDITIONAL
 PASS or exits; a FAIL cannot be accepted) → close-out (main loop): story
 `Status: done`, `sprint-status.yaml` entry `done` + `last_updated`. Epic N is
 complete when every story key for epic N is `done` in `sprint-status.yaml`; only
 then does `bmad-retrospective` run, with epic N passed explicitly. Per-story SHAs
-and the cycle count live in the state file's `loop_state.stories`. See `references/bmad/phase-8-review.md`.
+and ranges (recorded by the main loop from `git rev-parse HEAD`, never from
+Thor's report), `phase8_start_sha` and the cycle count live in the state file's
+`loop_state` (relay-config `§2.9`, `§2.10`). See `references/bmad/phase-8-review.md`.
 
 ## Completion Criteria
 - [ ] All phases completed (1a → 8)

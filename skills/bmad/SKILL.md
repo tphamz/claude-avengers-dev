@@ -142,14 +142,19 @@ Phase-by-phase:
 9. **Phase 7 — Build.** For each story in the sprint plan, dispatch
    `Agent(avengers-dev:thor)` to run `bmad-create-story` then `bmad-dev-story`
    for that story autonomously (implement + tests + commit), reporting back.
-   After each report, record the story's `baseline_commit` (story frontmatter)
-   and the commit SHA from Thor's report as `phase7_end_sha` in the state file's
-   `loop_state.stories[<story_key>]`.
-10. **Phase 8 — Review.** Per story, in this order (full detail in
-    `references/bmad/phase-8-review.md`). The story's review range is
-    `<baseline_commit>..<phase7_end_sha>` plus each Phase 8 fix commit, from
-    `loop_state.stories[<story_key>]`; never `..HEAD`, which includes later
-    stories.
+   Record SHAs from git HEAD, never from Thor's report (relay-config `§2.9`):
+   run `git rev-parse HEAD` just before each dispatch (`pre_sha`) and just after
+   each report (`post_sha`). The story's `baseline_commit` is the `pre_sha` of
+   its first dev-story dispatch, cross-checked against the story frontmatter;
+   `phase7_end_sha` is the `post_sha` of the dispatch that reports done. Run the
+   `§2.9` checks, then write both to `loop_state.stories[<story_key>]`.
+10. **Phase 8 — Review.** On entry, write `phase8_start_sha` (`git rev-parse
+    HEAD`) to `loop_state` once. Then per story, in this order (full detail in
+    `references/bmad/phase-8-review.md`). The story's review ranges are
+    `<baseline_commit>..<phase7_end_sha>` plus each range in
+    `phase8_fix_ranges`, from `loop_state.stories[<story_key>]`; never `..HEAD`,
+    which includes later stories. If a story has no `loop_state` entry, use the
+    `§2.9` resume fallback.
     1. **Code review (main loop).** Run `Skill(bmad-code-review)` with the story
        file set as the spec and the explicit range
        `<baseline_commit>..<phase7_end_sha>`. Resolve every `decision-needed`
@@ -173,22 +178,26 @@ Phase-by-phase:
        the `[Review][Patch]` items named one by one (the skill's review-continuation
        check looks for the older "Senior Developer Review (AI)" section). Thor runs
        `bmad-dev-story` on that path, resolves the items, runs tests and commits.
-       Record the commit SHA from Thor's report in `phase8_fix_shas`.
+       Record `pre_sha` before the dispatch and `post_sha` after the report, run
+       the `§2.9` checks, and append the fix range
+       `<first pre_sha>..<done post_sha>` to `phase8_fix_ranges`.
     4. **Review (Captain).** Dispatch `Agent(avengers-dev:captain)` with the
        story file path, the concrete range `<baseline_commit>..<phase7_end_sha>`
-       and each Phase 8 fix SHA (reviewed with `git show <sha>`). If
-       `baseline_commit` is `NO_VCS`, pass the story's File List instead; Captain
-       reviews those files as they stand now. Verdict: PASS | CONDITIONAL PASS |
-       FAIL.
-    5. **Verify (BlackWidow).** Dispatch `Agent(avengers-dev:blackwidow)` to verify
-       Captain's findings.
+       and each range in `phase8_fix_ranges`, each reviewed with
+       `git diff <range>`. If `baseline_commit` is `NO_VCS`, pass the story's
+       File List instead; Captain reviews those files as they stand now.
+       Verdict: PASS | CONDITIONAL PASS | FAIL. Increment `review_cycles` and
+       save the state file (relay-config `§2.10`).
+    5. **Verify (BlackWidow).** Dispatch `Agent(avengers-dev:blackwidow)` with
+       the story file path, the same ranges (or File List) Captain received, and
+       Captain's findings, to verify them for false positives.
     6. **Cycle.** A FAIL, or a CONDITIONAL PASS (Warnings), goes back to Thor.
        First append the verified Captain and BlackWidow findings to the story's
        `### Review Findings` as unchecked `- [ ] [Review][Patch] ...` bullets
        (dev-story implements only story tasks) and set the `sprint-status.yaml`
        entry to `in-progress`; then Thor runs as in step 3 → Captain →
-       BlackWidow. The limit is 3 cycles, counted in `review_cycles`. After
-       the third, present the verdict to the user, who either accepts the
+       BlackWidow. The limit is 3 cycles, counted in `review_cycles` (one cycle
+       per Captain verdict). After the third, present the verdict to the user, who either accepts the
        CONDITIONAL PASS or exits (`status: suspended`). A FAIL cannot be accepted.
     7. **Close-out (main loop).** After a PASS (or a user-accepted CONDITIONAL
        PASS at the cycle limit) and BlackWidow's verification, set the story

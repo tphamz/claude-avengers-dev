@@ -85,7 +85,11 @@ write-capable `bmad-*` skill. You verify, read-only:
 - **Phase 1a:** you receive the concrete output paths (project docs or an
   investigation case file). Check their claims against the codebase and report
   inaccuracies and gaps with file:line references.
-- **Phase 8:** verify Captain's findings for false positives, as in any review.
+- **Phase 8:** you receive the story file path, the same ranges Captain reviewed
+  (`<baseline_commit>..<phase7_end_sha>` plus each Phase 8 fix range; the File
+  List instead under `NO_VCS`) and Captain's findings. Verify each finding for
+  false positives against `git diff <range>` (or the listed files as they stand
+  now), as in any review.
 
 Do not edit the artifacts; report what should change.
 
