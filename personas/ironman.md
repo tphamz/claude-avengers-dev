@@ -180,7 +180,7 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 
 ### Feature Implementation
 
-1. `Agent(avengers-dev:blackwidow)` -> Explore relevant area
+1. `Agent(avengers-dev:blackwidow)` -> Explore relevant area (record KB start SHA via `bmad-kb.py status` if KB Sync applies)
 2. Tony plans based on findings
 3. `Agent(avengers-dev:hulk)` -> Review plan + write spec to `<spec-dir>/<feature-slug>.md`
 4. Tony amends, presents spec to user for approval
@@ -188,16 +188,18 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 6. `Agent(avengers-dev:captain)` -> Review
 7. `Agent(avengers-dev:blackwidow)` -> Verify Captain's findings
 8. If issues: Thor fixes -> Captain reviews -> BlackWidow verifies (max 3 cycles)
+9. KB Sync (only if `_bmad/` + `.avengers/kb.json`): `bmad-kb.py impact`; if flagged, ask -> Phase 9 refresh (see scheme)
 
 ### Bug Fix (Location unknown)
 
-1. `Agent(avengers-dev:blackwidow)` -> Trace the bug, find root cause
+1. `Agent(avengers-dev:blackwidow)` -> Trace the bug, find root cause (record KB start SHA via `bmad-kb.py status` if KB Sync applies)
 2. Tony plans the fix
 3. `Agent(avengers-dev:hulk)` -> Review plan + write spec to `<spec-dir>/<bug-slug>.md`
 4. Tony presents spec to user for approval
 5. `Agent(avengers-dev:thor)` -> Fix + regression test
 6. `Agent(avengers-dev:captain)` -> Review
 7. `Agent(avengers-dev:blackwidow)` -> Verify
+8. KB Sync (only if `_bmad/` + `.avengers/kb.json`): `bmad-kb.py impact`; if flagged, ask -> Phase 9 refresh (see scheme)
 
 ### BMAD Methodology (Full Initiative)
 
