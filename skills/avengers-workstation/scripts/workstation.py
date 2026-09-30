@@ -1072,8 +1072,11 @@ def spec_target(project_dir: Path, slug: str) -> dict:
             commit = {"git": True, "toplevel": str(info["toplevel"]),
                       "pathspec": md_pathspec(info["rel"], *WS_SPEC_SUBDIR, name),
                       "dedicated": info["dedicated"], "reason": reason}
+    target = spec_dir / name
+    # lexists: anything already at the path (file, dir, even a dangling symlink) counts,
+    # so a save never lands on it unchecked.
     return {"state": report["state"], "spec_dir": str(spec_dir),
-            "target": str(spec_dir / name), "commit": commit}
+            "target": str(target), "exists": os.path.lexists(target), "commit": commit}
 
 
 def cmd_grant_path(project_dir: Path, path: str | None) -> int:

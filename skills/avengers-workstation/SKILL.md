@@ -218,12 +218,14 @@ Read-only; creates nothing. Agents run it with the absolute path Tony passes fro
 the `Avengers plugin root:` session line, since the plugin-root variable is empty
 in agent Bash.
 
-Exit 0: JSON `{state, spec_dir, target, commit: {git, toplevel, pathspec,
+Exit 0: JSON `{state, spec_dir, target, exists, commit: {git, toplevel, pathspec,
 dedicated, reason}}`. `spec_dir` is `<workstation>/avengers/specs/stories` (realpath)
 when resolve's `source` is `project` or `registry` and that folder exists, whatever
 the link state; otherwise `<repo>/specs/stories` (`guess`, `in_repo`, `missing`, or
 the folder is gone). `pathspec` is relative to `toplevel` and matches `md-status`
-`dirty` entries exactly. `dedicated` is `null` for an in-repo Target.
+`dirty` entries exactly. `dedicated` is `null` for an in-repo Target. `exists` is
+true when something is already at `target` (a file, a directory, or a symlink, even a
+dangling one); Thor never overwrites a differing spec there.
 Exit 1: error — the slug does not match `^[a-z0-9][a-z0-9-]{0,79}$`, or the project
 directory is missing. It never exits 2 (argparse usage errors excepted).
 

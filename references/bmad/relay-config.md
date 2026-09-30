@@ -542,6 +542,10 @@ The workstation folder is `<md-root>/<repo-name>-mds/`.
    The pathspec commit leaves anything else staged in the md repo untouched.
 4. A hook or signing failure is reported and the relay continues. Never push.
 
+The spec-commit gate in `agents/thor.md` is deliberately stricter than this KB/phase
+md-commit gate: spec commits refuse a non-dedicated md repo outright, where KB/phase
+commits warn and ask.
+
 **Known limitation:** `bmad-story-automator` rejects artifact paths that resolve
 outside the repo root, so it does not work with a workstation. The relay's Phase 7
 (the main loop running `bmad-create-story`, Thor running `bmad-dev-story`) does

@@ -103,9 +103,21 @@ a and save in the repo at the approved path.
   where?`. There is no silent fallback to the repo, and no probing whether the path
   can be created.
 
-**b. Save.** Create the directory, write the approved text as-is, and tick "Spec
-approved by user". If a Write or mkdir is denied, return the generic Blocked Report
-with:
+**b. Save.** Never overwrite an existing spec without the user's answer:
+
+- If the save path already exists (the fresh `exists` when the fresh `target` is
+  the save path; otherwise, e.g. an in-repo Target without step a or with a moved
+  fresh `target`, check the path yourself), read the file. If its content is
+  byte-identical to the approved text with "Spec approved by user" ticked, change
+  nothing and continue to step c.
+- If it differs (or cannot be read as a file), return the generic Blocked Report
+  below with `Question: spec <path> already exists with different content:
+  overwrite, save under a new slug, or cancel?` and `Work state: nothing written;
+  committed: NO`.
+
+Otherwise create the directory and write the approved text as-is except the
+approval tick: tick "Spec approved by user". If a Write or mkdir is denied, return
+the generic Blocked Report with:
 
 - `Skill: n/a (spec save)`
 - `HALT point: <Target>`

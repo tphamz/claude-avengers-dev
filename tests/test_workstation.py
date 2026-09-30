@@ -834,6 +834,50 @@ class SpecTargetTests(WSCase):
         self.target()
         self.assertFalse((self.repo / "specs").exists())
 
+    def test_exists_false_when_absent(self) -> None:
+        self.assertIs(self.target()["exists"], False)
+        ws = self.md / "repo-mds"
+        self.assertEqual(self.set_ws(ws)[0], 0)
+        self.assertIs(self.target()["exists"], False)
+
+    def test_exists_true_when_present_in_repo(self) -> None:
+        self.write(self.in_repo_target(), "# old spec\n", base=Path("/"))
+        report = self.target()
+        self.assertEqual(report["target"], self.in_repo_target())
+        self.assertIs(report["exists"], True)
+
+    def test_exists_true_when_present_in_workstation(self) -> None:
+        ws = self.md / "repo-mds"
+        self.assertEqual(self.set_ws(ws)[0], 0)
+        self.write(self.ws_target(ws), "# old spec\n", base=Path("/"))
+        report = self.target()
+        self.assertEqual(report["target"], self.ws_target(ws))
+        self.assertIs(report["exists"], True)
+        # The in-repo path is not consulted for a workstation Target.
+        self.assertFalse(os.path.lexists(self.in_repo_target()))
+
+    def test_exists_true_for_dangling_symlink(self) -> None:
+        target = Path(self.in_repo_target())
+        target.parent.mkdir(parents=True)
+        target.symlink_to(self.base / "nowhere.md")
+        self.assertIs(self.target()["exists"], True)
+
+    def test_exists_check_writes_nothing(self) -> None:
+        for label in ("workstation", "in-repo"):
+            with self.subTest(target=label):
+                if label == "workstation":
+                    ws = self.md / "repo-mds"
+                    self.assertEqual(self.set_ws(ws)[0], 0)
+                    spec_dir = Path(os.path.dirname(self.ws_target(ws)))
+                else:
+                    self.assertEqual(self.run_cli("set", "--in-repo")[0], 0)
+                    spec_dir = Path(os.path.dirname(self.in_repo_target()))
+                report = self.target()
+                self.assertEqual(report["spec_dir"], str(spec_dir))
+                self.assertIs(report["exists"], False)
+                self.assertFalse(spec_dir.exists())
+                self.assertFalse(spec_dir.parent.exists())
+
     def test_slug_accepts_valid_forms(self) -> None:
         for slug in ("a", "0", "bug-123", "a" * 80):
             with self.subTest(slug=slug):
