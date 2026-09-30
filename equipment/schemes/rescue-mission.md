@@ -60,7 +60,8 @@ If issues remain, loop max 3 cycles.
 
 Conditional: runs only if the Phase 1 KB Sync start check did not skip. Runs once,
 after the final fix cycle of Phase 5 and after "Code committed" holds. Read the KB
-marker only through `bmad-kb.py status`, never by path (relay-config §3.8).
+marker only through `bmad-kb.py status`, never by path
+(relay-config §3.8 (KB Lifecycle)).
 
 Deferral: from the project dir, run
 `git status --porcelain -z --untracked-files=no -- .` (NUL-separated, so names are not
@@ -108,7 +109,8 @@ the reference's other steps. Adaptation: use `<base>` wherever the reference say
 `current_phase`) and the Resume defaults paragraph; speak as IronMan. These skills run
 in the main loop because they ask the user questions; this is a carve-out from Agent()
 delegation, as in the /bmad relay
-(`${CLAUDE_PLUGIN_ROOT}/references/bmad/relay-config.md` §3.10).
+(`${CLAUDE_PLUGIN_ROOT}/references/bmad/relay-config.md`
+§3.10 (Interactive Skills Run in the Main Loop)).
 
 Stamp, then commit:
 
@@ -137,7 +139,8 @@ Stamp, then commit:
    files outside the repo in the final report; they are not committed.
 3. md commit: only if `workstation` is set and step 1 ended stamped (exit 0, exit 2, or
    confirmed on re-check), after step 2.
-   Follow relay-config §3.11 (md commits) with `<phase>` = `kb-sync`: IronMan runs
+   Follow relay-config §3.11 (md Workstation and md Commits) with `<phase>` = `kb-sync`:
+   IronMan runs
    `python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py md-status`
    (exit 2 -> skip silently; exit 1 -> note it and continue). On exit 0, warn first if
    `dedicated` is false, then ask "Commit <count> md changes in <toplevel>?". On yes,
