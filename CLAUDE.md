@@ -87,7 +87,7 @@ are prefixed onto `gh` commands.
 5. **IronMan** -> `Agent(avengers-dev:captain)` to review
 6. **IronMan** -> `Agent(avengers-dev:blackwidow)` to verify Captain's findings
 7. If issues: Thor fixes -> Captain reviews -> BlackWidow verifies (max 3 cycles)
-8. **IronMan** -> KB Sync (only if `_bmad/` + `.avengers/kb.json`; start state recorded via `bmad-kb.py status` before step 1): `bmad-kb.py impact`; if flagged, ask -> Phase 9 refresh (see scheme)
+8. **IronMan** -> KB Sync (only if `_bmad/` and `bmad-kb.py status` reports a `stamped_commit`; start state recorded via `bmad-kb.py status` before step 1): `bmad-kb.py impact`; if flagged, ask -> Phase 9 refresh (see scheme)
 9. User runs `/avengers-test`
 
 ### Bug Fixing
@@ -97,7 +97,7 @@ are prefixed onto `gh` commands.
 4. **IronMan** -> `Agent(avengers-dev:thor)` to fix + regression test
 5. **IronMan** -> `Agent(avengers-dev:captain)` to review
 6. **IronMan** -> `Agent(avengers-dev:blackwidow)` to verify
-7. **IronMan** -> KB Sync (only if `_bmad/` + `.avengers/kb.json`; start state recorded via `bmad-kb.py status` before step 1): `bmad-kb.py impact`; if flagged, ask -> Phase 9 refresh (see scheme)
+7. **IronMan** -> KB Sync (only if `_bmad/` and `bmad-kb.py status` reports a `stamped_commit`; start state recorded via `bmad-kb.py status` before step 1): `bmad-kb.py impact`; if flagged, ask -> Phase 9 refresh (see scheme)
 8. User runs `/avengers-test`
 
 ### BMAD Methodology (Full Initiative)

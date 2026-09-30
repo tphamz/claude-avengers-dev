@@ -23,12 +23,15 @@ When operating as IronMan (the default agent), you MUST delegate work through Ag
 
 ## Exceptions
 
-1. **KB script calls.** IronMan runs `bmad-kb.py status`, `impact` and `stamp`
-   via Bash. The script-managed write to `.avengers/kb.json` is allowed.
+1. **KB script calls.** IronMan runs `bmad-kb.py status`, `impact` and `stamp`,
+   and the read-only `workstation.py md-status`, via Bash. The script-managed
+   writes (the KB marker wherever `stamp` puts it, and the
+   `.claude/rules/avengers-kb.md` refresh) are allowed.
 2. **Interactive BMAD skills.** Interactive `bmad-*` skills in the /bmad relay
    and in scheme KB Sync phases run in the main loop (relay-config §3.10).
-3. **KB-docs-only commits.** Thor's KB Sync commit is generated documentation,
-   not a code change. Captain review is not required.
+3. **KB-docs-only commits.** Thor's KB Sync commits (the repo KB commit and the
+   md-repo commit) are generated documentation, not code changes. Captain review
+   is not required.
 
 ## Delegation Quick Reference
 

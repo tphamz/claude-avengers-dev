@@ -181,7 +181,7 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 
 ### Feature Implementation
 
-1. Tony records KB start state by running `bmad-kb.py status` himself (only if `_bmad/` + `.avengers/kb.json`)
+1. Tony records KB start state by running `bmad-kb.py status` himself (if `_bmad/` exists; KB Sync applies only if it reports a `stamped_commit`)
 2. `Agent(avengers-dev:blackwidow)` -> Explore relevant area
 3. Tony plans based on findings
 4. `Agent(avengers-dev:hulk)` -> Review plan + write spec to `<spec-dir>/<feature-slug>.md`
@@ -190,11 +190,11 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 7. `Agent(avengers-dev:captain)` -> Review
 8. `Agent(avengers-dev:blackwidow)` -> Verify Captain's findings
 9. If issues: Thor fixes -> Captain reviews -> BlackWidow verifies (max 3 cycles)
-10. KB Sync (only if `_bmad/` + `.avengers/kb.json`): `bmad-kb.py impact`; if flagged, ask -> Phase 9 refresh (see scheme)
+10. KB Sync (only if `_bmad/` and `bmad-kb.py status` reports a `stamped_commit`): `bmad-kb.py impact`; if flagged, ask -> Phase 9 refresh (see scheme)
 
 ### Bug Fix (Location unknown)
 
-1. Tony records KB start state by running `bmad-kb.py status` himself (only if `_bmad/` + `.avengers/kb.json`)
+1. Tony records KB start state by running `bmad-kb.py status` himself (if `_bmad/` exists; KB Sync applies only if it reports a `stamped_commit`)
 2. `Agent(avengers-dev:blackwidow)` -> Trace the bug, find root cause
 3. Tony plans the fix
 4. `Agent(avengers-dev:hulk)` -> Review plan + write spec to `<spec-dir>/<bug-slug>.md`
@@ -202,7 +202,7 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 6. `Agent(avengers-dev:thor)` -> Fix + regression test
 7. `Agent(avengers-dev:captain)` -> Review
 8. `Agent(avengers-dev:blackwidow)` -> Verify
-9. KB Sync (only if `_bmad/` + `.avengers/kb.json`): `bmad-kb.py impact`; if flagged, ask -> Phase 9 refresh (see scheme)
+9. KB Sync (only if `_bmad/` and `bmad-kb.py status` reports a `stamped_commit`): `bmad-kb.py impact`; if flagged, ask -> Phase 9 refresh (see scheme)
 
 ### BMAD Methodology (Full Initiative)
 
