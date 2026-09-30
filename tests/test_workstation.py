@@ -673,5 +673,155 @@ class CliHelpTests(unittest.TestCase):
                 self.assertIn("usage", proc.stdout)
 
 
+class OpenSpecLinkTests(WSCase):
+    """Managed links: the openspec link beside (or instead of) the bmad link."""
+
+    def ws(self) -> Path:
+        return self.md / "repo-mds"
+
+    def set_links(self, *links: str) -> tuple[int, str, str]:
+        args = ["set", "--path", str(self.ws())]
+        for link in links:
+            args += ["--link", link]
+        return self.run_cli(*args)
+
+    def test_set_resolve_unlink_with_both_links(self) -> None:
+        (self.repo / "_bmad").mkdir()
+        code, out, err = self.set_links("openspec")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(out)["links"], ["bmad", "openspec"])
+        self.assertEqual(os.path.realpath(self.repo / "_bmad-output"),
+                         os.path.realpath(self.ws()))
+        self.assertEqual(os.path.realpath(self.repo / "openspec"),
+                         os.path.realpath(self.ws() / "openspec"))
+        self.assertTrue((self.ws() / "openspec").is_dir())
+        self.assertEqual(self.settings()["mdLinks"], ["bmad", "openspec"])
+        self.assertIn("/openspec", self.exclude_lines())
+        self.assertNotIn("openspec", self.git("status", "--porcelain"))
+        report = self.resolve()
+        self.assertEqual(report["state"], "ok")
+        self.assertEqual(report["symlinks"], {"bmad": "ok", "openspec": "ok"})
+        self.assertEqual(self.set_links("openspec")[0], 2)
+        # A plain set (as /bmad Step 0 runs it) keeps the recorded openspec link.
+        self.assertEqual(self.set_ws()[0], 2)
+
+        self.write("openspec/specs/auth/spec.md", "# auth\n")
+        code, out, err = self.run_cli("unlink")
+        self.assertEqual(code, 0, err)
+        self.assertFalse((self.repo / "openspec").exists())
+        self.assertFalse((self.repo / "_bmad-output").exists())
+        self.assertEqual((self.ws() / "openspec" / "specs" / "auth" / "spec.md").read_text(),
+                         "# auth\n")
+        self.assertNotIn("mdLinks", self.settings())
+        self.assertNotIn("/openspec", self.exclude_lines())
+
+    def test_existing_install_gains_openspec_link(self) -> None:
+        self.assertEqual(self.set_ws()[0], 0)
+        settings = self.settings()
+        del settings["mdLinks"]  # an install from before managed links
+        self.write(".avengers/settings.json", json.dumps(settings))
+        self.assertEqual(self.resolve()["symlinks"], {"bmad": "ok"})
+        code, _, err = self.set_links("openspec")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.settings()["mdLinks"], ["bmad", "openspec"])
+        self.assertTrue((self.repo / "_bmad-output").is_symlink())
+        self.assertTrue((self.repo / "openspec").is_symlink())
+
+    def test_without_bmad_no_bmad_output_link_and_hint_has_no_bmad(self) -> None:
+        code, out, err = self.set_links("openspec")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(out)["links"], ["openspec"])
+        self.assertFalse((self.repo / "_bmad-output").exists())
+        self.assertTrue((self.repo / "openspec").is_symlink())
+        self.assertNotIn("/_bmad-output", self.exclude_lines())
+        hint = self.kb_rules().read_text()
+        self.assertNotIn("BMAD", hint)
+        self.assertNotIn("_bmad-output", hint)
+        text = " ".join(hint.split())
+        self.assertIn("`openspec` in the repo is a symlink to its `openspec/` folder", text)
+        self.assertIn("do not follow that symlink", text)
+        self.assertEqual(self.resolve()["symlinks"], {"openspec": "ok"})
+        # Installing BMAD later brings the bmad link in.
+        (self.repo / "_bmad").mkdir()
+        self.assertEqual(self.set_ws()[0], 0)
+        self.assertTrue((self.repo / "_bmad-output").is_symlink())
+
+    def test_kb_rules_hint_lists_both_links(self) -> None:
+        (self.repo / "_bmad").mkdir()
+        self.assertEqual(self.set_links("openspec")[0], 0)
+        text = " ".join(self.kb_rules().read_text().split())
+        ws = os.path.realpath(self.ws())
+        self.assertIn("(BMAD output, Hulk specs, KB, OpenSpec specs and changes)", text)
+        self.assertIn("`_bmad-output` in the repo is a symlink to it; `openspec` in the repo "
+                      "is a symlink to its `openspec/` folder", text)
+        self.assertIn("do not follow those symlinks", text)
+        self.assertIn(f"Search by explicit path (`_bmad-output/...`, `openspec/...` or `{ws}`)",
+                      text)
+
+    def test_tracked_openspec_refused(self) -> None:
+        self.commit("docs: specs", {"openspec/specs/a/spec.md": "# a\n"})
+        code, _, err = self.set_links("openspec")
+        self.assertEqual(code, 1)
+        self.assertIn("openspec is tracked", err)
+        self.assertIn("migrate --link openspec --untrack", err)
+        self.assertFalse((self.repo / "openspec").is_symlink())
+        self.assertFalse((self.repo / "_bmad-output").exists())
+        code, _, err = self.run_cli("migrate", "--path", str(self.ws()), "--link", "openspec")
+        self.assertEqual(code, 1)
+        self.assertIn("LOSES", err)
+
+    def test_non_empty_openspec_dir_refused(self) -> None:
+        self.write("openspec/config.yaml", "schema: spec-driven\n")
+        code, _, err = self.set_links("openspec")
+        self.assertEqual(code, 1)
+        self.assertIn("migrate --link openspec", err)
+
+    def test_migrate_existing_openspec(self) -> None:
+        self.write("openspec/config.yaml", "schema: spec-driven\n")
+        self.write("openspec/changes/add-x/proposal.md", "# p\n")
+        code, out, err = self.run_cli("migrate", "--path", str(self.ws()), "--link", "openspec")
+        self.assertEqual(code, 0, err)
+        report = json.loads(out)
+        self.assertEqual(report["link"], "openspec")
+        self.assertEqual(report["set"]["links"], ["openspec"])
+        self.assertTrue((self.repo / "openspec").is_symlink())
+        self.assertEqual((self.ws() / "openspec" / "config.yaml").read_text(),
+                         "schema: spec-driven\n")
+        self.assertEqual((self.repo / "openspec" / "changes" / "add-x" / "proposal.md")
+                         .read_text(), "# p\n")
+
+    def test_dangling_openspec_link_is_broken(self) -> None:
+        self.assertEqual(self.set_links("openspec")[0], 0)
+        shutil.rmtree(self.ws() / "openspec")
+        report = self.resolve()
+        self.assertEqual(report["state"], "broken")
+        self.assertEqual(report["symlinks"]["openspec"], "dangling")
+        self.assertEqual(self.set_links("openspec")[0], 0)
+        self.assertEqual(self.resolve()["state"], "ok")
+
+    def test_resolve_json_backward_compatible(self) -> None:
+        self.assertEqual(self.set_ws()[0], 0)
+        report = self.resolve()
+        for key in ("state", "path", "source", "root", "remote_key", "repo_name",
+                    "suggested_path", "output_folder", "symlink"):
+            self.assertIn(key, report)
+        self.assertEqual(report["symlink"], "ok")
+        self.assertEqual(report["symlinks"], {"bmad": "ok"})
+        self.assertEqual(self.resolve_with_link()["symlinks"],
+                         {"bmad": "ok", "openspec": "missing"})
+
+    def resolve_with_link(self) -> dict:
+        code, out, err = self.run_cli("resolve", "--link", "openspec")
+        self.assertEqual(code, 0, err)
+        return json.loads(out)
+
+    def test_in_repo_removes_openspec_link(self) -> None:
+        self.assertEqual(self.set_links("openspec")[0], 0)
+        self.assertEqual(self.run_cli("set", "--in-repo")[0], 0)
+        self.assertFalse((self.repo / "openspec").exists())
+        self.assertNotIn("mdLinks", self.settings())
+        self.assertTrue((self.ws() / "openspec").is_dir())
+
+
 if __name__ == "__main__":
     unittest.main()
