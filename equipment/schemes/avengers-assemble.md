@@ -77,9 +77,12 @@ Show the signal's `detail` as the reason, ask the user whether to run a `full_re
 refresh, and on yes go to Refresh with `full_rescan`.
 
 Other-branch stamp: if it reported `branch_unstamped`, show its `detail`; the base is
-that branch's `stamped_commit`, which the docs describe. If
-`git merge-base --is-ancestor <stamped_commit> HEAD` fails, or `impact` below exits 1 or
-2, never report "nothing to sync": handle it as an unknown stamp.
+that branch's `stamped_commit`, which the docs describe. Never report "nothing to sync"
+here. If `git merge-base --is-ancestor <stamped_commit> HEAD` fails or `impact` below
+exits 1, handle it as an unknown stamp. If `impact` exits 2, or exits 0 with
+`refresh_recommended: false`, the docs already describe HEAD: skip the refresh and ask
+only whether to stamp, so this branch gets its own entry; on yes go to Stamp, then
+commit.
 
 Base: `<start-sha>` if `<kb-state-at-start>` was `fresh`; otherwise the recorded
 `stamped_commit`, so drift from before this scheme is included and the stamp stays
@@ -108,24 +111,28 @@ delegation, as in the /bmad relay
 Stamp, then commit:
 
 1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/bmad/scripts/bmad-kb.py stamp` first: exit
-   0 -> stamped. Exit 2 -> already stamped at HEAD, OK. Exit 1 -> report "KB refreshed
-   but not stamped" and still do the repo commit. Its other output is informational,
-   e.g. `Refreshed .claude/rules/avengers-kb.md`, or
-   `Moved legacy .avengers/kb.json into the workstation` (the legacy file was deleted).
-2. Repo commit: list candidates with
+   0 -> stamped. Exit 2 -> already stamped at HEAD, OK. Exit 1 -> stamp reported an
+   error; re-run `status` to confirm whether the marker was written (`stamped_commit`
+   equals HEAD -> treat as stamped; otherwise report "KB refreshed but not stamped"),
+   and still do the repo commit. Its other output is informational, e.g.
+   `Refreshed .claude/rules/avengers-kb.md`.
+2. Repo commit: from the project dir, if there are in-repo KB dirs, list candidates with
    `git status --porcelain -z --untracked-files=all -- <in-repo KB dirs>`, so new docs
-   are included. Dispatch Thor to commit them in one commit, `docs: refresh project KB`;
-   if a KB dir is the project root, list only the generated files, never the whole root.
-   With no workstation, also include `.avengers/kb.json` if tracked. If stamp printed
-   the "Moved legacy" line and `git ls-files --error-unmatch .avengers/kb.json`
-   succeeds, also stage the deletion with `git rm --cached --quiet -- .avengers/kb.json`,
-   even if no KB doc changed. If there is nothing to commit, report "no in-repo KB files
-   to commit". Never amend it after stamping. The KB stays fresh because `status`
+   are included; if there are none, skip this listing entirely (an empty pathspec lists
+   the whole repo). If a KB dir is the project root, take only the generated files,
+   never the whole root. With no workstation, also include `.avengers/kb.json` if
+   tracked. Legacy marker: if `git ls-files --deleted -- .avengers/kb.json` is non-empty
+   (moved by this stamp or an earlier /bmad stamp), its deletion is a candidate even if
+   no KB doc changed; with no in-repo KB dirs it is the only possible candidate. If there
+   are no candidates, report "no in-repo KB files to commit". Otherwise dispatch Thor to
+   commit all candidates in one commit, `docs: refresh project KB`; for the legacy
+   deletion, Thor runs `git rm --cached --quiet -- .avengers/kb.json` as part of that
+   dispatch. Never amend it after stamping. The KB stays fresh because `status`
    computes signals over stamped..HEAD and excludes those paths. The commit is generated
    documentation, not a code change, so Captain review is not required. If Thor's commit
    fails, report "KB stamped but docs not committed". Without a workstation, list KB
    files outside the repo in the final report; they are not committed.
-3. md commit: only if `workstation` is set and stamp exited 0 or 2, after step 2.
+3. md commit: only if `workstation` is set and step 1 ended stamped, after step 2.
    Follow relay-config §3.11 (md commits) with `<phase>` = `kb-sync`: IronMan runs
    `python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py md-status`
    (exit 2 -> skip silently; exit 1 -> note it and continue). On exit 0, warn first if
