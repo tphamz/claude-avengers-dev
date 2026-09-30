@@ -22,14 +22,21 @@ Phase 8 fix range (`phase8_fix_ranges`), and the review cycle count
 review ranges are `<baseline_commit>..<phase7_end_sha>` plus each range in
 `phase8_fix_ranges`. `<baseline_commit>..HEAD` is never used: Phase 7 builds every
 story before Phase 8 starts, so it would include every later story's work.
+When a range's left side is the empty-tree hash (a repository that had no commits
+at Phase 7 start), diff, list commits and skip the ancestor check as relay-config
+`§2.9` **Unborn HEAD** says; that is the one place the rule is stated.
 
 **On entry**, before any Phase 8 dispatch, the main loop writes
 `phase8_start_sha` (`git rev-parse HEAD`) to `loop_state` once; a resume keeps
-the recorded value. **Resume fallback:** if `loop_state.stories` has no entry for
-a story, its `baseline_commit` comes from the story frontmatter and its end is the
-next story's `baseline_commit` (`development_status` order); the last story ends
-at `phase8_start_sha`. If the stories are not in build order or the baselines do
-not chain, stop and ask the user (`§2.9`). Per story:
+the recorded value. **Resume:** first replay any story's stored `blocked` entry
+to the user (answer or keep suspended) before any dispatch, as relay-config
+`§3.2` says. **Resume fallback:** if `loop_state.stories` has no
+`phase7_end_sha` for a story, its `baseline_commit` comes from `loop_state`,
+else from the story frontmatter (a frontmatter `NO_VCS` in a git repository means
+the empty-tree hash), and its end is the next story's `baseline_commit`
+(`development_status` order); the last story ends at `phase8_start_sha`. If the
+stories are not in build order or the baselines do not chain, stop and ask the
+user (`§2.9`). Per story:
 
 1. **Code review (main loop).** Run `bmad-code-review` with the story file set as
    the spec and the story's explicit range `<baseline_commit>..<phase7_end_sha>`
@@ -58,18 +65,23 @@ not chain, stop and ask the user (`§2.9`). Per story:
    story to `review`. The dispatch carries the same stop instruction as Phase 7:
    at any dev-story HALT or ask point, Thor stops without committing and returns
    a Blocked report. The main loop handles it as in relay-config `§3.8` step 4:
-   record `blocked`, relay it to the user (answer or suspend), append a
-   `- [ ] [Gate] Fix <failure>: <user answer>` subtask for a step-9 gate HALT,
-   reset the story and `sprint-status.yaml` to `in-progress` if dev-story set
-   `review`, and re-dispatch with the answer. Blocked re-dispatches do not count
-   toward `review_cycles`. The main loop records `pre_sha` before every dispatch
-   and `post_sha` after every report; on the done report it runs the `§2.9`
-   checks and appends `<first pre_sha>..<done post_sha>` (spanning any Blocked
-   re-dispatches) to the story's `phase8_fix_ranges` in
-   `loop_state.stories[<story_key>]`.
+   record `blocked` (with options, work state and resume instruction), relay it
+   to the user (answer or suspend), append a
+   `- [ ] [Gate] Fix <failure>: <user answer>` subtask for a step-9 regression
+   or definition-of-done HALT, reset the story and `sprint-status.yaml` to
+   `in-progress` if dev-story set `review`, and re-dispatch with the answer, the
+   previous Work state and the Resume instruction. Blocked re-dispatches do not
+   count toward `review_cycles`. The main loop records `pre_sha` before every
+   dispatch and `post_sha` after every report. Before the chain's first dispatch
+   it writes that `pre_sha` as the story's `chain_start_sha` (kept if already
+   set, and untouched when `blocked` is cleared). On the done report it runs the
+   `§2.9` checks and appends `<chain_start_sha>..<done post_sha>` (spanning any
+   Blocked re-dispatches) to the story's `phase8_fix_ranges` in
+   `loop_state.stories[<story_key>]`, then sets `chain_start_sha` to null.
 4. **Review (Captain).** Pass Captain the story file path and the story's ranges
    from `loop_state`: `<baseline_commit>..<phase7_end_sha>` plus each range in
-   `phase8_fix_ranges`, each reviewed with `git diff <range>`. If
+   `phase8_fix_ranges`, each reviewed with `git diff <range>` (an empty-tree
+   left side follows `§2.9` **Unborn HEAD**). If
    `baseline_commit` is `NO_VCS`, pass the story's File List instead; Captain
    reviews those files as they stand now. Captain reviews read-only. Verdict:
    PASS | CONDITIONAL PASS | FAIL. The main loop then increments `review_cycles`

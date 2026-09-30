@@ -120,22 +120,28 @@ an independent verdict. IronMan presents both at the hard gate; if either is
 NOT READY / NOT-READY, he recommends [2]; if either is NEEDS WORK /
 READY-WITH-CONCERNS, he flags it explicitly with the cited gaps. The user decides.
 
-**Phase 7 (Build):** for each story, in `development_status` order: check the
-epic's status (`backlog`/`contexted` → set `in-progress`; `done` → stop and ask),
-then run `bmad-create-story` in the main loop with the full `development_status`
-key (skip it if the story is past `backlog`) and confirm the story and its
-`sprint-status.yaml` entry are `ready-for-dev`. Then dispatch
-`Agent(avengers-dev:thor)` to run `bmad-dev-story` on the explicit story file
-path — implement, write tests, commit — and report back. At any HALT he stops
-without committing and returns a Blocked report; relay it to the user (answer or
-suspend), add a `[Gate]` subtask for a step-9 gate HALT and reset `review` to
-`in-progress` if needed, then re-dispatch with the answer (relay-config
-`§3.8`). Record SHAs from
+**Phase 7 (Build):** for each story, in `development_status` order, skipping any
+story that is `review` or `done` or listed in `loop_state.completed` (unless it
+is a suspended Blocked story, which a resume replays to the user first,
+relay-config `§3.2`). Skip `bmad-create-story` if the story is past `backlog`;
+otherwise check the epic's status (`backlog`/`contexted` → set `in-progress`;
+`in-progress` → no change; `done` → stop and ask; anything else → stop), run
+`bmad-create-story` in the main loop with the full `development_status` key, and
+confirm the story and its `sprint-status.yaml` entry are `ready-for-dev`. Then
+set `loop_state.in_progress`, write `baseline_commit` (this `pre_sha`) before the
+story's first dispatch, and dispatch `Agent(avengers-dev:thor)` to run
+`bmad-dev-story` on the explicit story file path — implement, write tests,
+commit — and report back. At any HALT he stops without committing and returns a
+Blocked report; store it in `blocked` (with options, work state and resume
+instruction), relay it to the user (answer or suspend), add a `[Gate]` subtask
+for a step-9 regression or definition-of-done HALT and reset `review` to
+`in-progress` if needed, then re-dispatch with the answer, the previous Work state
+and the Resume instruction (relay-config `§3.8`). Record SHAs from
 `git rev-parse HEAD` before each dispatch (`pre_sha`) and after each report
 (`post_sha`), never from Thor's report: the story's `baseline_commit` is the
 `pre_sha` of its first dev-story dispatch and `phase7_end_sha` is the `post_sha`
-of the dispatch that reports done, both written to `loop_state.stories`
-(relay-config `§2.9`).
+of the dispatch that reports done; neither is ever overwritten (relay-config
+`§2.9`).
 
 **Phase 8 (Review):** on entry, write `phase8_start_sha` once (resume fallback in
 relay-config `§2.9`). Per story, run `bmad-code-review` in the main loop with the
@@ -147,8 +153,9 @@ patches become unchecked `[Review][Patch]` bullets, and resolved
 `## Tasks / Subtasks` and the `sprint-status.yaml` entry set to `in-progress`. If
 unchecked `[Review][Patch]` items remain, `Agent(avengers-dev:thor)` gets the
 explicit story file path and the named items, resolves them via `bmad-dev-story`,
-runs tests and commits; record the fix range `<pre_sha>..<post_sha>` from HEAD in
-`phase8_fix_ranges`. Then `Agent(avengers-dev:captain)` reviews
+runs tests and commits; write `chain_start_sha` before the fix chain's first
+dispatch and record the fix range `<chain_start_sha>..<done post_sha>` from HEAD
+in `phase8_fix_ranges`. Then `Agent(avengers-dev:captain)` reviews
 `git diff <range>` for `<baseline_commit>..<phase7_end_sha>` and each fix range
 (or the File List files as they stand if `NO_VCS`) and returns PASS |
 CONDITIONAL PASS | FAIL, and `Agent(avengers-dev:blackwidow)` verifies, given the

@@ -103,7 +103,16 @@ If a sequence matching the name exists, ask (in Vision's voice):
 On resume: read `.avengers/relay-sequences/bmad-{name}.yaml`, then announce
 > 🔴 Vision — online. "Resuming BMAD '{name}' at Phase {N}: {phase-name}."
 and re-enter the sequence at `current_phase` (respecting
-`design_implementation_boundary_passed`).
+`design_implementation_boundary_passed`). On re-entering Phase 7 or 8
+(relay-config `§3.2`): if any `loop_state.stories` entry has a `blocked` entry,
+first replay its stored HALT point, question, options and work state to the
+user and ask: answer, or keep it suspended. Do this before any dispatch. Keep
+suspended → leave `status: suspended` and stop. Answer → continue at Phase 7
+step 4's answer path (the `[Gate]` subtask and the status reset where they
+apply), re-dispatching Thor with the answer, the stored work state and the
+stored resume instruction; the chain start is the recorded `baseline_commit`
+(Phase 7) or `chain_start_sha` (Phase 8). Then continue the per-story loop,
+which skips finished stories.
 
 On a new sequence: create the state file with `current_phase: 1`,
 `status: active`, `design_implementation_boundary_passed: false`.
@@ -149,44 +158,59 @@ Phase-by-phase:
 7. **HARD GATE** — see step 4 below. Do not enter Phase 6 without it.
 8. **Phase 6 — Sprint Planning.** `Skill(bmad-sprint-planning)` in the main loop.
 9. **Phase 7 — Build.** For each story, in `development_status` order (full
-   detail in relay-config `§3.8`):
+   detail in relay-config `§3.8`). Skip a story that is `review` or `done` in
+   `sprint-status.yaml` or listed in `loop_state.completed`, unless it has a
+   `blocked` entry (a suspended Blocked story, replayed first on resume).
    1. **Create (main loop).** Skip if the story is already past `backlog`.
-      Check the epic's `sprint-status.yaml` entry: `backlog` or `contexted` →
-      set it to `in-progress`; `done` → stop and ask the user; any other status
-      except `in-progress` → stop. Run `Skill(bmad-create-story)` with the full
+      Otherwise check the epic's `sprint-status.yaml` entry: `backlog` or
+      `contexted` → set it to `in-progress`; `in-progress` → no change; `done` →
+      stop and ask the user; anything else → stop. Run `Skill(bmad-create-story)` with the full
       `development_status` key (e.g. `1-2-user-auth`). The user answers its
       menus; this main loop does its web research. Afterwards, check that the
       story file and its `sprint-status.yaml` entry are both `ready-for-dev`;
       stop if not.
-   2. **Record `pre_sha`** (`git rev-parse HEAD`) and resolve the story file
-      path.
+   2. **Record `pre_sha`** (`git rev-parse HEAD`; the empty-tree hash if it
+      fails), resolve the story file path, and set `loop_state.in_progress` to
+      the story (at every dispatch). If the story has no `baseline_commit` in
+      `loop_state`, write this `pre_sha` as `baseline_commit` and save the state
+      file before dispatching; never overwrite an existing one.
    3. **Build (Thor).** Dispatch `Agent(avengers-dev:thor)` to run
       `bmad-dev-story` on the explicit story file path (implement + tests +
       commit). Instruct him: at any dev-story HALT or ask point, do not guess or
       work around it — stop without committing and return a Blocked report; the
       step-10 completion prompts are not stops.
-   4. **Blocked.** Record `blocked` in `loop_state.stories[<story_key>]`, show
-      the user the HALT point, question, options and work state, and ask:
-      answer or suspend. On an answer: for a step-9 gate HALT, append an
-      unchecked `- [ ] [Gate] Fix <failure>: <user answer>` subtask to
-      `## Tasks / Subtasks` ("File List is incomplete" excepted: Thor fixes the
-      File List directly); if dev-story already set `review`, reset the story
-      file and `sprint-status.yaml` entry to `in-progress`. Clear `blocked`,
-      record a new `pre_sha`, and re-dispatch Thor with the answer. No cap; real
-      agent failures retry up to 2 times, then escalate.
+   4. **Blocked.** Record `blocked` in `loop_state.stories[<story_key>]`
+      (HALT point, question, options, work state, resume instruction,
+      `dispatched_at_sha`), show the user the HALT point, question, options and
+      work state, and ask: answer or suspend. On an answer: for a step-9
+      regression or definition-of-done HALT, append an unchecked
+      `- [ ] [Gate] Fix <failure>: <user answer>` subtask to
+      `## Tasks / Subtasks` (no subtask for "any task is incomplete", whose
+      unchecked task already resumes dev-story, or "File List is incomplete",
+      which Thor fixes directly); if dev-story already set `review`, reset the
+      story file and `sprint-status.yaml` entry to `in-progress`. Clear
+      `blocked` (the chain start stays in `baseline_commit`), record a new
+      `pre_sha`, and re-dispatch Thor with the answer, the previous Work state
+      and the Resume instruction. No cap; real agent failures retry up to 2
+      times, then escalate.
    5. **Done.** Record `post_sha` (never the SHA from Thor's report) and run the
-      `§2.9` checks. The story's `baseline_commit` is the `pre_sha` of its first
-      dev-story dispatch, cross-checked against the story frontmatter;
-      `phase7_end_sha` is this `post_sha`. Write both to
-      `loop_state.stories[<story_key>]` and update `completed`, `in_progress`
-      and `remaining`.
+      `§2.9` checks on `<baseline_commit>..<post_sha>`. The uncommitted-files
+      check flags only paths in the story's File List or Thor's reported files;
+      if it flags, Thor's commit dispatch joins the same chain, then take
+      `post_sha` again, rerun the checks and record it. Cross-check
+      `baseline_commit` against the story frontmatter (a frontmatter `NO_VCS` in
+      a git repository is ignored). Write `phase7_end_sha` (the final
+      `post_sha`, never overwriting one) to `loop_state.stories[<story_key>]`,
+      add the key to `completed`, set `in_progress` to null, and update
+      `remaining`.
 10. **Phase 8 — Review.** On entry, write `phase8_start_sha` (`git rev-parse
     HEAD`) to `loop_state` once. Then per story, in this order (full detail in
     `references/bmad/phase-8-review.md`). The story's review ranges are
     `<baseline_commit>..<phase7_end_sha>` plus each range in
     `phase8_fix_ranges`, from `loop_state.stories[<story_key>]`; never `..HEAD`,
-    which includes later stories. If a story has no `loop_state` entry, use the
-    `§2.9` resume fallback.
+    which includes later stories. If a story has no `phase7_end_sha`, use the
+    `§2.9` resume fallback. An empty-tree left side follows `§2.9` **Unborn
+    HEAD**.
     1. **Code review (main loop).** Run `Skill(bmad-code-review)` with the story
        file set as the spec and the explicit range
        `<baseline_commit>..<phase7_end_sha>`. Resolve every `decision-needed`
@@ -211,11 +235,15 @@ Phase-by-phase:
        check looks for the older "Senior Developer Review (AI)" section). Thor runs
        `bmad-dev-story` on that path, resolves the items, runs tests and commits.
        The dispatch carries the Phase 7 stop instruction; a Blocked report is
-       handled as in Phase 7 step 4 (relay, `[Gate]` subtask, `in-progress`
-       reset, re-dispatch), and Blocked re-dispatches do not count toward
-       `review_cycles`. Record `pre_sha` before every dispatch and `post_sha`
-       after every report; on the done report run the `§2.9` checks and append
-       the fix range `<first pre_sha>..<done post_sha>` to `phase8_fix_ranges`.
+       handled as in Phase 7 step 4 (relay, `[Gate]` subtask for a regression
+       or definition-of-done HALT, `in-progress` reset, re-dispatch with the
+       answer, Work state and Resume instruction), and Blocked re-dispatches do
+       not count toward `review_cycles`. Record `pre_sha` before every dispatch
+       and `post_sha` after every report. Before the chain's first dispatch,
+       write its `pre_sha` as `chain_start_sha` (keep it if already set); on
+       the done report run the `§2.9` checks, append the fix range
+       `<chain_start_sha>..<done post_sha>` to `phase8_fix_ranges`, and set
+       `chain_start_sha` to null.
     4. **Review (Captain).** Dispatch `Agent(avengers-dev:captain)` with the
        story file path, the concrete range `<baseline_commit>..<phase7_end_sha>`
        and each range in `phase8_fix_ranges`, each reviewed with

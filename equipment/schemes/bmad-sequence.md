@@ -48,14 +48,20 @@ The relay's own state file: `.avengers/relay-sequences/bmad-{name}.yaml`.
 
 ## Phase 7 Per-Story Flow
 
-Epic status check (`backlog`/`contexted` → `in-progress`; `done` → stop and ask)
-→ `bmad-create-story` in the main loop with the full `development_status` key
-(skipped if the story is past `backlog`; story and sprint-status entry verified
-`ready-for-dev`) → `pre_sha` recorded → Thor runs `bmad-dev-story` on the
-explicit story path → Blocked: relayed to the user (answer or suspend), `[Gate]`
-subtask for a step-9 gate HALT, `review` reset to `in-progress`, re-dispatch →
-done: `post_sha` recorded, `baseline_commit` and `phase7_end_sha` written. See
-`references/bmad/relay-config.md` §3.8.
+Stories that are `review` or `done`, or in `loop_state.completed`, are skipped
+unless suspended Blocked (a resume replays a stored `blocked` question to the user
+before any dispatch) → create-story skipped if the story is past `backlog`;
+otherwise the epic status check (`backlog`/`contexted` → `in-progress`;
+`in-progress` → no change; `done` → stop and ask; anything else → stop) →
+`bmad-create-story` in the main loop with the full `development_status` key
+(story and sprint-status entry verified `ready-for-dev`) → `pre_sha` recorded,
+`in_progress` set, `baseline_commit` written before the first dispatch → Thor
+runs `bmad-dev-story` on the explicit story path → Blocked: stored in `blocked`,
+relayed to the user (answer or suspend), `[Gate]` subtask for a step-9
+regression or definition-of-done HALT, `review` reset to `in-progress`,
+re-dispatch with the answer, Work state and Resume instruction → done:
+`post_sha` recorded, checks run, `phase7_end_sha` written (never overwritten).
+See `references/bmad/relay-config.md` §3.8.
 
 ## Phase 8 Per-Story Flow
 
@@ -64,7 +70,8 @@ action items") → reconcile `### Review Findings` inside Tasks/Subtasks (conver
 decisions recorded as unchecked `[Review][Patch]`; resolved `[Review][Decision]`
 checked `[x]`; sprint-status entry `in-progress`) → Thor fixes unchecked
 `[Review][Patch]` items (explicit story path; Blocked reports handled as in
-Phase 7; fix range `<first pre_sha>..<done post_sha>` recorded from HEAD) → Captain reviews `git diff` of
+Phase 7; `chain_start_sha` written before the chain's first dispatch; fix range
+`<chain_start_sha>..<done post_sha>` recorded from HEAD) → Captain reviews `git diff` of
 `<baseline_commit>..<phase7_end_sha>` and each fix range → BlackWidow verifies
 (story path, same ranges, Captain's findings) → FAIL or CONDITIONAL PASS: verified
 findings appended as unchecked `[Review][Patch]`, loops to Thor (max 3 Captain

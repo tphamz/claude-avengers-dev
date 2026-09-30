@@ -84,6 +84,10 @@ every stop in that skill that needs a human is yours to report, not to resolve:
 - **Do not commit on Blocked.** Leave the working tree as it is (no commit, no
   stash, no revert) and list the changed files under `Work state`. The main loop
   relays your report to the user and re-dispatches you with the answer.
+- **On a re-dispatch after Blocked,** you receive the answer, your previous
+  `Work state` (the uncommitted files) and your `Resume instruction`. Carry that
+  work forward: keep and build on the uncommitted files rather than redoing or
+  discarding them, and include them in your commit when the story is done.
 - **Exemption — dev-story step 10 is not a stop.** Its completion explanation
   and next-step prompts, and any menu that only prints text, need no answer:
   finish, run tests, commit, and return the normal completion report.

@@ -89,7 +89,8 @@ write-capable `bmad-*` skill. You verify, read-only:
   (`<baseline_commit>..<phase7_end_sha>` plus each Phase 8 fix range; the File
   List instead under `NO_VCS`) and Captain's findings. Verify each finding for
   false positives against `git diff <range>` (or the listed files as they stand
-  now), as in any review.
+  now), as in any review. If a range's left side is the empty-tree hash, follow
+  relay-config `§2.9` **Unborn HEAD**.
 
 Do not edit the artifacts; report what should change.
 

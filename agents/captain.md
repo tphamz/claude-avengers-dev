@@ -86,9 +86,11 @@ loop — you do **not** invoke them, or any other write-capable `bmad-*` skill. 
 are dispatched after the main-loop code review and Thor's fixes to review the
 story's changes read-only, using the steps above. The dispatch gives you the story
 file path, a concrete commit range `<baseline_commit>..<phase7_end_sha>` (the
-story's Phase 7 work) and one `<pre_sha>..<post_sha>` range per Phase 8 fix for
-that story, all recorded from git HEAD by the main loop. Review exactly those:
-`git diff <range>` for each range. Do not review `..HEAD` — it includes later
+story's Phase 7 work) and one `<chain_start_sha>..<post_sha>` range per Phase 8
+fix for that story, all recorded from git HEAD by the main loop. Review exactly
+those: `git diff <range>` for each range. If a range's left side is the
+empty-tree hash, diff and list commits as relay-config `§2.9` **Unborn HEAD**
+says. Do not review `..HEAD` — it includes later
 stories' work. If `baseline_commit` is `NO_VCS`, the dispatch gives you the
 story's File List instead; review those files as they stand now. Read the story
 file's `### Review Findings` subsection to confirm every `[Review][Patch]` item
