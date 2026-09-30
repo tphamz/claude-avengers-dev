@@ -79,8 +79,9 @@ refresh, and on yes go to Refresh with `full_rescan`.
 
 Other-branch stamp: if it reported `branch_unstamped`, show its `detail`; the base is
 that branch's `stamped_commit`, which the docs describe. Never report "nothing to sync"
-here. If `git merge-base --is-ancestor <stamped_commit> HEAD` fails or `impact` below
-exits 1, handle it as an unknown stamp. If `impact` exits 2, or exits 0 with
+here. If `git merge-base --is-ancestor <stamped_commit> HEAD` fails, handle it as an
+unknown stamp and skip `impact`. Otherwise (ancestor check passed), run `impact` below:
+if it exits 1, handle it as an unknown stamp; if it exits 2, or exits 0 with
 `refresh_recommended: false`, the docs already describe HEAD: skip the refresh and ask
 only whether to stamp, so this branch gets its own entry; on yes go to Stamp, then
 commit.
@@ -113,10 +114,11 @@ Stamp, then commit:
 
 1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/skills/bmad/scripts/bmad-kb.py stamp` first: exit
    0 -> stamped. Exit 2 -> already stamped at HEAD, OK. Exit 1 -> stamp reported an
-   error; re-run `status` to confirm whether the marker was written (`stamped_commit`
-   equals HEAD -> treat as stamped; otherwise report "KB refreshed but not stamped"),
-   and still do the repo commit. Its other output is informational, e.g.
-   `Refreshed .claude/rules/avengers-kb.md`.
+   error; re-run `status` to confirm whether the marker was written (treat as stamped
+   only if `stamped_commit` equals HEAD and it reports no `branch_unstamped` signal,
+   since a fallback `stamped_commit` comes from another branch; otherwise report "KB
+   refreshed but not stamped"), and still do the repo commit. Its other output is
+   informational, e.g. `Refreshed .claude/rules/avengers-kb.md`.
 2. Repo commit: from the project dir, if there are in-repo KB dirs, list candidates with
    `git status --porcelain -z --untracked-files=all -- <in-repo KB dirs>`, so new docs
    are included; if there are none, skip this listing entirely (an empty pathspec lists
@@ -133,7 +135,8 @@ Stamp, then commit:
    documentation, not a code change, so Captain review is not required. If Thor's commit
    fails, report "KB stamped but docs not committed". Without a workstation, list KB
    files outside the repo in the final report; they are not committed.
-3. md commit: only if `workstation` is set and step 1 ended stamped, after step 2.
+3. md commit: only if `workstation` is set and step 1 ended stamped (exit 0, exit 2, or
+   confirmed on re-check), after step 2.
    Follow relay-config §3.11 (md commits) with `<phase>` = `kb-sync`: IronMan runs
    `python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py md-status`
    (exit 2 -> skip silently; exit 1 -> note it and continue). On exit 0, warn first if
