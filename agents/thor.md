@@ -107,7 +107,11 @@ a and save in the repo at the approved path.
 
 - If the save path already exists (the fresh `exists` when the fresh `target` is
   the save path; otherwise, e.g. an in-repo Target without step a or with a moved
-  fresh `target`, check the path yourself), read the file. If its content is
+  fresh `target`, check the path yourself), read the file. A null `exists` (the
+  path could not be checked) counts as `true`: check the path yourself, and if you
+  cannot read it, return the generic Blocked Report below with `Question: spec
+  <path> cannot be checked (<error>); fix access, save under a new slug, or
+  cancel?` and `Work state: nothing written; committed: NO`. If its content is
   byte-identical to the approved text with "Spec approved by user" ticked, change
   nothing and continue to step c.
 - If it differs (or cannot be read as a file), return the generic Blocked Report

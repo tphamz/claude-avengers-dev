@@ -1073,10 +1073,26 @@ def spec_target(project_dir: Path, slug: str) -> dict:
                       "pathspec": md_pathspec(info["rel"], *WS_SPEC_SUBDIR, name),
                       "dedicated": info["dedicated"], "reason": reason}
     target = spec_dir / name
-    # lexists: anything already at the path (file, dir, even a dangling symlink) counts,
-    # so a save never lands on it unchecked.
     return {"state": report["state"], "spec_dir": str(spec_dir),
-            "target": str(target), "exists": os.path.lexists(target), "commit": commit}
+            "target": str(target), "exists": path_exists(target), "commit": commit}
+
+
+def path_exists(path: Path) -> bool | None:
+    """Tri-state existence check for a save target.
+
+    True: something is at the path (file, dir, even a dangling symlink), so a save
+    never lands on it unchecked. False: nothing is there, including when a parent
+    component is a regular file (NotADirectoryError). None: the path could not be
+    checked (e.g. a parent directory is not searchable); os.path.lexists would
+    report False there even with a file present.
+    """
+    try:
+        os.lstat(path)
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    except OSError:
+        return None
+    return True
 
 
 def cmd_grant_path(project_dir: Path, path: str | None) -> int:

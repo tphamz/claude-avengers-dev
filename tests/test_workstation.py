@@ -862,6 +862,22 @@ class SpecTargetTests(WSCase):
         target.symlink_to(self.base / "nowhere.md")
         self.assertIs(self.target()["exists"], True)
 
+    @unittest.skipIf(os.geteuid() == 0, "root bypasses directory permissions")
+    def test_exists_unknown_when_parent_not_searchable(self) -> None:
+        target = Path(self.in_repo_target())
+        self.write(str(target), "# old spec\n", base=Path("/"))
+        parent = target.parent
+        mode = parent.stat().st_mode
+        parent.chmod(0)
+        self.addCleanup(parent.chmod, mode)
+        self.assertIsNone(self.target()["exists"])
+
+    def test_exists_false_when_parent_is_a_file(self) -> None:
+        stories = Path(os.path.dirname(self.in_repo_target()))
+        stories.parent.mkdir(parents=True)
+        stories.write_text("not a directory\n")
+        self.assertIs(self.target()["exists"], False)
+
     def test_exists_check_writes_nothing(self) -> None:
         for label in ("workstation", "in-repo"):
             with self.subTest(target=label):

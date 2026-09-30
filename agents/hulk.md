@@ -73,7 +73,8 @@ python3 <absolute workstation.py path from the dispatch> spec-target --slug <fea
 - The slug must match `^[a-z0-9][a-z0-9-]{0,79}$`.
 - Exit 0 prints JSON `{state, spec_dir, target, exists, commit: {git, toplevel,
   pathspec, dedicated, reason}}`. The Target is the JSON `target`; `exists` is true
-  when something is already at that path.
+  when something is already at that path, false when nothing is, and null when the
+  path cannot be checked (render null as `exists: unknown`).
 - `spec_dir` is `<workstation>/avengers/specs/stories/` only when a workstation is
   recorded (project setting or home registry) and its folder exists; otherwise it
   is `specs/stories/` in the repo. `state: broken` next to a workstation Target is
@@ -92,7 +93,7 @@ test-coverage reports.
 
 Format: the `Target:`, `Workstation state:` and `md commit:` lines, then the spec
 in a fenced block using this template. The `Target:` line carries `(exists: yes|no)`
-from the JSON `exists` (`unknown` on failure). When it is `yes` (or `unknown`), add
+from the JSON `exists` (`unknown` when it is null or on failure). When it is `yes` (or `unknown`), add
 the `Existing spec:` line: the save would replace an existing spec unless its content
 is identical, and Thor stops to ask before replacing a differing one. `md commit:` is
 one of:

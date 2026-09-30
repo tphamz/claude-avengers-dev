@@ -224,8 +224,11 @@ when resolve's `source` is `project` or `registry` and that folder exists, whate
 the link state; otherwise `<repo>/specs/stories` (`guess`, `in_repo`, `missing`, or
 the folder is gone). `pathspec` is relative to `toplevel` and matches `md-status`
 `dirty` entries exactly. `dedicated` is `null` for an in-repo Target. `exists` is
-true when something is already at `target` (a file, a directory, or a symlink, even a
-dangling one); Thor never overwrites a differing spec there.
+`true | false | null`: `true` when something is already at `target` (a file, a
+directory, or a symlink, even a dangling one); `false` when nothing is there
+(including when a parent component is a regular file); `null` when the path cannot
+be checked (e.g. a parent directory is not searchable). Thor never overwrites a
+differing spec there, and treats `null` like `true`.
 Exit 1: error — the slug does not match `^[a-z0-9][a-z0-9-]{0,79}$`, or the project
 directory is missing. It never exits 2 (argparse usage errors excepted).
 
