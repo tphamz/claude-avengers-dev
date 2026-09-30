@@ -8,3 +8,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Python bytecode
+__pycache__/

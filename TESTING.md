@@ -29,3 +29,19 @@ These appear in every session and are NOT skill failures:
 - `Fast mode unavailable` – polling noise
 - `Failed to fetch org fast mode status` – SSL startup
 - `rg error ... plugins/cache` – missing cache directory
+
+## Script Unit Tests
+
+Bundled scripts with non-trivial logic ship with stdlib `unittest` suites under
+`tests/`. Run them from the plugin root:
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+- `tests/test_bmad_kb.py` covers `skills/bmad/scripts/bmad-kb.py` (config parsing,
+  preflight, KB status, impact signals, stamp). Each case builds its own temporary
+  git repo, so the suite needs only `git` and Python 3 on `PATH`.
+
+Unit tests complement, not replace, the debug-session check above: a skill change
+still needs a CLEAN `/debug-session` verdict before committing.
