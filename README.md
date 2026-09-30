@@ -77,22 +77,72 @@ breaking or otherwise impactful changes. Its freshness marker is
 `.avengers/kb.json` (or `<workstation>/avengers/kb.json` with an md workstation),
 keyed per branch.
 
+## Spec-driven development: /sdd
+
+**`/avengers-dev:sdd <name> [quick|standard|full]`** keeps the Avengers relay —
+crew, tracks, hard gate, KB lifecycle, md workstation — and picks the spec engine
+by track:
+
+- **quick** — [OpenSpec](https://github.com/Fission-AI/OpenSpec) with its built-in
+  `spec-driven` schema: a short proposal, delta specs and tasks → Thor builds →
+  Captain verifies and reviews → archive.
+- **standard** (default) — OpenSpec with the plugin's `avengers-sdd` schema, which
+  adds a `tests` artifact (one failing test per WHEN/THEN scenario): propose →
+  Captain hardens the delta specs → Hulk checks readiness → hard gate → Thor writes
+  the failing tests first, then builds → Captain verifies and reviews → archive.
+- **full** — hands off to `/avengers-dev:bmad <name> full` (PRD, architecture,
+  epics, ATDD).
+
+Archive merges each change's delta specs into the living specs under
+`openspec/specs/`. With an md workstation, `openspec/` is a symlink to
+`<workstation>/openspec/`. When the project also has BMAD (`_bmad/`), the BMAD KB
+check and refresh run around the change; without it, `openspec/specs/` is the KB.
+
+**OpenSpec requirement.** OpenSpec is a separate install; Avengers never installs
+it. `/sdd` preflights it and stops with this hint if it is missing or older than
+1.13:
+
+```bash
+npm i -g @fission-ai/openspec@latest
+```
+
+The relay calls `openspec` only through its wrapper
+(`skills/sdd/scripts/sdd-openspec.py`), which adds guards OpenSpec 1.13.2 lacks:
+it refuses to archive a change with missing or incomplete tasks, fails validation
+when `archive` would later refuse the delta, reads archive's JSON result instead
+of its exit code, and runs from the workstation when `openspec/` is a symlink
+(OpenSpec refuses to init or archive through one). `init` uses `--tools none`, so
+no `/opsx` commands or skills are installed alongside the relay.
+
+**Telemetry.** OpenSpec sends anonymous usage telemetry by default. The wrapper
+sets `OPENSPEC_TELEMETRY=0` and `DO_NOT_TRACK=1` on every call. Running `openspec`
+yourself follows your own environment; leave those variables unset to allow
+telemetry there.
+
+**Stores are not used.** OpenSpec Stores share one flat change namespace across
+repos and ignore the `store:` pointer when local content exists; the md
+workstation gives each repo its own `openspec/` instead.
+
 ## md Workstation
 
 Keep a repo's markdown out of the code repo — for example in one central md repo
 that holds the docs for many code repos. Run **`/avengers-dev:avengers-workstation`**
-(also offered by `avengers-init` and on every `/avengers-dev:bmad` run). The first
+(also offered by `avengers-init` and on every `/avengers-dev:bmad` and
+`/avengers-dev:sdd` run). The first
 time, it asks for an md root; the workstation is `<md-root>/<repo-name>-mds/`. Later
 runs, other clones and other worktrees find it automatically, and it asks again
 only if the folder is gone.
 
 - **How:** BMAD's `output_folder` (`_bmad-output`) becomes a directory symlink to
-  the workstation, ignored through `.git/info/exclude`. BMAD config stays relative,
-  so the committed config is still portable for the team, and every `bmad-*`
-  skill follows the link.
+  the workstation, and for `/sdd` `openspec/` becomes a symlink to
+  `<workstation>/openspec/` — both ignored through `.git/info/exclude`. BMAD config
+  stays relative, so the committed config is still portable for the team, and
+  every `bmad-*` skill follows the link. A project without BMAD gets only the
+  `openspec` link. A tracked `openspec/` is refused like a tracked `_bmad-output`
+  (`migrate --link openspec --untrack`, with the same warning).
 - **What lands there:** BMAD planning and implementation artifacts,
-  `project-context.md`, Hulk specs (`avengers/specs/stories/`), and the KB marker
-  (`avengers/kb.json`). Per-clone relay state stays in `.avengers/`.
+  `project-context.md`, Hulk specs (`avengers/specs/stories/`), the KB marker
+  (`avengers/kb.json`), and OpenSpec's `openspec/` (changes and living specs). Per-clone relay state stays in `.avengers/`.
 - **Keys outside the output folder** (usually `project_knowledge: {project-root}/docs`)
   stay in the repo unless you opt in, per key, to re-point them. Re-pointing edits
   the team's committed `_bmad/*/config.yaml`; a declined key is not asked again.
@@ -116,8 +166,8 @@ only if the folder is gone.
   the repo root, so it does not work with a workstation. The Avengers relay does
   not use it. macOS and Linux only (directory symlinks).
 
-`/avengers-dev:avengers-uninstall` removes the symlink, exclude lines and directory
-grant, and keeps the workstation contents.
+`/avengers-dev:avengers-uninstall` removes the symlinks (including `openspec`),
+exclude lines and directory grant, and keeps the workstation contents.
 
 ## The Avengers Squad
 
@@ -128,7 +178,7 @@ grant, and keeps the workstation contents.
 | **Thor**       | Builder             | Writing code, implementing features, fixing bugs     |
 | **Captain**    | Sentinel / Reviewer | Code reviews, quality analysis, security             |
 | **Hulk**       | Engineer            | Plan review, pre-flight checks, test coverage        |
-| **Vision**     | BMAD Conductor      | Conducts the real BMAD-METHOD through the crew (quick / standard / full tracks) |
+| **Vision**     | SDD Conductor       | Conducts `/sdd` (OpenSpec) and `/bmad` (the real BMAD-METHOD) through the crew (quick / standard / full tracks) |
 
 ## Equipment System
 
@@ -138,15 +188,16 @@ grant, and keeps the workstation contents.
 | Thor       | Toolbelts | `react`, `python`, `go`, `nestjs`, `laravel`           |
 | BlackWidow | Goggles   | `architecture`, `detective`                            |
 | Hulk       | Gadgets   | `deployment`, `compliance`                             |
-| IronMan    | Schemes   | `avengers-assemble`, `rescue-mission`, `bmad-sequence` |
+| IronMan    | Schemes   | `avengers-assemble`, `rescue-mission`, `bmad-sequence`, `sdd-sequence` |
 
 ## Skills
 
 All skills are namespaced — invoke as `/avengers-dev:<name>`:
 
 - **`/avengers-dev:avengers-init`** - Activate the persona + orchestration rules in a project
-- **`/avengers-dev:avengers-workstation [status|set|root|migrate|unlink]`** - External md workstation for Avengers + BMAD markdown
+- **`/avengers-dev:avengers-workstation [status|set|root|migrate|unlink]`** - External md workstation for Avengers + BMAD + OpenSpec markdown
 - **`/avengers-dev:bmad [name] [quick|standard|full]`** - Conduct the real BMAD-METHOD through the crew on a chosen track (needs `npx bmad-method install`; see Setup)
+- **`/avengers-dev:sdd [name] [quick|standard|full]`** - Spec-driven change on OpenSpec (quick, standard) or BMAD (full); needs OpenSpec >= 1.13 (see Spec-driven development)
 - **`/avengers-dev:avengers-test`** - Test runner (auto-detects Jest, pytest, Go test, etc.)
 - **`/avengers-dev:avengers-split`** - Quick health check
 - **`/avengers-dev:avengers-ssl`** - SSL certificate bundle for proxy environments

@@ -4,7 +4,7 @@ description: >
   Equip IronMan with an orchestration scheme. Called by IronMan via the Skill tool.
   Loads the scheme from equipment/schemes/ and follows it for the current initiative.
 allowed-tools: Read
-argument-hint: "avengers-assemble | rescue-mission | bmad-sequence"
+argument-hint: "avengers-assemble | rescue-mission | bmad-sequence | sdd-sequence"
 disable-model-invocation: false
 ---
 
@@ -14,12 +14,13 @@ disable-model-invocation: false
 
 ### 1. Parse Scheme Name
 
-Valid schemes: `avengers-assemble`, `rescue-mission`, `bmad-sequence`.
+Valid schemes: `avengers-assemble`, `rescue-mission`, `bmad-sequence`, `sdd-sequence`.
 
 Defaults:
 - `avengers-assemble`: standard feature work
 - `rescue-mission`: bug fix or incident response
 - `bmad-sequence`: full initiative requiring PRD/TDD/backlog
+- `sdd-sequence`: a spec-driven change on OpenSpec (`/sdd` quick or standard)
 
 ### 2. Load Scheme
 

@@ -61,7 +61,8 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py
 
 Exit 0: JSON with `state`. Exit 1: report the error and skip this step.
 
-- `ok` — already set up; if `symlink` is not `ok`, run `workstation.py set --path <path>`.
+- `ok` — already set up; if any `symlinks` value is not `ok`, run
+  `workstation.py set --path <path>`.
 - `in_repo` — the user chose in-repo before; skip.
 - `missing` — ask, as a plain chat question: "Where should this repo's markdown live?
   Give an md root folder (the workstation will be `<root>/<repo_name>-mds`), or answer
@@ -91,3 +92,9 @@ Created:
 IronMan is now active for this project.
 Run /enable-ironman to re-enable after /disable-ironman.
 ```
+
+Then add one optional hint, as plain text: spec-driven changes are available with
+`/avengers-dev:sdd <name> [quick|standard|full]`. Its `quick` and `standard` tracks
+need OpenSpec >= 1.13 (`npm i -g @fission-ai/openspec@latest`); `full` uses BMAD.
+Init never installs OpenSpec and never runs `openspec init` — `/sdd` does that on
+first use.
