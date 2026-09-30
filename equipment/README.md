@@ -10,7 +10,7 @@ The equipment system lets IronMan customize each Avenger's focus for a task.
 | Thor       | **Toolbelts** | Implementation conventions | `react`, `python`, `go`, `nestjs`, `laravel`                                |
 | BlackWidow | **Goggles**   | Exploration strategy       | `architecture`, `detective`                            |
 | Hulk       | **Gadgets**   | Domain review criteria     | `deployment`, `compliance`                             |
-| IronMan    | **Schemes**   | Orchestration workflows    | `avengers-assemble`, `rescue-mission`, `bmad-sequence` |
+| IronMan    | **Schemes**   | Orchestration workflows    | `avengers-assemble`, `rescue-mission`, `bmad-sequence`, `sdd-sequence` |
 
 ## How It Works
 

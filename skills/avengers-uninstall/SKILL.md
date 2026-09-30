@@ -25,7 +25,7 @@ Check what exists:
 - `.claude/rules/avengers-kb.md`
 - md workstation wiring — run
   `python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py resolve`
-  (exit 0: JSON; `symlink` and `path` show what is wired)
+  (exit 0: JSON; `symlinks` and `path` show what is wired)
 
 Report what will be removed. If `--dry-run` is provided, stop here.
 
@@ -43,9 +43,10 @@ because the scripts read the project setting from it.
 1. Record the grant path:
    `python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py grant-path`
    (exit 0: prints the realpath; exit 1: nothing resolved — skip item 3).
-2. Remove the symlink, the project setting, `.claude/rules/avengers-kb.md`, and the
+2. Remove every managed symlink (`_bmad-output`, and `openspec` when `/sdd` wired
+   it), the project settings, `.claude/rules/avengers-kb.md`, and the
    `.git/info/exclude` lines (lines another worktree still uses are kept and named
-   in `exclude_kept`):
+   in `exclude_kept`). The `openspec/` content in the workstation is never deleted:
    `python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py unlink`
    (exit 0: removed, JSON `kept` is the workstation path; exit 2: nothing wired).
 3. Revoke the directory grant:
