@@ -403,7 +403,8 @@ markers of stories that have none.
        exactly as Phase 8 step 1 writes it (`§3.13`). The trace never re-runs.
      - `captain` → step 4, Captain.
      - `verify` → step 5, BlackWidow, with the stored `captain_findings`.
-     - After the loop, run any retrospective still owed (`§3.13` step 8).
+     - After the loop, set any owed epic `done` (the epic sweep), then run any
+       retrospective still owed (`§3.13` step 8).
    - Never re-run code review on a story past `pending`. Never set a `closed`
      story back to `in-progress`. Carry `review_cycles` over unchanged.
 
@@ -494,7 +495,9 @@ may write only:
    around it: the Phase 7 epic-status write before `bmad-create-story`, the
    Blocked resets (`[Gate]` subtask, story and `sprint-status.yaml` back to
    `in-progress`), the Phase 8 `Cover AC` bullets from the trace, Review
-   Findings reconciliation, appended Captain findings, and close-out.
+   Findings reconciliation, appended Captain findings, close-out, and the
+   Phase 8 epic `done` write at epic completion (step 8, and the epic sweep
+   before Phase 9).
 2. **Relay bookkeeping:** the relay state file
    `.avengers/relay-sequences/bmad-{name}.yaml`; the `bmad-kb.py stamp` outputs
    (`kb.json`, in the workstation or `.avengers/`, and
@@ -683,11 +686,19 @@ immediately, in the same write as the data that step produced.
   step 6: append the verified findings as unchecked `[Review][Patch]` bullets
   (skipping any already present, so a repeat is harmless), set the
   `sprint-status.yaml` entry to `in-progress`, then `fixing` and step 3.
-- **Step 8, retrospective.** Runs once every story key for the epic is `done`;
-  it has no marker, since `bmad-retrospective` records it in the
-  `epic-N-retrospective` entry of `sprint-status.yaml`. After a resume, run it
-  for every epic whose story keys are all `done` and whose
-  `epic-N-retrospective` entry is not `done`.
+- **Step 8, epic done + retrospective.** Runs once every story key for the
+  epic (at least one) is `done`. The main loop first sets `epic-N: done` and
+  `last_updated` (skip if already `done`); the `bmad-sprint-planning`
+  sprint-status header marks `in-progress → done` as manual, so the relay owns
+  it. The relay never downgrades `epic-N`; only the user reopens it (Phase 7's
+  `done` → stop and ask). Neither write has a marker: the epic status lives in
+  `epic-N`, and `bmad-retrospective` records its run in the
+  `epic-N-retrospective` entry of `sprint-status.yaml`. Before advancing to
+  Phase 9 (fresh entry or resume), sweep: set `epic-N: done` for every epic
+  whose story keys are all `done` and whose entry is not `done`. After a
+  resume, run that sweep first, then the retrospective for every epic whose
+  story keys are all `done` and whose `epic-N-retrospective` entry is not
+  `done`.
 
 ## Execution Model — wrap, don't reimplement
 

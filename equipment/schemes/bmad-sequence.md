@@ -92,8 +92,11 @@ findings appended as unchecked `[Review][Patch]`, loops to Thor (max 3 Captain
 verdicts in `review_cycles`, then the user accepts the CONDITIONAL
 PASS or exits; a FAIL cannot be accepted) → close-out (main loop): story
 `Status: done`, `sprint-status.yaml` entry `done` + `last_updated`. Epic N is
-complete when every story key for epic N is `done` in `sprint-status.yaml`; only
-then does `bmad-retrospective` run, with epic N passed explicitly. Per-story SHAs
+complete when every story key for epic N is `done` in `sprint-status.yaml`; the
+main loop then sets `epic-N: done` (upstream leaves it manual; the relay never
+downgrades it), and only then does `bmad-retrospective` run, with epic N passed
+explicitly. Before Phase 9 (and first on resume), a sweep sets `epic-N: done` for
+any completed epic not yet `done`. Per-story SHAs
 and ranges (recorded by the main loop from `git rev-parse HEAD`, never from
 Thor's report), `phase8_start_sha` and the cycle count live in the state file's
 `loop_state` (relay-config `§2.9`, `§2.10`). See `references/bmad/phase-8-review.md`.
@@ -113,6 +116,7 @@ re-enters every other story at its recorded step. See relay-config `§3.2` and
 - [ ] All stories built (Thor) and reviewed (Captain)
 - [ ] Captain verdict per story: PASS, or a CONDITIONAL PASS the user accepted at the 3-cycle limit
 - [ ] Every story closed out: `done` in its story file and in `sprint-status.yaml`
+- [ ] Each completed epic set to done in sprint-status.yaml
 - [ ] Retrospective run for each epic whose story keys are all `done`
 - [ ] Phase 9 KB refresh evaluated (refreshed and stamped, or not needed)
 - [ ] State file transitioned to `complete`
