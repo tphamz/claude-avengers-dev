@@ -25,8 +25,10 @@ boundary, dispatch the owning Avenger for delegated phases, and hold the
 design-implementation hard gate (Phase 5 → 6).
 
 The KB helper script is `${CLAUDE_PLUGIN_ROOT}/skills/bmad/scripts/bmad-kb.py`
-(referred to below as **bmad-kb.py**). Every subcommand accepts `--project-dir`
-(default: current directory) and prints `--help`.
+(referred to below as **bmad-kb.py**). The md workstation script is
+`${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py`
+(**workstation.py**). Every subcommand of both accepts `--project-dir` (default:
+current directory) and prints `--help`.
 
 ## Ownership Map — phase → real skill → owner → tracks
 
@@ -64,8 +66,9 @@ The KB helper script is `${CLAUDE_PLUGIN_ROOT}/skills/bmad/scripts/bmad-kb.py`
 ## Steps
 
 > **Prompting (avoid "Invalid tool parameters"):** every user-facing question in
-> this skill — the sequence name, the track, the resume choice, the stale-KB
-> refresh offer, the Phase 5→6 [1]/[2] gate, and the Phase 9 refresh confirmation —
+> this skill — the sequence name, the track, the resume choice, the md workstation
+> location, the stale-KB refresh offer, the md commit offers, the Phase 5→6 [1]/[2]
+> gate, and the Phase 9 refresh confirmation —
 > is a **plain conversational question**. Ask it directly in the chat in Vision's
 > voice and wait for the user's reply. Do **NOT** use a structured
 > question/elicitation tool for these prompts; a plain text question has no schema
@@ -95,6 +98,32 @@ is no silent fallback: ask the user to choose **[a] downgrade to `standard`** or
 **[b] stop** and run `npx bmad-method install` to add the TEA module (with a test
 framework configured, e.g. via `bmad-testarch-framework`). Record the choice.
 
+**md workstation check (every run).** After preflight passes, run:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py resolve
+```
+
+Run it every time — a symlink can dangle and a BMAD reinstall can undo a re-point.
+Exit 0: JSON with `state` and `symlink`. Exit 1: report the error and continue
+in-repo.
+
+- `ok` with `symlink: ok` — nothing to ask.
+- `ok` with any other `symlink` — repair silently with `workstation.py set --path <path>`.
+- `in_repo` — the user keeps markdown in the repo; continue.
+- `guess`, `missing`, or `broken` — run the interactive flow of
+  `/avengers-dev:avengers-workstation` (Steps 1–4 of that skill: confirm or ask for
+  the md root, `set` or `migrate`, grant access). The user may answer "in-repo".
+
+Then run `workstation.py check-config` (skip if no workstation). Exit 0: nothing
+to do. Exit 2: for each `outside` entry with `declined: false`, offer the opt-in
+re-point exactly as in Step 5 of `/avengers-dev:avengers-workstation` (warning that
+it edits the team's committed config; decline is recorded and not asked again).
+Declined keys keep that artifact in the repo — mention it once.
+
+Record the resolved path as `md_workstation` in the state file (Step 2), or `null`
+when there is none.
+
 ### 1. Parse Arguments
 
 - **No argument**: prompt for a sequence name (kebab-case, descriptive — e.g.
@@ -118,8 +147,8 @@ a **legacy state file** — one with no `track` key (written before tracks and P
 - if it is at `8` or `complete`, finish as before — it is **not** routed into
   Phase 9
 - otherwise it continues through Phase 9 at the end; with no `kb_base_commit`,
-  Phase 9 uses the commit in `.avengers/kb.json`, or is skipped with a note if
-  there is none
+  Phase 9 uses the `stamped_commit` reported by `bmad-kb.py status`, or is
+  skipped with a note if there is none
 
 State files that have a `track` key follow the normal flow, including Phase 9.
 
@@ -129,7 +158,8 @@ and re-enter at `current_phase` (respecting `design_implementation_boundary_pass
 
 On a new sequence: create the state file with `current_phase: 0`, `track`,
 `status: active`, `design_implementation_boundary_passed: false`,
-`gate_override: null`. Schema reference:
+`gate_override: null`, `md_workstation: <path>|null`. On resume, refresh
+`md_workstation` from the Step 0 check. Schema reference:
 `${CLAUDE_PLUGIN_ROOT}/references/bmad/relay-config.md`.
 
 ### 3. Run the Phase Sequence
@@ -165,7 +195,8 @@ Phase-by-phase (standard and full tracks; quick track is Step 6):
    `Skill(bmad-generate-project-context)`, then — git repos only — `bmad-kb.py
    stamp` (exit 0 stamped; exit 2 already stamped at HEAD, fine; exit 1 error,
    report it). Greenfield with
-   no code: skip 1a and note it in the state file.
+   no code: skip 1a and note it in the state file. Then offer an **md commit**
+   (Step 8).
 3. **Phase 1b — Brief.** `Skill(bmad-product-brief)`.
 4. **Phase 2 — PRD.** `Skill(bmad-prd)` in create mode (it runs its own reviewer
    gate). Then **offer**, as a plain question, an optional `bmad-prd` validate pass
@@ -201,8 +232,9 @@ Update `current_phase` in the state file at each advance.
 
 ### 4. Design-Implementation Boundary — Hard Gate (Phase 5 → 6)
 
-After Hulk reports the readiness verdict, IronMan presents it — plus any
-unresolved Phase 4.5 Criticals — to the user in Vision's voice and **stops**.
+After Hulk reports the readiness verdict, offer an **md commit** (Step 8) for the
+design artifacts. Then IronMan presents the verdict — plus any unresolved Phase 4.5
+Criticals — to the user in Vision's voice and **stops**.
 Require an explicit choice:
 
 > 🚧 Design-implementation boundary reached. The line must hold.
@@ -232,6 +264,9 @@ No auto-advance, no batch-through.
 5. Run `Skill(bmad-generate-project-context)` to update the context file.
 6. Run `bmad-kb.py stamp`, then set `status: complete`.
 
+Whichever way Phase 9 ends (steps 1–6, on every track), offer an **md commit**
+(Step 8) before announcing completion.
+
 ### 6. Quick Track
 
 1. Phase 0 as above (a `missing` KB is noted, not built — suggest `standard` if the
@@ -259,3 +294,24 @@ Vision's voice and wait for the user before advancing. Delegated phases report
 through their Avenger; IronMan relays the result, then advances.
 
 State file lives at `.avengers/relay-sequences/bmad-{name}.yaml` throughout.
+
+### 8. md Commits (workstation only)
+
+Offered at three points: after the Phase 1a stamp, at the hard gate, and at
+completion (end of Phase 9, any track). Skip when `md_workstation` is `null`.
+Relay-config §3.11 has the full rule.
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py md-status
+```
+
+Exit 2: the md folder is clean, or not a git repo — say nothing and continue.
+Exit 1: note the error and continue. Exit 0: JSON `{toplevel, rel, repo_name,
+count, dirty}`. Ask: "Commit {count} md changes in {toplevel}?"
+
+On yes, dispatch `Agent(avengers-dev:thor)` to run exactly, from any directory:
+`git -C <toplevel> add -- <rel>` then
+`git -C <toplevel> commit -m "docs(<repo_name>): <phase> artifacts" -- <rel>`
+(`<phase>` is `discovery`, `design`, or `complete`). The pathspec commit leaves
+anything else the user has staged in the md repo untouched. **Never push.** If a
+hook or signing fails, report it and continue — an md commit never blocks the relay.
