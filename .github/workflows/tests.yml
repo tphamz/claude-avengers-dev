@@ -48,7 +48,7 @@ jobs:
           EOF
 
       - name: Byte-compile
-        run: python -m compileall -q skills tests
+        run: python -m compileall -q skills tests tools
 
       - name: Shell syntax
         run: bash -n scripts/*.sh avengers-sync.sh
