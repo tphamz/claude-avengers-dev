@@ -288,8 +288,8 @@ Phase-by-phase (standard and full tracks; quick track is Step 6):
    acceptance criteria (ACs), checking every AC is testable. Then dispatch
    `Agent(avengers-dev:captain)` with the `adversarial` lens, the resolved story
    paths and both skills' findings, to verify them read-only (no test gate:
-   this is a pre-implementation spec review, `agents/captain.md` BMAD
-   Verification (Phase 4.5)). **Captain assigns
+   this is a pre-implementation spec review, `agents/captain.md` Hardening
+   Verification (/bmad 4.5, /sdd H)). **Captain assigns
    the `[CRITICAL]`/`[WARNING]`/`[SUGGESTION]` tags** — the wrapped skills emit no
    severity. Captain reports only; back in the main loop, walk the findings with
    the user and apply the agreed fixes to the stories. Record any unresolved

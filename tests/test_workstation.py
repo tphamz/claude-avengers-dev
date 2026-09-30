@@ -707,6 +707,12 @@ class SpecTargetTests(WSCase):
         self.assertEqual(report["state"], "ok")
         self.assertEqual(report["target"], self.ws_target(ws))
         self.assertEqual(report["spec_dir"], os.path.dirname(self.ws_target(ws)))
+        # Commit guidance follows the workstation (not a git repo here), not the code repo.
+        commit = report["commit"]
+        self.assertFalse(commit["git"])
+        self.assertIsNone(commit["pathspec"])
+        self.assertIn("not in a git repo", commit["reason"])
+        self.assertNotIn("in-repo", commit["reason"])
 
     def test_in_repo_openspec_only_is_in_repo(self) -> None:
         code, _, err = self.run_cli("set", "--in-repo", "--link", "openspec")
