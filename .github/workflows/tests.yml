@@ -1,0 +1,91 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  unit:
+    name: unit (${{ matrix.os }}, Python ${{ matrix.python }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Python 3.9 is the floor (Path.is_relative_to). It is past end of life and
+          # unreliable on arm64 macOS, so it runs on Linux only. Pinned to 24.04, the
+          # newest Ubuntu with a 3.9 build in actions/python-versions.
+          - os: ubuntu-24.04
+            python: "3.9"
+          - os: ubuntu-latest
+            python: "3.12"
+          - os: macos-latest
+            python: "3.12"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: git >= 2.32 (tests use GIT_CONFIG_GLOBAL)
+        run: |
+          git --version
+          python - <<'EOF'
+          import re, subprocess, sys
+          out = subprocess.run(["git", "--version"], capture_output=True, text=True).stdout
+          found = tuple(int(n) for n in re.search(r"(\d+)\.(\d+)", out).groups())
+          if found < (2, 32):
+              sys.exit(f"git {found[0]}.{found[1]} is older than 2.32")
+          EOF
+
+      - name: Byte-compile
+        run: python -m compileall -q skills tests tools
+
+      - name: Shell syntax
+        run: bash -n scripts/*.sh avengers-sync.sh
+
+      - name: Unit tests
+        run: python -m unittest discover -s tests -v
+
+  openspec-integration:
+    name: openspec integration (OpenSpec 1.13.2, Node 22)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Install OpenSpec
+        env:
+          OPENSPEC_TELEMETRY: "0"
+          DO_NOT_TRACK: "1"
+        run: |
+          npm i --no-save --prefix "$RUNNER_TEMP/os" @fission-ai/openspec@1.13.2
+          {
+            echo "OPENSPEC_BIN=$RUNNER_TEMP/os/node_modules/.bin/openspec"
+            echo "OPENSPEC_REQUIRED=1"
+            echo "OPENSPEC_TELEMETRY=0"
+            echo "DO_NOT_TRACK=1"
+          } >> "$GITHUB_ENV"
+
+      - name: Integration test (fails, not skips, without OpenSpec)
+        run: python -m unittest tests.test_sdd_openspec -v

@@ -10,6 +10,8 @@ Exit codes:
   1 = error
   2 = no-op (no corporate cert found, nothing to do)
 """
+from __future__ import annotations
+
 import argparse
 import shutil
 import ssl

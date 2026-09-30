@@ -8,6 +8,9 @@ Exit codes:
   0 = found, prints path to stdout
   1 = not found
 """
+from __future__ import annotations
+
+import argparse
 import sys
 from pathlib import Path
 
@@ -44,6 +47,10 @@ def find_most_recent_log() -> Path | None:
 
 
 def main():
+    argparse.ArgumentParser(
+        description="Print the path of the most recent Claude Code debug log. "
+                    "Exit 0 = found, 1 = not found."
+    ).parse_args()
     log = find_most_recent_log()
     if log is None:
         print(
