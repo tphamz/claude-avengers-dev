@@ -33,7 +33,7 @@ number**; this file only records what differs.
 | 0 Preflight | `sdd-openspec.py preflight` → workstation (`--link openspec`) → `sdd-openspec.py init` → KB check (BMAD only) | main loop | quick, standard |
 | E Explore (optional) | read `openspec/specs/` and the code with the user | main loop (Vision voice) | standard |
 | P Propose | `sdd-openspec.py new` → `instructions <artifact>` per artifact | main loop (Vision voice) | quick (lite), standard |
-| H Harden | `sdd-openspec.py validate`, then adversarial + edge-case review of the delta specs | `Agent(avengers-dev:captain)`, `adversarial` lens; fixes in main loop | standard |
+| H Harden | `sdd-openspec.py validate`, then adversarial + edge-case review of the delta specs (with `_bmad/`: main loop runs `bmad-review-adversarial-general` + `bmad-review-edge-case-hunter` first) | `Agent(avengers-dev:captain)`, `adversarial` lens, verifies findings read-only; fixes in main loop | standard |
 | R Readiness | readiness check of the change | `Agent(avengers-dev:hulk)` | standard |
 | — | **DESIGN-IMPLEMENTATION BOUNDARY** | IronMan | **hard gate** (standard) |
 | B Build | quick: tasks.md; standard: failing tests from tests.md first, then tasks.md | `Agent(avengers-dev:thor)` | quick, standard |
@@ -45,8 +45,9 @@ Per-phase stubs: `phase-0-preflight.md`, `phase-p-propose.md`, `phase-h-harden.m
 `phase-b-build.md`, `phase-v-verify.md`, `phase-a-archive.md`, and `track-quick.md`.
 
 **Why the split:** the same as `/bmad` §3.12. Propose, Explore, applying hardening
-fixes and the gate ask the user questions, so they run in the main loop. Harden,
-Readiness, Build and Verify need no user input and belong to a specialist Avenger.
+fixes and the gate ask the user questions, so they run in the main loop, as do the
+wrapped `bmad-review-*` skills in Harden. Captain's Harden verification, Readiness,
+Build and Verify need no user input and belong to a specialist Avenger.
 
 ## Schemas
 
@@ -112,7 +113,7 @@ The `/bmad` directives apply unchanged unless noted. Section numbers refer to
 | §3.7 Scope Creep Prevention | applies in B; an out-of-scope requirement becomes a new change, a spec edit (back to P), or an informal note |
 | §3.10 KB Lifecycle | only when `_bmad/` exists. Without BMAD the KB is `openspec/specs/` alone, refreshed by `archive` |
 | §3.11 Gate Override | unchanged: readiness FAIL or unresolved Harden `[CRITICAL]`s need `override` plus a reason |
-| §3.12 Wrapped Skills Run in the Main Loop | unchanged; delegated phases are H, R, B and V |
+| §3.12 Wrapped Skills Run in the Main Loop | applies unchanged, plus directive 5's OpenSpec writes (main loop only); delegated phases are H, R, B and V |
 | §3.13 md Workstation and md Commits | Step 0 adds the `openspec` link; md commits are offered at the gate (`design`) and after archive (`complete`) |
 
 ### SDD-specific directives

@@ -25,7 +25,8 @@ Standards are sacred. No shortcut is acceptable.
 
 1. **Run the tests first.** Run `make test` or `/avengers-test`. If tests fail, stop:
    _[CRITICAL]: Tests failing - do not proceed until tests pass_. (The one
-   exception is a BMAD Phase 4.5 spec review, below: it has no test gate.)
+   exception is a pre-implementation spec review — `/bmad` Phase 4.5 or `/sdd`
+   Phase H, see Hardening Verification below: it has no test gate.)
 2. Read the code or diff thoroughly
 3. Evaluate against each review criterion
 4. Provide specific, actionable feedback with file:line references
@@ -80,25 +81,33 @@ mood. A review exists to surface what is wrong while it is still cheap to fix.
 - **CONDITIONAL PASS**: No Critical findings, but Warnings exist.
 - **FAIL**: Critical findings present.
 
-## BMAD Verification (Phase 4.5)
+## Hardening Verification (/bmad 4.5, /sdd H)
 
-In a `/bmad` sequence, Phase 4.5 is a pre-implementation spec and design
-hardening review: no code exists for the stories yet. The main loop has run
-`bmad-review-adversarial-general` and `bmad-review-edge-case-hunter` over the
-epics, stories and acceptance criteria; you do **not** invoke them. The dispatch
-gives you the resolved story paths and both skills' findings.
+`/bmad` Phase 4.5 and `/sdd` Phase H are pre-implementation spec and design
+hardening reviews: no code exists yet. The main loop has run
+`bmad-review-adversarial-general` and `bmad-review-edge-case-hunter` (in `/sdd`,
+only when `_bmad/` exists); you do **not** invoke them. The dispatch gives you
+the artifacts and both skills' findings, if any:
+
+- `/bmad` 4.5: the resolved story paths (epics, stories, acceptance criteria).
+- `/sdd` H: the change id and `status` JSON; read the delta specs, proposal,
+  design and `tests.md` under `change_dir_real` (`references/sdd/phase-h-harden.md`).
+
+In both phases:
 
 - **Skip Step 1's test gate.** Do not run the tests, and never report a
   test-failure `[CRITICAL]` in this phase.
-- **Verify each hardening finding** against the story files: confirm it, or
-  reject it as a false positive with the reason. Check that every AC is
-  concrete, independently testable, and covers error and edge paths.
+- **Verify each hardening finding** against the artifacts: confirm it, or
+  reject it as a false positive with the reason. Check that every AC or
+  scenario is concrete, independently testable, and covers error and edge
+  paths; in `/sdd`, that every scenario maps to a test in `tests.md`.
 - **Assign severities.** The wrapped skills emit none; tag each confirmed
   finding `[CRITICAL]` / `[WARNING]` / `[SUGGESTION]` / `[NIT]`. A `[CRITICAL]`
   here is a spec defect that would make the build wrong or untestable.
-- **Read-only.** Do not edit the stories or any artifact; the main loop walks
-  your findings with the user and applies the fixes. Unresolved Criticals go to
-  the Phase 5 → 6 gate.
+- **Read-only.** Do not edit the stories, change files or any artifact; the
+  main loop walks your findings with the user and applies the fixes. Unresolved
+  Criticals go to the design-implementation gate (`/bmad` Phase 5 → 6, `/sdd`
+  R → B).
 
 ## BMAD Verification (Phase 8)
 

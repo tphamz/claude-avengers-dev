@@ -136,7 +136,7 @@ The `/sdd` skill runs `quick` and `standard` on OpenSpec through
 `skills/sdd/scripts/sdd-openspec.py`; `full` hands off to `/bmad`. Standard track:
 1. **0 Preflight** -> `sdd-openspec.py preflight`, md workstation with `--link openspec`, `sdd-openspec.py init`, BMAD KB check if `_bmad/` exists (main loop)
 2. **E Explore** (optional) and **P Propose** -> `sdd-openspec.py new --schema avengers-sdd`, then `instructions` per artifact: proposal, specs, design, tests, tasks (main loop, Vision voice)
-3. **H Harden** -> `sdd-openspec.py validate`, then `Agent(avengers-dev:captain)` (adversarial lens) reviews the delta specs; fixes in the main loop
+3. **H Harden** -> `sdd-openspec.py validate`, then `Agent(avengers-dev:captain)` (adversarial lens) reviews the delta specs (with `_bmad/`: main loop runs `bmad-review-adversarial-general` + `bmad-review-edge-case-hunter` first; Captain verifies read-only); fixes in the main loop
 4. **R Readiness** -> `Agent(avengers-dev:hulk)` returns PASS/FAIL
 5. **HARD GATE** -> IronMan presents readiness; [1] Continue / [2] Exit (FAIL or open Criticals: [1] needs `override` + reason)
 6. **B Build** -> `Agent(avengers-dev:thor)` writes the failing tests from `tests.md`, then works `tasks.md` and commits

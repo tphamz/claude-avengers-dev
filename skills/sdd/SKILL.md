@@ -43,7 +43,7 @@ number): `${CLAUDE_PLUGIN_ROOT}/references/sdd/relay-config.md`. Per-phase stubs
 | 0 Preflight | `sdd-openspec.py preflight` → workstation → `init` → KB check (BMAD only) | main loop | quick, standard |
 | E Explore (optional) | read `openspec/specs/` and the code with the user | main loop (Vision voice) | standard |
 | P Propose | `sdd-openspec.py new` → `instructions` per artifact | main loop (Vision voice) | quick (lite), standard |
-| H Harden | `sdd-openspec.py validate` + adversarial / edge-case review of the delta specs | `Agent(avengers-dev:captain)`, `adversarial` lens; fixes in main loop | standard |
+| H Harden | `sdd-openspec.py validate` + adversarial / edge-case review of the delta specs (with `_bmad/`: main loop runs `bmad-review-adversarial-general` + `bmad-review-edge-case-hunter` first) | `Agent(avengers-dev:captain)`, `adversarial` lens, verifies findings read-only; fixes in main loop | standard |
 | R Readiness | readiness of the change | `Agent(avengers-dev:hulk)` | standard |
 | — | **DESIGN-IMPLEMENTATION BOUNDARY** | IronMan | **hard gate** (standard) |
 | B Build | tests first from `tests.md` (standard), then `tasks.md` | `Agent(avengers-dev:thor)` | quick, standard |

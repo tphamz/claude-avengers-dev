@@ -17,7 +17,7 @@ loop, relay-config `§3.12`). Then it resolves the story paths (relay-config
 `§2.8`) and dispatches Captain read-only, with the `adversarial` lens, those paths
 and both skills' findings, to verify them (no test gate: this is a
 pre-implementation spec review, so Captain skips his Step 1 test run;
-`agents/captain.md` BMAD Verification (Phase 4.5)).
+`agents/captain.md` Hardening Verification (/bmad 4.5, /sdd H)).
 
 **Captain assigns the severity tags** — `[CRITICAL]` / `[WARNING]` /
 `[SUGGESTION]` — because the wrapped skills emit findings without severity.

@@ -265,7 +265,7 @@ JSON (`change_dir_real`).
 
 1. **0 Preflight** — `sdd-openspec.py preflight` (OpenSpec >= 1.13 or stop with the install hint), md workstation with `--link openspec`, `sdd-openspec.py init`, BMAD KB check only if `_bmad/` exists
 2. **E Explore** (optional) and **P Propose** — `new --schema avengers-sdd`, then `instructions` per artifact, drafted with the user (main loop, Vision voice)
-3. **H Harden** — `sdd-openspec.py validate`, then `Agent(avengers-dev:captain)` (adversarial lens) on the delta specs; fixes in the main loop
+3. **H Harden** — `sdd-openspec.py validate`, then `Agent(avengers-dev:captain)` (adversarial lens) on the delta specs (with `_bmad/`: main loop runs `bmad-review-adversarial-general` + `bmad-review-edge-case-hunter` first; Captain verifies read-only); fixes in the main loop
 4. **R Readiness** — `Agent(avengers-dev:hulk)` returns PASS/FAIL
 5. **HARD GATE** — Tony presents Hulk's verdict; [1] Continue / [2] Exit (FAIL or open Criticals: [1] needs `override` + reason)
 6. **B Build** — `Agent(avengers-dev:thor)`: failing tests from `tests.md` first, then `tasks.md`, commit

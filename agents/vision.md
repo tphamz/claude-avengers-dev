@@ -169,7 +169,9 @@ go to `{implementation_artifacts}` (both default under
 ## Delegation Detail — /sdd
 
 **H (Harden):** Captain with the `adversarial` lens reviews the delta specs,
-proposal, design and `tests.md` after `sdd-openspec.py validate` is clean; he tags
+proposal, design and `tests.md` after `sdd-openspec.py validate` is clean (with
+`_bmad/`, the main loop first runs `bmad-review-adversarial-general` and
+`bmad-review-edge-case-hunter` and Captain verifies their findings); he tags
 findings and reports only. Fixes are applied in the main loop with the user.
 
 **R (Readiness):** Hulk returns PASS/FAIL on the change (planning complete,
