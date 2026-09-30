@@ -209,8 +209,9 @@ only for skills that need no user input (4.5, 5, 7, 8).
 **Step 0 (every run):** after preflight, `workstation.py resolve`. `ok` continues
 (a missing or mismatched symlink is repaired with `set`); `in_repo` continues
 in-repo; `guess` / `missing` / `broken` run the `/avengers-workstation` flow, where
-the user may still choose in-repo. Then `workstation.py check-config`: keys outside
-`output_folder` are offered for an opt-in, per-key `repoint-config` (it edits the
+the user may still choose in-repo. Then `workstation.py check-config` (exit 1 — `_bmad/`
+missing or `output_folder` outside the project — is reported and skipped): keys
+outside `output_folder` are offered for an opt-in, per-key `repoint-config` (it edits the
 team's committed config — say so). Declined keys are recorded in
 `.avengers/settings.json` → `mdRepointDeclined` and not offered again. It runs on
 every run because a BMAD reinstall can undo a re-point and a symlink can dangle.
@@ -218,9 +219,12 @@ Record `md_workstation` in the state file.
 
 **md commits:** offered after the Phase 1a stamp, at the hard gate, and at
 completion (end of Phase 9, any track), only when `md_workstation` is set.
+The workstation folder is `<md-root>/<repo-name>-mds/`.
 
 1. `workstation.py md-status` — exit 2 (clean, or not a git repo): skip silently.
-2. Exit 0: ask "Commit N md changes in <md repo>?"
+2. Exit 0: if `dedicated` is false (the md repo is `$HOME` or contains the project),
+   warn first that the commit lands in that repo. Then ask "Commit N md changes in
+   <md repo>?"
 3. On yes, Thor runs `git -C <toplevel> add -- <rel>`, then
    `git -C <toplevel> commit -m "docs(<repo-name>): <phase> artifacts" -- <rel>`.
    The pathspec commit leaves anything else staged in the md repo untouched.

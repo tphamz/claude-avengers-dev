@@ -569,6 +569,7 @@ class WorkstationTests(ProjectCase):
         lines = rules.read_text(encoding="utf-8").splitlines()
         expected = f"@{self.ws / 'project-context.md'}"
         self.assertIn(expected, lines)
+        self.assertIn("`grep -R` / `find -L`", rules.read_text(encoding="utf-8"))
         # A moved workstation replaces the stale import instead of adding a second one.
         rules.write_text(rules.read_text().replace(expected, "@/old/ws/project-context.md"))
         self.commit("feat: c", {"src/c.py": "c\n"})

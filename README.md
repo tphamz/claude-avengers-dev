@@ -82,7 +82,7 @@ keyed per branch.
 Keep a repo's markdown out of the code repo — for example in one central md repo
 that holds the docs for many code repos. Run **`/avengers-dev:avengers-workstation`**
 (also offered by `avengers-init` and on every `/avengers-dev:bmad` run). The first
-time, it asks for an md root; the workstation is `<md-root>/<repo-name>/`. Later
+time, it asks for an md root; the workstation is `<md-root>/<repo-name>-mds/`. Later
 runs, other clones and other worktrees find it automatically, and it asks again
 only if the folder is gone.
 
@@ -103,8 +103,15 @@ only if the folder is gone.
 - **md commits:** at the end of discovery, at the design gate and at completion,
   the relay offers to commit the workstation's changes in its md repo, touching
   only that repo's folder. Nothing is ever pushed.
+- **Searching:** default `rg`, `grep -r` and `find` (and so a root-level search) do
+  not follow the `_bmad-output` symlink. `.claude/rules/avengers-kb.md` tells agents
+  where the markdown lives and to search by explicit path (`_bmad-output/...` or
+  the workstation path) or with `grep -R` / `find -L`.
+- **md commits** warn first when the workstation's git repo is not a dedicated md
+  repo (your home directory, or a repo that contains the project).
 - **Forks:** the registry (`~/.avengers/workstations.json`) is keyed by the
   normalized remote URL (`origin`, else `upstream`), so a fork gets its own entry.
+  A folder-name clash suggests `<org>-<repo>-mds`.
 - **Limitation:** `bmad-story-automator` rejects artifact paths that resolve outside
   the repo root, so it does not work with a workstation. The Avengers relay does
   not use it. macOS and Linux only (directory symlinks).

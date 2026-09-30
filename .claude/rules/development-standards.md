@@ -36,9 +36,11 @@ or the plugin's own `settings.json`.
 - md workstation directory grant -> project `.claude/settings.local.json`
   `permissions.additionalDirectories` (via `manage-settings.py list-add --dry-run` + Write)
 - Persona includes -> project `.claude/rules/avengers-dev.md` (written by `avengers-init`)
-- KB import -> project `.claude/rules/avengers-kb.md` (written by `bmad-kb.py stamp`)
+- KB search hint + import -> project `.claude/rules/avengers-kb.md` (written by
+  `workstation.py set` / `kb-rules` and `bmad-kb.py stamp`)
 - CA bundle -> `~/.avengers/ca-bundle.pem` (home-level, avengers namespace only)
-- md workstation registry -> `~/.avengers/workstations.json` (`{root, repos: {remote-key: path}}`)
+- md workstation registry -> `~/.avengers/workstations.json` (`{root, repos: {remote-key: path}}`;
+  per-repo folders are `<root>/<repo-name>-mds/`)
 
 ### `.git/info/exclude` for Per-Clone Artifacts
 
@@ -48,7 +50,8 @@ are ignored through `.git/info/exclude`, not `.gitignore`. The exclude file is p
 clone (shared by its worktrees) and never reaches teammates; a `.gitignore` entry
 would also hide teammates' real `_bmad-output`. Patterns are root-anchored with no
 trailing slash, because a trailing-slash pattern does not match a symlink.
-`workstation.py set` adds the lines and `workstation.py unlink` removes them.
+`workstation.py set` adds the lines and `workstation.py unlink` removes them, unless
+another worktree of the same clone still uses them.
 
 **Never write to:**
 - `~/.claude/settings.json`

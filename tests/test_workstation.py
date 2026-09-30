@@ -11,6 +11,7 @@ import importlib.util
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -98,7 +99,10 @@ class WSCase(unittest.TestCase):
         return path.read_text().splitlines() if path.exists() else []
 
     def set_ws(self, path: Path | None = None) -> tuple[int, str, str]:
-        return self.run_cli("set", "--path", str(path or self.md / "repo"))
+        return self.run_cli("set", "--path", str(path or self.md / "repo-mds"))
+
+    def kb_rules(self) -> Path:
+        return self.repo / ".claude" / "rules" / "avengers-kb.md"
 
 
 class NormalizeRemoteTests(unittest.TestCase):
@@ -129,8 +133,9 @@ class ResolveTests(WSCase):
         self.assertEqual(report["repo_name"], "repo")
 
     def test_project_setting(self) -> None:
-        (self.md / "repo").mkdir(parents=True)
-        self.write(".avengers/settings.json", json.dumps({"mdWorkstation": str(self.md / "repo")}))
+        (self.md / "repo-mds").mkdir(parents=True)
+        self.write(".avengers/settings.json",
+                   json.dumps({"mdWorkstation": str(self.md / "repo-mds")}))
         report = self.resolve()
         self.assertEqual((report["state"], report["source"]), ("ok", "project"))
 
@@ -175,11 +180,18 @@ class ResolveTests(WSCase):
         self.assertEqual(self.resolve(project=other)["symlink"], "ok")
 
     def test_guess(self) -> None:
-        (self.md / "repo").mkdir(parents=True)
+        (self.md / "repo-mds").mkdir(parents=True)
         self.write_registry({"root": str(self.md), "repos": {}})
         report = self.resolve()
         self.assertEqual((report["state"], report["source"]), ("guess", "guess"))
-        self.assertEqual(report["path"], str(self.md / "repo"))
+        self.assertEqual(report["path"], str(self.md / "repo-mds"))
+
+    def test_guess_ignores_folder_without_suffix(self) -> None:
+        (self.md / "repo").mkdir(parents=True)
+        self.write_registry({"root": str(self.md), "repos": {}})
+        report = self.resolve()
+        self.assertEqual(report["state"], "missing")
+        self.assertEqual(report["suggested_path"], str(self.md / "repo-mds"))
 
     def test_broken_recorded_path(self) -> None:
         self.write(".avengers/settings.json", json.dumps({"mdWorkstation": str(self.md / "gone")}))
@@ -187,10 +199,34 @@ class ResolveTests(WSCase):
 
     def test_dangling_symlink_is_broken(self) -> None:
         self.assertEqual(self.set_ws()[0], 0)
-        (self.md / "repo" / "avengers").rmdir()
-        (self.md / "repo").rmdir()
+        shutil.rmtree(self.md / "repo-mds")
         report = self.resolve()
         self.assertEqual((report["state"], report["symlink"]), ("broken", "dangling"))
+
+    def test_in_repo_after_broken_removes_symlink(self) -> None:
+        self.assertEqual(self.set_ws()[0], 0)
+        shutil.rmtree(self.md / "repo-mds")
+        code, out, err = self.run_cli("set", "--in-repo")
+        self.assertEqual(code, 0, err)
+        self.assertFalse((self.repo / "_bmad-output").is_symlink())
+        (self.repo / "_bmad-output" / "planning-artifacts").mkdir(parents=True)
+        report = self.resolve()
+        self.assertEqual(report["state"], "in_repo")
+        self.assertEqual(report["symlink"], "real_dir")
+        self.assertNotIn("/_bmad-output", self.exclude_lines())
+        self.assertFalse(self.kb_rules().exists())
+
+    def test_in_repo_symlink_missing_after_choice(self) -> None:
+        self.assertEqual(self.set_ws()[0], 0)
+        shutil.rmtree(self.md / "repo-mds")
+        self.assertEqual(self.run_cli("set", "--in-repo")[0], 0)
+        report = self.resolve()
+        self.assertEqual((report["state"], report["symlink"]), ("in_repo", "missing"))
+
+    def test_in_repo_never_touches_real_dir(self) -> None:
+        self.write("_bmad-output/prd.md", "# prd\n")
+        self.assertEqual(self.run_cli("set", "--in-repo")[0], 0)
+        self.assertEqual((self.repo / "_bmad-output" / "prd.md").read_text(), "# prd\n")
 
     def test_in_repo_choice(self) -> None:
         code, _, _ = self.run_cli("set", "--in-repo")
@@ -210,7 +246,7 @@ class SetTests(WSCase):
     def test_symlink_settings_registry_and_exclude(self) -> None:
         code, out, err = self.set_ws()
         self.assertEqual(code, 0, err)
-        ws = self.md / "repo"
+        ws = self.md / "repo-mds"
         link = self.repo / "_bmad-output"
         self.assertTrue(link.is_symlink())
         self.assertEqual(os.path.realpath(link), os.path.realpath(ws))
@@ -261,10 +297,21 @@ class SetTests(WSCase):
     def test_collision_suggests_org_prefix(self) -> None:
         self.git("remote", "add", "origin", "git@github.com:acme/repo.git")
         self.write_registry({"root": str(self.md),
-                             "repos": {"github.com/other/repo": str(self.md / "repo")}})
+                             "repos": {"github.com/other/repo": str(self.md / "repo-mds")}})
         code, _, err = self.set_ws()
         self.assertEqual(code, 1)
-        self.assertIn(str(self.md / "acme-repo"), err)
+        self.assertTrue(err.strip().endswith(str(self.md / "acme-repo-mds")), err)
+
+    def test_root_only_defaults_to_mds_folder(self) -> None:
+        code, out, err = self.run_cli("set", "--root", str(self.md))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(out)["path"], str(self.md / "repo-mds"))
+        self.assertTrue((self.repo / "_bmad-output").is_symlink())
+
+    def test_refuses_workstation_that_contains_project(self) -> None:
+        code, _, err = self.set_ws(self.base)
+        self.assertEqual(code, 1)
+        self.assertIn("contains the project", err)
 
     def test_refuses_workstation_inside_repo(self) -> None:
         code, _, err = self.set_ws(self.repo / "docs-ws")
@@ -272,17 +319,18 @@ class SetTests(WSCase):
         self.assertIn("inside the project", err)
 
     def test_dry_run_changes_nothing(self) -> None:
-        code, out, _ = self.run_cli("set", "--path", str(self.md / "repo"), "--dry-run")
+        code, out, _ = self.run_cli("set", "--path", str(self.md / "repo-mds"), "--dry-run")
         self.assertEqual(code, 0)
         self.assertTrue(json.loads(out)["actions"])
         self.assertFalse((self.repo / "_bmad-output").exists())
-        self.assertFalse((self.md / "repo").exists())
+        self.assertFalse((self.md / "repo-mds").exists())
+        self.assertFalse(self.kb_rules().exists())
         self.assertEqual(self.settings(), {})
         self.assertEqual(self.registry(), {})
         self.assertNotIn("/_bmad-output", self.exclude_lines())
 
     def test_explicit_root_recorded(self) -> None:
-        code, _, _ = self.run_cli("set", "--path", str(self.md / "repo"),
+        code, _, _ = self.run_cli("set", "--path", str(self.md / "repo-mds"),
                                   "--root", str(self.base / "mdroot"))
         self.assertEqual(code, 0)
         self.assertEqual(self.registry()["root"], str(self.base / "mdroot"))
@@ -300,13 +348,45 @@ class SetTests(WSCase):
         self.assertIn("/out/md", self.exclude_lines())
 
 
+class KbRulesTests(WSCase):
+    def test_set_writes_search_hint_before_context_exists(self) -> None:
+        self.assertEqual(self.set_ws()[0], 0)
+        raw = self.kb_rules().read_text()
+        text = " ".join(raw.split())
+        ws = os.path.realpath(self.md / "repo-mds")
+        self.assertIn(f"live in the md workstation at `{ws}`", text)
+        self.assertIn("`_bmad-output` in the repo is a symlink to it", text)
+        self.assertIn("Default `rg`, `grep -r` and `find` do not follow that symlink", text)
+        self.assertIn(f"Search by explicit path (`_bmad-output/...` or `{ws}`)", text)
+        self.assertIn("`grep -R` / `find -L`", text)
+        self.assertNotIn("\n@", raw)
+
+    def test_import_added_once_context_exists(self) -> None:
+        self.assertEqual(self.set_ws()[0], 0)
+        self.write("project-context.md", "# ctx\n", base=self.md / "repo-mds")
+        code, _, _ = self.run_cli("kb-rules")
+        self.assertEqual(code, 0)
+        ctx = os.path.realpath(self.md / "repo-mds" / "project-context.md")
+        self.assertIn(f"@{ctx}", self.kb_rules().read_text().splitlines())
+        self.assertEqual(self.run_cli("kb-rules")[0], 2)
+
+    def test_set_repairs_edited_rules_file(self) -> None:
+        self.assertEqual(self.set_ws()[0], 0)
+        self.kb_rules().write_text("stale\n")
+        self.assertEqual(self.set_ws()[0], 0)
+        self.assertIn("grep -R", self.kb_rules().read_text())
+
+    def test_kb_rules_without_workstation_is_error(self) -> None:
+        self.assertEqual(self.run_cli("kb-rules")[0], 1)
+
+
 class MigrateTests(WSCase):
     def test_untracked_content_moves(self) -> None:
         self.write("_bmad-output/planning-artifacts/prd.md", "# prd\n")
-        code, out, err = self.run_cli("migrate", "--path", str(self.md / "repo"))
+        code, out, err = self.run_cli("migrate", "--path", str(self.md / "repo-mds"))
         self.assertEqual(code, 0, err)
         self.assertTrue((self.repo / "_bmad-output").is_symlink())
-        self.assertEqual((self.md / "repo" / "planning-artifacts" / "prd.md").read_text(),
+        self.assertEqual((self.md / "repo-mds" / "planning-artifacts" / "prd.md").read_text(),
                          "# prd\n")
         self.assertEqual((self.repo / "_bmad-output" / "planning-artifacts" / "prd.md")
                          .read_text(), "# prd\n")
@@ -314,24 +394,40 @@ class MigrateTests(WSCase):
 
     def test_tracked_without_untrack_refuses(self) -> None:
         self.commit("docs: prd", {"_bmad-output/prd.md": "# prd\n"})
-        code, _, err = self.run_cli("migrate", "--path", str(self.md / "repo"))
+        code, _, err = self.run_cli("migrate", "--path", str(self.md / "repo-mds"))
         self.assertEqual(code, 1)
         self.assertIn("LOSES", err)
         self.assertTrue((self.repo / "_bmad-output" / "prd.md").is_file())
-        self.assertFalse((self.md / "repo").exists())
+        self.assertFalse((self.md / "repo-mds").exists())
 
     def test_tracked_with_untrack_leaves_removal_uncommitted(self) -> None:
         self.commit("docs: prd", {"_bmad-output/prd.md": "# prd\n"})
         head = self.git("rev-parse", "HEAD")
-        code, _, err = self.run_cli("migrate", "--path", str(self.md / "repo"), "--untrack")
+        code, _, err = self.run_cli("migrate", "--path", str(self.md / "repo-mds"), "--untrack")
         self.assertEqual(code, 0, err)
         self.assertIn("LOSES", err)
         self.assertEqual(self.git("rev-parse", "HEAD"), head)
         self.assertIn("D  _bmad-output/prd.md", self.git("status", "--porcelain"))
-        self.assertTrue((self.md / "repo" / "prd.md").is_file())
+        self.assertTrue((self.md / "repo-mds" / "prd.md").is_file())
+
+    def test_untrack_runs_after_files_are_moved(self) -> None:
+        self.commit("docs: prd", {"_bmad-output/prd.md": "# prd\n"})
+        real_run_git = workstation.run_git
+
+        def failing_rm(cwd, *args):
+            if args[:1] == ("rm",):
+                return subprocess.CompletedProcess(args, 1, "", "simulated failure")
+            return real_run_git(cwd, *args)
+
+        with mock.patch.object(workstation, "run_git", side_effect=failing_rm):
+            code, _, err = self.run_cli("migrate", "--path", str(self.md / "repo-mds"),
+                                        "--untrack")
+        self.assertEqual(code, 1)
+        self.assertIn("files moved", err)
+        self.assertEqual((self.md / "repo-mds" / "prd.md").read_text(), "# prd\n")
 
     def test_conflict_suffix_and_identical_dropped(self) -> None:
-        ws = self.md / "repo"
+        ws = self.md / "repo-mds"
         self.write("prd.md", "workstation copy\n", base=ws)
         self.write("same.md", "same\n", base=ws)
         self.write("_bmad-output/prd.md", "repo copy\n")
@@ -345,14 +441,14 @@ class MigrateTests(WSCase):
 
     def test_dry_run_moves_nothing(self) -> None:
         self.write("_bmad-output/prd.md", "# prd\n")
-        code, out, _ = self.run_cli("migrate", "--path", str(self.md / "repo"), "--dry-run")
+        code, out, _ = self.run_cli("migrate", "--path", str(self.md / "repo-mds"), "--dry-run")
         self.assertEqual(code, 0)
         self.assertEqual(len(json.loads(out)["moves"]), 1)
         self.assertTrue((self.repo / "_bmad-output" / "prd.md").is_file())
-        self.assertFalse((self.md / "repo").exists())
+        self.assertFalse((self.md / "repo-mds").exists())
 
     def test_nothing_to_migrate(self) -> None:
-        code, _, _ = self.run_cli("migrate", "--path", str(self.md / "repo"))
+        code, _, _ = self.run_cli("migrate", "--path", str(self.md / "repo-mds"))
         self.assertEqual(code, 2)
 
 
@@ -419,6 +515,17 @@ class ConfigTests(WSCase):
         self.assertEqual(self.bmm.read_text(), BMM)
         self.assertFalse((self.repo / "_bmad" / "bmm" / "config.yaml.bak").exists())
 
+    def test_output_folder_outside_project_is_clean_error(self) -> None:
+        self.bmm.write_text(f'output_folder: "{self.base / "elsewhere"}"\n'
+                            'planning_artifacts: "{project-root}/plans"\n')
+        self.tea.unlink()
+        code, out, err = self.run_cli("check-config")
+        self.assertEqual(code, 1)
+        self.assertEqual(out, "")
+        self.assertIn("outside the project", err)
+        self.assertNotIn("Traceback", err)
+        self.assertEqual(self.run_cli("repoint-config", "--key", "planning_artifacts")[0], 1)
+
     def test_unknown_key_is_error(self) -> None:
         self.assertEqual(self.run_cli("repoint-config", "--key", "nope")[0], 1)
 
@@ -455,6 +562,31 @@ class MdStatusTests(WSCase):
         self.assertEqual(report["toplevel"], os.path.realpath(self.mdrepo))
         self.assertEqual(report["dirty"], ["team/repo/planning-artifacts/prd.md"])
         self.assertEqual(report["repo_name"], "repo")
+        self.assertTrue(report["dedicated"])
+
+    def test_home_repo_is_not_dedicated(self) -> None:
+        self.git("init", "-q", cwd=self.home)
+        ws = self.home / "notes" / "repo-mds"
+        with mock.patch.dict(os.environ, {"GIT_CEILING_DIRECTORIES": str(self.base)}):
+            self.assertEqual(self.set_ws(ws)[0], 0)
+        self.write("prd.md", "# prd\n", base=ws)
+        code, out, err = self.run_cli("md-status")
+        self.assertEqual(code, 0, err)
+        report = json.loads(out)
+        self.assertEqual(report["toplevel"], os.path.realpath(self.home))
+        self.assertFalse(report["dedicated"])
+
+    def test_md_repo_containing_project_is_not_dedicated(self) -> None:
+        self.git("init", "-q", cwd=self.base)
+        ws = self.base / "docs" / "repo-mds"
+        self.assertEqual(self.set_ws(ws)[0], 0)
+        self.write("prd.md", "# prd\n", base=ws)
+        with mock.patch.dict(os.environ, {"GIT_CEILING_DIRECTORIES": str(self.base.parent)}):
+            code, out, err = self.run_cli("md-status")
+        self.assertEqual(code, 0, err)
+        report = json.loads(out)
+        self.assertEqual(report["toplevel"], os.path.realpath(self.base))
+        self.assertFalse(report["dedicated"])
 
     def test_clean_is_noop(self) -> None:
         self.assertEqual(self.set_ws(self.ws)[0], 0)
@@ -475,16 +607,38 @@ class UnlinkTests(WSCase):
     def test_keeps_contents(self) -> None:
         self.assertEqual(self.set_ws()[0], 0)
         self.write("_bmad-output/prd.md", "# prd\n")
+        self.assertTrue(self.kb_rules().exists())
         code, out, err = self.run_cli("unlink")
         self.assertEqual(code, 0, err)
         self.assertFalse((self.repo / "_bmad-output").exists())
-        self.assertEqual((self.md / "repo" / "prd.md").read_text(), "# prd\n")
+        self.assertFalse(self.kb_rules().exists())
+        self.assertEqual((self.md / "repo-mds" / "prd.md").read_text(), "# prd\n")
         self.assertNotIn("mdWorkstation", self.settings())
         self.assertNotIn("/_bmad-output", self.exclude_lines())
         self.assertNotIn("/.claude/rules/avengers-kb.md", self.exclude_lines())
         self.assertTrue(self.registry()["repos"])
-        self.assertEqual(json.loads(out)["kept"], str(self.md / "repo"))
+        self.assertEqual(json.loads(out)["kept"], str(self.md / "repo-mds"))
         self.assertEqual(self.run_cli("unlink")[0], 2)
+
+    def test_exclude_lines_kept_while_other_worktree_uses_them(self) -> None:
+        other = self.base / "wt2"
+        self.git("worktree", "add", "-q", str(other), "-b", "other")
+        self.assertEqual(self.set_ws()[0], 0)
+        self.assertEqual(self.run_cli("set", "--path", str(self.md / "repo-mds"),
+                                      project=other)[0], 0)
+        code, out, err = self.run_cli("unlink")
+        self.assertEqual(code, 0, err)
+        report = json.loads(out)
+        self.assertEqual(set(report["exclude_kept"]),
+                         {"/_bmad-output", "/.claude/rules/avengers-kb.md"})
+        self.assertIn("still uses it", err)
+        self.assertIn("/_bmad-output", self.exclude_lines())
+        self.assertFalse((self.repo / "_bmad-output").exists())
+        # Once the last worktree unlinks, the lines go.
+        code, out, err = self.run_cli("unlink", project=other)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(out)["exclude_kept"], {})
+        self.assertNotIn("/_bmad-output", self.exclude_lines())
 
     def test_dry_run(self) -> None:
         self.assertEqual(self.set_ws()[0], 0)
@@ -498,10 +652,10 @@ class GrantPathTests(WSCase):
         real.mkdir()
         alias = self.base / "alias-md"
         alias.symlink_to(real)
-        self.assertEqual(self.set_ws(alias / "repo")[0], 0)
+        self.assertEqual(self.set_ws(alias / "repo-mds")[0], 0)
         code, out, _ = self.run_cli("grant-path")
         self.assertEqual(code, 0)
-        self.assertEqual(out.strip(), os.path.realpath(real / "repo"))
+        self.assertEqual(out.strip(), os.path.realpath(real / "repo-mds"))
 
     def test_unresolved_is_error(self) -> None:
         self.assertEqual(self.run_cli("grant-path")[0], 1)
@@ -510,7 +664,8 @@ class GrantPathTests(WSCase):
 class CliHelpTests(unittest.TestCase):
     def test_help_for_each_subcommand(self) -> None:
         for argv in ([], ["resolve"], ["set"], ["migrate"], ["check-config"],
-                     ["repoint-config"], ["md-status"], ["grant-path"], ["unlink"]):
+                     ["repoint-config"], ["md-status"], ["grant-path"], ["kb-rules"],
+                     ["unlink"]):
             with self.subTest(argv=argv):
                 proc = subprocess.run([sys.executable, str(SCRIPT), *argv, "--help"],
                                       capture_output=True, text=True, check=False)

@@ -49,10 +49,8 @@ KB_MARKER = Path(".avengers") / "kb.json"
 PROJECT_SETTINGS = Path(".avengers") / "settings.json"
 WS_MARKER = Path("avengers") / "kb.json"
 KB_RULES = Path(".claude") / "rules" / "avengers-kb.md"
-KB_RULES_HEADER = ("# Avengers Dev - Knowledge Base\n"
-                   "# Refreshed by bmad-kb.py stamp. Machine-specific (excluded via "
-                   ".git/info/exclude).")
-MANAGE_RULES = Path(__file__).resolve().parents[2] / "avengers-init" / "scripts" / "manage-rules.py"
+WORKSTATION = (Path(__file__).resolve().parents[2] / "avengers-workstation" / "scripts"
+               / "workstation.py")
 OPTIONAL_KEYS = ("planning_artifacts",)
 STALE_FILE_THRESHOLD = 20
 TRACKS = ("quick", "standard", "full")
@@ -411,27 +409,19 @@ def _load_marker(marker: Path, project_dir: Path) -> dict | None:
         return None
 
 
-def refresh_kb_rules(project_dir: Path, context: Path) -> None:
-    """Point .claude/rules/avengers-kb.md at the workstation project-context.md."""
-    if not context.is_file():
+def refresh_kb_rules(project_dir: Path) -> None:
+    """Rewrite .claude/rules/avengers-kb.md (search hint + project-context.md import).
+
+    The file has one generator, `workstation.py kb-rules`, shared with `workstation.py set`.
+    """
+    if not WORKSTATION.is_file():
+        print(f"WARNING: {WORKSTATION} not found; {KB_RULES} not refreshed", file=sys.stderr)
         return
-    if not MANAGE_RULES.is_file():
-        print(f"WARNING: {MANAGE_RULES} not found; {KB_RULES} not refreshed", file=sys.stderr)
-        return
-    rules = project_dir / KB_RULES
-    base = [sys.executable, str(MANAGE_RULES)]
-    if rules.exists():
-        for line in rules.read_text(encoding="utf-8").splitlines():
-            stale = line.strip()[1:]
-            if line.startswith("@") and stale.endswith("project-context.md") \
-                    and stale != str(context):
-                subprocess.run([*base, "remove-include", "--bare", "--rules-file", str(rules),
-                                "--include-path", stale], capture_output=True, check=False)
-    proc = subprocess.run([*base, "add-include", "--bare", "--rules-file", str(rules),
-                           "--include-path", str(context), "--header", KB_RULES_HEADER],
+    proc = subprocess.run([sys.executable, str(WORKSTATION), "kb-rules",
+                           "--project-dir", str(project_dir)],
                           capture_output=True, text=True, check=False)
     if proc.returncode == 0:
-        print(f"Refreshed {KB_RULES.as_posix()} -> {context}")
+        print(f"Refreshed {KB_RULES.as_posix()}")
     elif proc.returncode != 2:
         print(f"WARNING: could not refresh {KB_RULES}: {proc.stderr.strip()}", file=sys.stderr)
 
@@ -554,7 +544,7 @@ def cmd_stamp(project_dir: Path, dry_run: bool) -> int:
             and entry.get("arch_hashes") == hashes and not (marker or {}).get("legacy")):
         print(f"KB already stamped at {head[:12]} for {branch} (no-op)", file=sys.stderr)
         if ws:
-            refresh_kb_rules(project_dir, context)
+            refresh_kb_rules(project_dir)
         return 2
     if not index.exists():
         print(f"WARNING: KB index not found at {_rel(index, project_dir)}", file=sys.stderr)
@@ -588,7 +578,7 @@ def cmd_stamp(project_dir: Path, dry_run: bool) -> int:
         return 1
     print(f"Stamped KB at {head[:12]} for {branch} -> {shown}")
     if ws:
-        refresh_kb_rules(project_dir, context)
+        refresh_kb_rules(project_dir)
     return 0
 
 

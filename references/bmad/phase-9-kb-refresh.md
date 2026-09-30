@@ -21,7 +21,8 @@ track's review) advances here instead of setting `complete`.
 4. `bmad-generate-project-context` updates `{output_folder}/project-context.md`.
 5. `stamp` (writes this branch's entry in the marker — `<workstation>/avengers/kb.json`
    with an md workstation, else `.avengers/kb.json` — and refreshes
-   `.claude/rules/avengers-kb.md`), then set `status: complete`.
+   `.claude/rules/avengers-kb.md` — search hint plus the `project-context.md` import),
+   then set `status: complete`.
 6. No refresh recommended, or the user declines → set `complete` directly.
 
 **Resume defaults** apply only to a **legacy state file** — one with no `track`

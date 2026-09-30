@@ -3,8 +3,7 @@
 manage-rules.py - Manage Claude Code rules files for a project.
 
 Handles reading, writing, and merging @include directives into
-.claude/rules/avengers-dev.md. With --bare, writes Claude Code's plain
-`@<path>` import form instead (used for .claude/rules/avengers-kb.md).
+.claude/rules/avengers-dev.md.
 
 Exit codes:
   0 = success
@@ -16,17 +15,9 @@ import sys
 from pathlib import Path
 
 
-DEFAULT_HEADER = "# Avengers Dev - Active Rules"
-
-
-def _directive(include_path: Path, bare: bool) -> str:
-    return f"@{include_path}" if bare else f"@include {include_path}"
-
-
-def cmd_add_include(rules_path: Path, include_path: Path, dry_run: bool = False,
-                    bare: bool = False, header: str = DEFAULT_HEADER) -> int:
-    """Add an @include (or bare @path) directive to the rules file."""
-    include_line = _directive(include_path, bare) + "\n"
+def cmd_add_include(rules_path: Path, include_path: Path, dry_run: bool = False) -> int:
+    """Add an @include directive to the rules file."""
+    include_line = f"@include {include_path}\n"
 
     if rules_path.exists():
         content = rules_path.read_text()
@@ -35,7 +26,7 @@ def cmd_add_include(rules_path: Path, include_path: Path, dry_run: bool = False,
             return 2
         new_content = content.rstrip() + "\n" + include_line
     else:
-        new_content = f"{header}\n\n{include_line}"
+        new_content = f"# Avengers Dev - Active Rules\n\n{include_line}"
 
     if dry_run:
         print(f"Would add to {rules_path}:\n  {include_line.strip()}")
@@ -47,24 +38,20 @@ def cmd_add_include(rules_path: Path, include_path: Path, dry_run: bool = False,
     return 0
 
 
-def cmd_remove_include(rules_path: Path, include_path: Path, dry_run: bool = False,
-                       bare: bool = False) -> int:
-    """Remove an @include (or bare @path) directive from the rules file."""
+def cmd_remove_include(rules_path: Path, include_path: Path, dry_run: bool = False) -> int:
+    """Remove an @include directive from the rules file."""
     if not rules_path.exists():
         print(f"Rules file not found (no-op)", file=sys.stderr)
         return 2
 
     content = rules_path.read_text()
-    include_line = _directive(include_path, bare)
+    include_line = f"@include {include_path}"
 
     if include_line not in content:
         print(f"@include not present (no-op)", file=sys.stderr)
         return 2
 
-    if bare:
-        lines = [l for l in content.splitlines() if l.strip() != include_line]
-    else:
-        lines = [l for l in content.splitlines() if include_line not in l]
+    lines = [l for l in content.splitlines() if include_line not in l]
     new_content = "\n".join(lines) + "\n"
 
     if dry_run:
@@ -83,7 +70,7 @@ def cmd_list(rules_path: Path) -> int:
         return 0
 
     lines = rules_path.read_text().splitlines()
-    includes = [l for l in lines if l.startswith("@")]
+    includes = [l for l in lines if l.startswith("@include")]
 
     if not includes:
         print(f"{rules_path}: no @include directives")
@@ -102,17 +89,11 @@ def main():
     add_p.add_argument("--rules-file", type=Path, required=True)
     add_p.add_argument("--include-path", type=Path, required=True)
     add_p.add_argument("--dry-run", action="store_true")
-    add_p.add_argument("--bare", action="store_true",
-                       help="Write a plain @<path> import instead of @include <path>")
-    add_p.add_argument("--header", default=DEFAULT_HEADER,
-                       help="First line when the rules file is created")
 
     rm_p = subparsers.add_parser("remove-include", help="Remove @include directive")
     rm_p.add_argument("--rules-file", type=Path, required=True)
     rm_p.add_argument("--include-path", type=Path, required=True)
     rm_p.add_argument("--dry-run", action="store_true")
-    rm_p.add_argument("--bare", action="store_true",
-                      help="Match a plain @<path> import instead of @include <path>")
 
     list_p = subparsers.add_parser("list", help="List @include directives")
     list_p.add_argument("--rules-file", type=Path, required=True)
@@ -120,11 +101,9 @@ def main():
     args = parser.parse_args()
 
     if args.command == "add-include":
-        sys.exit(cmd_add_include(args.rules_file, args.include_path, args.dry_run,
-                                 args.bare, args.header))
+        sys.exit(cmd_add_include(args.rules_file, args.include_path, args.dry_run))
     elif args.command == "remove-include":
-        sys.exit(cmd_remove_include(args.rules_file, args.include_path, args.dry_run,
-                                    args.bare))
+        sys.exit(cmd_remove_include(args.rules_file, args.include_path, args.dry_run))
     elif args.command == "list":
         sys.exit(cmd_list(args.rules_file))
     else:

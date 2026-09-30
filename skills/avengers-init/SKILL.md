@@ -64,7 +64,7 @@ Exit 0: JSON with `state`. Exit 1: report the error and skip this step.
 - `ok` — already set up; if `symlink` is not `ok`, run `workstation.py set --path <path>`.
 - `in_repo` — the user chose in-repo before; skip.
 - `missing` — ask, as a plain chat question: "Where should this repo's markdown live?
-  Give an md root folder (the workstation will be `<root>/<repo_name>`), or answer
+  Give an md root folder (the workstation will be `<root>/<repo_name>-mds`), or answer
   in-repo." For in-repo, run `workstation.py set --in-repo` and skip the rest.
 - `guess` — ask to confirm `path`.
 - `broken` — say the recorded folder is gone, then ask as for `missing`.

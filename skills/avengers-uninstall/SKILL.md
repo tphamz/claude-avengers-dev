@@ -43,7 +43,9 @@ because the scripts read the project setting from it.
 1. Record the grant path:
    `python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py grant-path`
    (exit 0: prints the realpath; exit 1: nothing resolved — skip item 3).
-2. Remove the symlink, the project setting, and the `.git/info/exclude` lines:
+2. Remove the symlink, the project setting, `.claude/rules/avengers-kb.md`, and the
+   `.git/info/exclude` lines (lines another worktree still uses are kept and named
+   in `exclude_kept`):
    `python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py unlink`
    (exit 0: removed, JSON `kept` is the workstation path; exit 2: nothing wired).
 3. Revoke the directory grant:

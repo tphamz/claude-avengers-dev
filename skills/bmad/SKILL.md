@@ -116,7 +116,8 @@ in-repo.
   the md root, `set` or `migrate`, grant access). The user may answer "in-repo".
 
 Then run `workstation.py check-config` (skip if no workstation). Exit 0: nothing
-to do. Exit 2: for each `outside` entry with `declined: false`, offer the opt-in
+to do. Exit 1 (`_bmad/` missing, or `output_folder` outside the project): relay
+stderr once, skip the re-point offers, and continue. Exit 2: for each `outside` entry with `declined: false`, offer the opt-in
 re-point exactly as in Step 5 of `/avengers-dev:avengers-workstation` (warning that
 it edits the team's committed config; decline is recorded and not asked again).
 Declined keys keep that artifact in the repo — mention it once.
@@ -306,8 +307,11 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py
 ```
 
 Exit 2: the md folder is clean, or not a git repo — say nothing and continue.
-Exit 1: note the error and continue. Exit 0: JSON `{toplevel, rel, repo_name,
-count, dirty}`. Ask: "Commit {count} md changes in {toplevel}?"
+Exit 1: note the error and continue. Exit 0: JSON `{toplevel, rel, dedicated,
+repo_name, count, dirty}`. If `dedicated` is false — the md folder's git repo is
+your home directory or a repo that contains this project — first warn plainly:
+"The md folder is inside {toplevel}, which is not a dedicated md repo; a commit
+there lands in that repo." Then ask: "Commit {count} md changes in {toplevel}?"
 
 On yes, dispatch `Agent(avengers-dev:thor)` to run exactly, from any directory:
 `git -C <toplevel> add -- <rel>` then
