@@ -32,7 +32,7 @@ the result. Phase 7 dispatches Thor to build.
 | — | **DESIGN-IMPLEMENTATION BOUNDARY** | IronMan | **hard gate** |
 | 6 Sprint plan | `bmad-sprint-planning` | main loop (Vision voice) | light |
 | 7 Build (per story) | `bmad-create-story` → `bmad-dev-story` | `Agent(avengers-dev:thor)` per story | autonomous |
-| 8 Review | `bmad-code-review` + `bmad-retrospective` | main loop; Thor fixes, `Agent(avengers-dev:captain)` reviews, `Agent(avengers-dev:blackwidow)` verifies | interactive + verify |
+| 8 Review | `bmad-code-review` + `bmad-retrospective` | main loop; Thor fixes, `Agent(avengers-dev:captain)` reviews, `Agent(avengers-dev:blackwidow)` verifies, main loop closes out | interactive + verify |
 
 **Why the split:** the wrapped `bmad-*` skills halt for user input and write
 artifacts step by step; `bmad-code-review` also spawns its own subagents. A
@@ -96,7 +96,9 @@ Readiness (Phase 5) runs `bmad-check-implementation-readiness` in the main loop;
 its report carries a status of READY / NEEDS WORK / NOT READY. Hulk then gives an
 independent verdict (READY / READY-WITH-CONCERNS / NOT-READY) on that report. The
 gate shows **both**. If either is NOT READY / NOT-READY, IronMan recommends [2]
-Exit; the user decides. Neither verdict auto-advances or auto-blocks the gate.
+Exit. If either is NEEDS WORK / READY-WITH-CONCERNS, IronMan flags it explicitly
+and lists the cited gaps. In every case the user decides. Neither verdict
+auto-advances or auto-blocks the gate.
 
 ### §2.8 Artifact Path Resolution
 
@@ -109,6 +111,11 @@ paths** — never globs or unresolved `{placeholders}`. Keys and installer defau
 | `project_knowledge` | `docs` | `bmad-document-project` output |
 | `planning_artifacts` | `_bmad-output/planning-artifacts` | `implementation-readiness-report-{date}.md` (pass the newest file) |
 | `implementation_artifacts` | `_bmad-output/implementation-artifacts` | story files, `sprint-status.yaml`, `deferred-work.md`, `investigations/{slug}-investigation.md`, `epic-{N}-retro-{date}.md` |
+
+Phase 8 also needs, per story: the story file path, `baseline_commit` from its
+frontmatter (Captain reviews `<baseline_commit>..HEAD`), and its story key (the
+file basename, e.g. `1-2-user-auth`) for the close-out write to
+`sprint-status.yaml`. See `references/bmad/phase-8-review.md`.
 
 ### §3.2 Resume Protocol
 

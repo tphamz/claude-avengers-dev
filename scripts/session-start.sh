@@ -15,7 +15,7 @@ cat << 'EOF'
 🟡 Thor       - builder       Agent(avengers-dev:thor)
 🔵 Captain    - sentinel      Agent(avengers-dev:captain)
 🟢 Hulk       - engineer      Agent(avengers-dev:hulk)
-🔴 Vision     - BMAD          Agent(avengers-dev:vision)
+🔴 Vision     - BMAD          /bmad
 
 /avengers-init · /avengers-test · /bmad
 

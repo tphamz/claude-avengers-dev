@@ -64,7 +64,7 @@ skill, but never modifies source code — code changes always go to Thor.
 | — | **DESIGN-IMPLEMENTATION BOUNDARY** | IronMan | **hard gate** |
 | 6 Sprint plan | `bmad-sprint-planning` | main loop (Vision voice) | light |
 | 7 Build (per story) | `bmad-create-story` → `bmad-dev-story` | `Agent(avengers-dev:thor)` per story | autonomous |
-| 8 Review | `bmad-code-review` + `bmad-retrospective` | main loop; Thor fixes, `Agent(avengers-dev:captain)` reviews, `Agent(avengers-dev:blackwidow)` verifies | interactive + verify |
+| 8 Review | `bmad-code-review` + `bmad-retrospective` | main loop; Thor fixes, `Agent(avengers-dev:captain)` reviews, `Agent(avengers-dev:blackwidow)` verifies, main loop closes out | interactive + verify |
 
 <!-- SEAM: A main-loop phase could later move to a write-capable subagent if its
      wrapped skill gains a batch mode. Never move one to a read-only agent, and
@@ -111,20 +111,30 @@ against the codebase.
 **Phase 5 (Readiness):** run `bmad-check-implementation-readiness` in the main
 loop, then dispatch `Agent(avengers-dev:hulk)` with the newest readiness report for
 an independent verdict. IronMan presents both at the hard gate; if either is
-NOT READY / NOT-READY, he recommends [2].
+NOT READY / NOT-READY, he recommends [2]; if either is NEEDS WORK /
+READY-WITH-CONCERNS, he flags it explicitly with the cited gaps. The user decides.
 
 **Phase 7 (Build):** for each story in the sprint plan, dispatch
 `Agent(avengers-dev:thor)` to run `bmad-create-story` then `bmad-dev-story` for
 that story — implement, write tests, commit — and report back.
 
-**Phase 8 (Review):** per story, run `bmad-code-review` in the main loop and have
-the user pick "Leave as action items" (patches are never applied in the main loop;
-if the user picks "Apply every patch", hand the list to Thor). If `[Review][Patch]`
-items exist, `Agent(avengers-dev:thor)` resolves them via `bmad-dev-story`, runs
-tests and commits. Then `Agent(avengers-dev:captain)` reviews (PASS | CONDITIONAL
-PASS | FAIL) and `Agent(avengers-dev:blackwidow)` verifies. On FAIL, loop through
-Thor, max 3 cycles, then escalate. At epic completion, run `bmad-retrospective` in
-the main loop and relay it.
+**Phase 8 (Review):** per story, run `bmad-code-review` in the main loop with the
+story as the spec and have the user pick "Leave as action items" (patches are
+never applied in the main loop; if the user picks "Apply every patch", hand the
+list to Thor). Reconcile the story's `### Review Findings`: decisions converted to
+patches become unchecked `[Review][Patch]` bullets, and resolved
+`[Review][Decision]` bullets are checked or struck. If unchecked `[Review][Patch]`
+items remain, `Agent(avengers-dev:thor)` gets the explicit story file path and the
+named items, resolves them via `bmad-dev-story`, runs tests and commits. Then
+`Agent(avengers-dev:captain)` reviews `<baseline_commit>..HEAD` (from the story
+frontmatter) and returns PASS | CONDITIONAL PASS | FAIL, and
+`Agent(avengers-dev:blackwidow)` verifies. A FAIL or CONDITIONAL PASS loops back
+through Thor, max 3 cycles; after that the user accepts the CONDITIONAL PASS or
+exits. Close-out (main loop): set the story `Status: done` and its
+`sprint-status.yaml` entry to `done` with `last_updated`, preserving comments —
+code-review's own sprint-status sync does not run in this flow. When every story
+key for epic N is `done` in `sprint-status.yaml`, run `bmad-retrospective` in the
+main loop and relay it. Full detail: `references/bmad/phase-8-review.md`.
 
 ## Reporting Format
 ```

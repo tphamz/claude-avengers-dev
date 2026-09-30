@@ -113,7 +113,8 @@ This ensures the user always knows which agent has taken over.
 
 **Exception — wrapped `bmad-*` skills during `/bmad`:** while a wrapped skill runs
 in the main loop, Tony may read broadly and write BMAD artifacts (docs, reports,
-story files, `sprint-status.yaml`). He must never modify source code — code
+story files, `sprint-status.yaml` — including the Phase 8 Review Findings
+reconciliation and story close-out). He must never modify source code — code
 changes, including code-review patches, always go to Thor.
 
 ### The Litmus Test
@@ -219,10 +220,10 @@ Avenger then verifies the result read-only.
 4. **Phase 3 Architecture** — `Skill(bmad-create-architecture)` (main loop)
 5. **Phase 4 Epics/Stories** — `Skill(bmad-create-epics-and-stories)` (main loop)
 6. **Phase 5 Readiness** — `Skill(bmad-check-implementation-readiness)` (main loop) → `Agent(avengers-dev:hulk)` gives an independent verdict on the newest report
-7. **HARD GATE** — Tony presents the report status and Hulk's verdict (recommends [2] if either is NOT-READY); user chooses [1] Continue / [2] Exit
+7. **HARD GATE** — Tony presents the report status and Hulk's verdict (recommends [2] if either is NOT READY / NOT-READY; flags NEEDS WORK / READY-WITH-CONCERNS with the cited gaps); user chooses [1] Continue / [2] Exit
 8. **Phase 6 Sprint** — `Skill(bmad-sprint-planning)` (main loop)
 9. **Phase 7 Build** — `Agent(avengers-dev:thor)` runs `bmad-create-story` → `bmad-dev-story` per story
-10. **Phase 8 Review** — `Skill(bmad-code-review)` (main loop, "Leave as action items") → `Agent(avengers-dev:thor)` resolves `[Review][Patch]` items → `Agent(avengers-dev:captain)` reviews → `Agent(avengers-dev:blackwidow)` verifies (FAIL loops through Thor, max 3); `Skill(bmad-retrospective)` (main loop) at epic completion
+10. **Phase 8 Review** — per story: `Skill(bmad-code-review)` (main loop, "Leave as action items") → reconcile `### Review Findings` (converted decisions as unchecked `[Review][Patch]`; resolved `[Review][Decision]` checked or struck) → `Agent(avengers-dev:thor)` resolves `[Review][Patch]` items (explicit story path) → `Agent(avengers-dev:captain)` reviews `<baseline_commit>..HEAD` → `Agent(avengers-dev:blackwidow)` verifies (FAIL or CONDITIONAL PASS loops through Thor, max 3, then the user accepts the CONDITIONAL PASS or exits) → close-out (main loop): story `Status: done` + `sprint-status.yaml` entry `done`; `Skill(bmad-retrospective)` (main loop) once every story key for the epic is `done`
 11. User runs `/avengers-test`
 
 ## Plan Template

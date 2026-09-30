@@ -6,7 +6,7 @@ description: >
   skill except the Phase 7 build runs in the main loop; the owning Avenger
   (BlackWidow, Hulk, Captain) then verifies the result read-only, and Thor builds.
   IronMan holds the design-implementation hard gate.
-allowed-tools: Skill, Agent, Bash, Read, Write
+allowed-tools: Skill, Agent, Bash, Read, Write, Edit
 argument-hint: "[sequence-name] [resume]"
 ---
 
@@ -42,7 +42,7 @@ code — code changes always go to Thor.
 | — | **DESIGN-IMPLEMENTATION BOUNDARY** | IronMan | **hard gate** |
 | 6 Sprint plan | `bmad-sprint-planning` | IronMan (Vision voice), main loop | light / interactive |
 | 7 Build (per story) | `bmad-create-story` → `bmad-dev-story` | `Agent(avengers-dev:thor)` per story | autonomous subagent |
-| 8 Review | `bmad-code-review` + `bmad-retrospective` | main loop; Thor fixes, `Agent(avengers-dev:captain)` reviews, `Agent(avengers-dev:blackwidow)` verifies | interactive + read-only verify |
+| 8 Review | `bmad-code-review` + `bmad-retrospective` | main loop; Thor fixes, `Agent(avengers-dev:captain)` reviews, `Agent(avengers-dev:blackwidow)` verifies, main loop closes out | interactive + read-only verify |
 
 <!-- SEAM: Every wrapped skill above except Phase 7 runs in the main loop because
      it elicits from the user and writes artifacts, and the read-only owners
@@ -142,24 +142,49 @@ Phase-by-phase:
 9. **Phase 7 — Build.** For each story in the sprint plan, dispatch
    `Agent(avengers-dev:thor)` to run `bmad-create-story` then `bmad-dev-story`
    for that story autonomously (implement + tests + commit), reporting back.
-10. **Phase 8 — Review.** Per story, in this order:
-    1. Run `Skill(bmad-code-review)` in the main loop with the story file set as
-       the spec. At the patch menu, tell the user to pick **"Leave as action
+10. **Phase 8 — Review.** Per story, in this order (full detail in
+    `references/bmad/phase-8-review.md`):
+    1. **Code review (main loop).** Run `Skill(bmad-code-review)` with the story
+       file set as the spec. Resolve every `decision-needed` finding with the user
+       at its step 4. At the patch menu, tell the user to pick **"Leave as action
        items"**, then **"Done"** at the next-steps menu. The main loop never
        applies patches. If the user picks "Apply every patch" anyway, stop and
-       hand the patch list to Thor instead of applying it.
-    2. If the story has unchecked `[Review][Patch]` items, dispatch
-       `Agent(avengers-dev:thor)` to run `bmad-dev-story` on that story,
-       resolving those items (name them explicitly — the skill's review-continuation
-       check looks for the older "Senior Developer Review (AI)" section), then run
-       tests and commit.
-    3. Dispatch `Agent(avengers-dev:captain)` to review the story's changes.
-       Verdict: PASS | CONDITIONAL PASS | FAIL.
-    4. Dispatch `Agent(avengers-dev:blackwidow)` to verify Captain's findings.
-    5. On FAIL, loop back through Thor → Captain → BlackWidow (max 3 cycles,
-       then escalate to the user).
-    6. At epic completion, run `Skill(bmad-retrospective)` in the main loop. It
-       writes `{implementation_artifacts}/epic-{N}-retro-{date}.md` and updates
+       hand the patch list to Thor instead of applying it. Because the story is
+       passed as the spec file, code-review never sets `{story_key}`, so its own
+       `sprint-status.yaml` sync is skipped — close-out (step 7) does it instead.
+    2. **Reconcile Review Findings (main loop).** In the story's
+       `### Review Findings`, make sure every decision the user converted to a
+       patch is recorded as an unchecked `- [ ] [Review][Patch] ...` bullet, and
+       mark each resolved `[Review][Decision]` bullet checked (`[x]`) or strike it
+       through. Unchecked Decision bullets make `bmad-dev-story` step 9 HALT.
+    3. **Fix (Thor).** If unchecked `[Review][Patch]` items exist after
+       reconciliation, dispatch `Agent(avengers-dev:thor)` with the explicit story
+       file path (dev-story auto-discovery only picks `ready-for-dev` stories) and
+       the `[Review][Patch]` items named one by one (the skill's review-continuation
+       check looks for the older "Senior Developer Review (AI)" section). Thor runs
+       `bmad-dev-story` on that path, resolves the items, runs tests and commits.
+    4. **Review (Captain).** Read `baseline_commit` from the story file's
+       frontmatter (written by dev-story) and dispatch `Agent(avengers-dev:captain)`
+       with the story file path and the concrete range
+       `<baseline_commit>..HEAD`. Verdict: PASS | CONDITIONAL PASS | FAIL.
+    5. **Verify (BlackWidow).** Dispatch `Agent(avengers-dev:blackwidow)` to verify
+       Captain's findings.
+    6. **Cycle.** A FAIL, or a CONDITIONAL PASS (Warnings), goes back to Thor with
+       the verified findings → Captain → BlackWidow. The limit is 3 cycles. After
+       the third, present the verdict to the user, who either accepts the
+       CONDITIONAL PASS or exits (`status: suspended`). A FAIL cannot be accepted.
+    7. **Close-out (main loop).** After a PASS (or a user-accepted CONDITIONAL
+       PASS at the cycle limit) and BlackWidow's verification, set the story
+       file's `Status: done`, and in `{implementation_artifacts}/sprint-status.yaml`
+       set `development_status[<story_key>]: done` (the key is the story file's
+       basename, e.g. `1-2-user-auth`) and `last_updated` to today, preserving all
+       comments and structure. This is a BMAD artifact write, allowed under the
+       wrapped-skill exception.
+    8. **Retrospective (main loop, at epic completion).** Epic N is complete when
+       every story key for epic N (keys starting `N-`, excluding `epic-N` and
+       `epic-N-retrospective`) is `done` in `sprint-status.yaml`. Only then run
+       `Skill(bmad-retrospective)`. It writes
+       `{implementation_artifacts}/epic-{N}-retro-{date}.md` and updates
        `sprint-status.yaml`. Relay its output; no Captain verification.
 
 Update `current_phase` in the state file at each advance.
@@ -168,8 +193,9 @@ Update `current_phase` in the state file at each advance.
 
 After Hulk reports, IronMan presents **both** results to the user in Vision's
 voice — the skill report's status and Hulk's verdict — and **stops**. If either is
-NOT READY / NOT-READY, recommend [2]; the user still decides. Require an explicit
-choice:
+NOT READY / NOT-READY, recommend [2]. If either is NEEDS WORK /
+READY-WITH-CONCERNS, flag it explicitly and list the cited gaps. In every case the
+user decides. Require an explicit choice:
 
 > 🚧 Design-implementation boundary reached. The line must hold.
 > **[1] Continue into implementation  [2] Exit** (artifacts saved, relay suspended)

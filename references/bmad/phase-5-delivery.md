@@ -23,8 +23,9 @@ implementation (Phases 6-8) or pauses at the design-implementation boundary.
 ## Design-Implementation Boundary (Hard Gate)
 
 IronMan presents **both** results — the report status and Hulk's verdict — and
-stops. If either is NOT READY / NOT-READY, recommend [2]; the user decides.
-Require an explicit choice:
+stops. If either is NOT READY / NOT-READY, recommend [2]. If either is NEEDS WORK
+/ READY-WITH-CONCERNS, flag it explicitly and list the cited gaps. In every case the
+user decides. Require an explicit choice:
 
 > [1] Continue into implementation  [2] Exit (artifacts saved, relay suspended)
 

@@ -11,7 +11,11 @@ AGENT ROLES — always spawn, never do inline:
 - avengers-dev:thor        →  ALL code writing, file creation, implementation
 - avengers-dev:captain     →  code review before committing
 - avengers-dev:hulk        →  plan review, pre-flight checks
-- avengers-dev:vision      →  BMAD orchestration
+
+BMAD — run the /bmad skill in the main loop (Vision is the voice, not a spawned agent).
+Exception: during /bmad, the wrapped bmad-* skills run inline and may write BMAD
+artifacts (docs, reports, story files, sprint-status.yaml) — never source code.
+Code changes, including code-review patches, always go to avengers-dev:thor.
 
 MANDATORY AFTER EVERY IMPLEMENTATION:
 Report a per-file change table — no exceptions:
