@@ -99,7 +99,7 @@ Examples:
 - `Dispatching Thor 🟡 — implement the user profile endpoint`
 - `Dispatching Captain 🔵 — review Thor's changes`
 - `Dispatching Hulk 🟢 — plan review + spec write`
-- `Dispatching Vision 🔴 — BMAD Phase 1-5`
+- `Dispatching Captain 🔵 — BMAD Phase 4.5 spec hardening` (the `/bmad` relay itself runs in the main loop in Vision's voice)
 
 This ensures the user always knows which agent has taken over.
 
@@ -203,19 +203,24 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 The `/bmad` skill **wraps the real BMAD-METHOD `bmad-*` skills** — Vision is the
 conductor's voice and the phase→skill+owner map, not the executor. Interactive
 phases run in the main loop (Vision voice); non-interactive phases are delegated to
-the Avenger who owns that work.
+the Avenger who owns that work. Tracks: `quick`, `standard` (default), `full`.
 
-1. **Phase 1a Discovery** — `Agent(avengers-dev:blackwidow)` runs `bmad-document-project` / `bmad-investigate`
-2. **Phase 1b Brief** — `Skill(bmad-product-brief)` in the main loop
-3. **Phase 2 PRD** — `Skill(bmad-prd)` (main loop)
-4. **Phase 3 Architecture** — `Skill(bmad-create-architecture)` (main loop)
-5. **Phase 4 Epics/Stories** — `Skill(bmad-create-epics-and-stories)` (main loop)
-6. **Phase 5 Readiness** — `Agent(avengers-dev:hulk)` runs `bmad-check-implementation-readiness`
-7. **HARD GATE** — Tony presents Hulk's readiness verdict; user chooses [1] Continue / [2] Exit
-8. **Phase 6 Sprint** — `Skill(bmad-sprint-planning)` (main loop)
-9. **Phase 7 Build** — `Agent(avengers-dev:thor)` runs `bmad-create-story` → `bmad-dev-story` per story
-10. **Phase 8 Review** — `Agent(avengers-dev:captain)` runs `bmad-code-review` + `bmad-retrospective`
-11. User runs `/avengers-test`
+1. **Phase 0 KB check** — `bmad-kb.py status` (main loop)
+2. **Phase 1a Discovery** — only if the KB is missing (or stale and the user accepts): `Skill(bmad-document-project)` + `Skill(bmad-generate-project-context)` in the main loop, then `stamp`
+3. **Phase 1b Brief** — `Skill(bmad-product-brief)` in the main loop
+4. **Phase 2 PRD** — `Skill(bmad-prd)` (main loop; optional validate / elicitation)
+5. **Phase 3 Architecture** — `Skill(bmad-create-architecture)` (main loop)
+6. **Phase 4 Epics/Stories** — `Skill(bmad-create-epics-and-stories)` (main loop)
+7. **Phase 4.5 Spec Hardening** — `Agent(avengers-dev:captain)` (adversarial lens) runs `bmad-review-adversarial-general` + `bmad-review-edge-case-hunter`; Captain assigns severity
+8. **Phase 5 Readiness** — `Agent(avengers-dev:hulk)` runs `bmad-check-implementation-readiness`
+9. **HARD GATE** — Tony presents Hulk's readiness verdict; user chooses [1] Continue / [2] Exit (FAIL or open Criticals: [1] needs `override` + reason)
+10. **Phase 6 Sprint** — `Skill(bmad-sprint-planning)` (main loop)
+11. **Phase 7 Build** — `Agent(avengers-dev:thor)` runs `bmad-create-story` → `bmad-testarch-atdd` (full only) → `bmad-dev-story` per story
+12. **Phase 8 Review** — `Agent(avengers-dev:captain)` runs `bmad-code-review` + `bmad-testarch-trace` (full only) + `bmad-retrospective`
+13. **Phase 9 KB Refresh** — `bmad-kb.py impact`; refresh the KB if the user confirms, then `stamp` (main loop)
+14. User runs `/avengers-test`
+
+**Quick track:** Phase 0 → `Skill(bmad-quick-dev)` (main loop) → `Agent(avengers-dev:captain)` reviews the diff → Phase 9.
 
 ## Plan Template
 

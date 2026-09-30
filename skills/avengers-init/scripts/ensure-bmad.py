@@ -1,31 +1,36 @@
 #!/usr/bin/env python3
 """
-ensure-bmad.py - Ensure BMAD reference files exist in the plugin directory.
+ensure-bmad.py - Verify the BMAD reference files ship with the plugin.
 
-The BMAD phase files are large and included verbatim here so the plugin is
-self-contained. This script writes them to references/bmad/ if they don't exist.
+The BMAD relay reads thin reference stubs (relay config, per-phase stubs, and the
+quick-track stub) from references/bmad/. This script checks that every expected
+file exists and is non-empty. It does not write anything; missing files are
+reported as a warning on stderr.
 
 Exit codes:
-  0 = success (files already existed or were written)
-  1 = error
+  0 = success (all files present, or missing files warned about)
+  1 = error (references/bmad/ directory not found)
 """
 import argparse
 import sys
 from pathlib import Path
 
 
-# BMAD reference file stubs - full content lives in references/bmad/ directory
-# This script verifies those files exist and are non-empty
+# BMAD reference stubs expected in references/bmad/ (13 files)
 EXPECTED_FILES = [
     "relay-config.md",
+    "phase-0-kb.md",
     "phase-1-assessment.md",
     "phase-2-requirements.md",
     "phase-3-technical.md",
     "phase-4-planning.md",
+    "phase-4.5-hardening.md",
     "phase-5-delivery.md",
     "phase-6-sprint.md",
     "phase-7-stories.md",
     "phase-8-review.md",
+    "phase-9-kb-refresh.md",
+    "track-quick.md",
 ]
 
 

@@ -37,7 +37,10 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-init/scripts/ensure-bmad.py \
   --plugin-dir ${CLAUDE_PLUGIN_ROOT}
 ```
 
-Ensures BMAD reference files exist under `references/bmad/`. Exit 0: success.
+Verifies the 13 BMAD reference stubs under `references/bmad/` (relay config,
+Phase 0–9 stubs including 4.5, and the quick-track stub) exist and are non-empty.
+Exit 0: success (missing files are reported as a warning on stderr). Exit 1:
+`references/bmad/` not found.
 
 ### 3. Configure SSL (if --ssl flag or TLS proxy detected)
 
