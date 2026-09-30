@@ -108,11 +108,13 @@ relay-config `§3.2`. Resume decisions come from each story's `phase7_step` /
 `phase8_step` marker, never from `loop_state.completed` (every story is in it
 once Phase 7 ends). Marker inference (relay-config State Schema) runs first,
 when the state file is read, and fills in missing markers for every
-`development_status` key: no `phase7_step` → `recorded` if the key is in
-`completed`, at `review` or `done`, or has a `phase7_end_sha` (Phase 8 then
-uses the `§2.9` resume fallback if that SHA is missing), else `dispatched` if
-it has a `baseline_commit`, else `pending`; no `phase8_step` → `closed` if
-`done`. In order:
+`development_status` key (epic keys `epic-N` and `epic-N-retrospective` are
+excluded): no `phase7_step` → `dispatched` if it has a `baseline_commit` but no
+`phase7_end_sha` and is not in `completed` (tested first), else `recorded` if
+the key is in `completed`, at `review` or `done`, or has a `phase7_end_sha`
+(Phase 8 then uses the `§2.9` resume fallback if that SHA is missing), else
+`pending`; no `phase8_step` → `closed` if `done`, else `pending` only if no fix
+ranges and `review_cycles` 0; otherwise ask the user. In order:
 
 1. **Blocked replay.** If any `loop_state.stories` entry has a `blocked` entry,
    first replay its stored HALT point, question, options and work state to the

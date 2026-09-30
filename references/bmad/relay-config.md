@@ -116,13 +116,17 @@ file is read (on resume, and at Phase 7 and Phase 8 entry), before any phase
 entry step and before any loop. It covers every story key in the
 `sprint-status.yaml` `development_status` list, including keys with no
 `loop_state.stories` entry (for example, stories built by an earlier BMAD
-sequence). An absent field counts as empty or 0. The inferred markers are
-written back to the state file in one write.
-- **No `phase7_step`:** `recorded` if the key is in `loop_state.completed`, or
-  its `development_status` entry is `review` or `done`, or it has a
-  `phase7_end_sha`; else `dispatched` if it has a `baseline_commit`; else
-  `pending`. A story inferred as `recorded` may have no `phase7_end_sha`;
-  Phase 8 then builds its range with the `§2.9` resume fallback.
+sequence). Epic keys (`epic-N`, `epic-N-retrospective`) are excluded. An
+absent field counts as empty or 0. The inferred markers are written back to the
+state file in one write.
+- **No `phase7_step`:** `dispatched` if it has a `baseline_commit` but no
+  `phase7_end_sha` and is not in `loop_state.completed` (tested first, whatever
+  its `development_status`, so a crashed dispatch goes through the `§3.2`
+  recovery and its checks); else `recorded` if the key is in
+  `loop_state.completed`, or its `development_status` entry is `review` or
+  `done`, or it has a `phase7_end_sha`; else `pending`. A story inferred as
+  `recorded` may have no `phase7_end_sha`; Phase 8 then builds its range with
+  the `§2.9` resume fallback.
 - **No `phase8_step`:** `closed` if its `development_status` entry is `done`
   (such a story is never set to `pending`); else `pending` if it has no
   `phase8_fix_ranges` and `review_cycles` is 0; for any other story, ask the

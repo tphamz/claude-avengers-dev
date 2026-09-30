@@ -145,11 +145,14 @@ of the dispatch that reports done; neither is ever overwritten (relay-config
 
 **Resume (Phases 7 and 8):** decisions come from the per-story markers
 `phase7_step` and `phase8_step`, never from `loop_state.completed`. Marker
-inference runs first, when the state file is read: a story with no
-`phase7_step` is `recorded` if it is in `completed`, at `review` or `done`, or
-has a `phase7_end_sha` (a missing SHA uses the `§2.9` resume fallback in
-Phase 8), else `dispatched` with a `baseline_commit`, else `pending`; a story
-with no `phase8_step` at `done` is `closed`. Phase 7
+inference runs first, when the state file is read, and excludes epic keys
+(`epic-N`, `epic-N-retrospective`): a story with no `phase7_step` is
+`dispatched` if it has a `baseline_commit` but no `phase7_end_sha` and is not
+in `completed` (tested first), else `recorded` if it is in `completed`, at
+`review` or `done`, or has a `phase7_end_sha` (a missing SHA uses the `§2.9`
+resume fallback in Phase 8), else `pending`; a story with no `phase8_step` is
+`closed` at `done`, else `pending` only if no fix ranges and `review_cycles` 0;
+otherwise ask the user. Phase 7
 skips only `recorded`, and recovers a `done_reported` story (or a `dispatched`
 one at `review` with no `blocked`) by taking `post_sha` from HEAD and running
 the checks and step 5. Phase 8 skips only `closed` and re-enters at the
