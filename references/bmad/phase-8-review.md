@@ -28,8 +28,10 @@ at Phase 7 start), diff, list commits and skip the ancestor check as relay-confi
 
 **On entry**, before any Phase 8 dispatch, the main loop writes
 `phase8_start_sha` (`git rev-parse HEAD`) to `loop_state` once, and sets
-`phase8_step: pending` on every story without one; a resume keeps the recorded
-values. Each story's `phase8_step` (`pending` → `code_review_done` → `fixing` →
+`phase8_step: pending` only on stories still unmarked after marker inference
+(relay-config State Schema), which runs first, when the state file is read; a
+story whose `development_status` entry is `done` is inferred `closed` and never
+set to `pending`, and a resume keeps the recorded values. Each story's `phase8_step` (`pending` → `code_review_done` → `fixing` →
 `captain` → `verify` → `closed`) is saved the moment it changes (relay-config
 `§3.9`).
 
@@ -46,7 +48,8 @@ step 3 if unchecked `[Review][Patch]` or `[Gate]` items remain, else step 4;
 review never re-runs past `pending`, a `closed` story is never set back to
 `in-progress`, and `review_cycles` carries over unchanged. After the loop, run
 any retrospective still owed (step 8). **Resume fallback:** if `loop_state.stories` has no
-`phase7_end_sha` for a story, its `baseline_commit` comes from `loop_state`,
+`phase7_end_sha` for a story (including a story marker inference set to
+`recorded`), its `baseline_commit` comes from `loop_state`,
 else from the story frontmatter (a frontmatter `NO_VCS` in a git repository means
 the empty-tree hash), and its end is the next story's `baseline_commit`
 (`development_status` order); the last story ends at `phase8_start_sha`. If the
@@ -70,7 +73,11 @@ user (`§2.9`). Per story:
    `[x]`. Unchecked Decision bullets make `bmad-dev-story` step 9 HALT. Make sure
    `### Review Findings` sits inside `## Tasks / Subtasks` (before `## Dev Notes`)
    — code-review only says to "append" it, and dev-story looks for unchecked
-   tasks only in Tasks/Subtasks. Set the story's `sprint-status.yaml` entry to
+   tasks only in Tasks/Subtasks. Merge any duplicate `### Review Findings`
+   section (a re-run code review appends a second one) into one, keeping each
+   bullet once. On a resume at `code_review_done` with unchecked
+   `[Review][Decision]` bullets, the code-review conversation is lost: ask the
+   user to decide each one directly. Set the story's `sprint-status.yaml` entry to
    `in-progress` so dev-story does not warn "Unexpected story status". A resume
    skips this step if it is already done (relay-config `§3.9`). No unchecked
    `[Review][Patch]` or `[Gate]` items → set `captain` and go to step 4.

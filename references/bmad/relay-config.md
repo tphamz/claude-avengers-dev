@@ -110,11 +110,26 @@ never leaves a marker ahead of, or behind, the data it describes).
 
 **Legacy state files:** an older `phase8_fix_shas` list (one commit SHA per fix)
 is read as the ranges `<sha>^..<sha>` and written back as `phase8_fix_ranges`.
-A story with no `phase7_step` is read as `recorded` if it has a `phase7_end_sha`,
-else `dispatched` if it has a `baseline_commit`, else `pending`. A story with no
-`phase8_step` is read as `closed` if its `development_status` entry is `done`,
-else `pending` if it has no `phase8_fix_ranges` and `review_cycles` is 0; for
-any other story, ask the user which Phase 8 step it reached.
+
+**Marker inference (legacy and untracked stories).** Runs every time the state
+file is read (on resume, and at Phase 7 and Phase 8 entry), before any phase
+entry step and before any loop. It covers every story key in the
+`sprint-status.yaml` `development_status` list, including keys with no
+`loop_state.stories` entry (for example, stories built by an earlier BMAD
+sequence). An absent field counts as empty or 0. The inferred markers are
+written back to the state file in one write.
+- **No `phase7_step`:** `recorded` if the key is in `loop_state.completed`, or
+  its `development_status` entry is `review` or `done`, or it has a
+  `phase7_end_sha`; else `dispatched` if it has a `baseline_commit`; else
+  `pending`. A story inferred as `recorded` may have no `phase7_end_sha`;
+  Phase 8 then builds its range with the `§2.9` resume fallback.
+- **No `phase8_step`:** `closed` if its `development_status` entry is `done`
+  (such a story is never set to `pending`); else `pending` if it has no
+  `phase8_fix_ranges` and `review_cycles` is 0; for any other story, ask the
+  user which Phase 8 step it reached.
+
+The Phase 8 entry step (`§3.9`) runs after inference and sets `pending` only on
+stories still unmarked.
 
 Artifact paths are owned by the wrapped `bmad-*` skills and resolved from
 `_bmad/bmm/config.yaml` (see `§2.8`) — the relay does not dictate them.
@@ -276,7 +291,9 @@ Re-enter at `current_phase`, respecting `design_implementation_boundary_passed`.
 On a resume into Phase 7 or 8, in this order. Resume decisions come from the
 per-story markers `phase7_step` and `phase8_step`, never from
 `loop_state.completed` or a `development_status` value alone (every story is in
-`completed` once Phase 7 ends).
+`completed` once Phase 7 ends). Those two are read only by marker inference
+(State Schema), which runs first, when the state file is read, and fills in the
+markers of stories that have none.
 
 1. **Suspended Blocked stories first.** If any `loop_state.stories` entry has a
    `blocked` entry, replay it to the user before any dispatch: the stored
@@ -364,8 +381,11 @@ During Phase 7, if implementation surfaces out-of-scope requirements:
 For each story, in `development_status` order in `sprint-status.yaml`. **Skip
 a story** only when its `phase7_step` is `recorded`. Every other value is
 re-entered as `§3.2` step 3 (Phase 7) says; a suspended Blocked story is
-handled by `§3.2` step 1 before the loop. A new story starts at
-`phase7_step: pending`.
+handled by `§3.2` step 1 before the loop. Marker inference (State Schema) has
+already run when the state file was read, so a story at `review` or `done` in
+`sprint-status.yaml` with no `loop_state.stories` entry (for example, from an
+earlier sequence) is `recorded` and skipped. A story with nothing to infer from
+starts at `phase7_step: pending`.
 
 1. **Create the story (main loop).** Skip this step if the story's
    `development_status` entry is already past `backlog`. Otherwise check the
@@ -444,15 +464,21 @@ Full step detail lives in `references/bmad/phase-8-review.md`; this section
 fixes when `phase8_step` changes. Each change is written to the state file
 immediately, in the same write as the data that step produced.
 
-- **Entry.** With `phase8_start_sha`, set `phase8_step: pending` on every story
-  that has no `phase8_step`.
+- **Entry.** Marker inference (State Schema) has already run when the state
+  file was read. With `phase8_start_sha`, set `phase8_step: pending` only on
+  stories still unmarked after inference. A story whose `development_status`
+  entry is `done` was inferred `closed` and is never set to `pending`.
 - **Step 1, code review.** Runs only at `pending`. When the user picks "Done" at
   its next-steps menu → `code_review_done`.
 - **Step 2, reconcile.** Already done when the story's `### Review Findings`
   (if code review wrote one) sits inside `## Tasks / Subtasks` and has no
   unchecked `[Review][Decision]` bullet, and the story's `sprint-status.yaml`
-  entry is `in-progress`; skip it then. After it: unchecked `[Review][Patch]`
-  or `[Gate]` items → step 3; none → `captain`.
+  entry is `in-progress`; skip it then. Before that check, merge duplicate
+  `### Review Findings` sections (a re-run code review appends a second one)
+  into one, keeping each bullet once. On a resume at `code_review_done` with
+  unchecked `[Review][Decision]` bullets, the code-review conversation is lost:
+  ask the user to decide each one directly, then reconcile as usual. After it:
+  unchecked `[Review][Patch]` or `[Gate]` items → step 3; none → `captain`.
 - **Step 3, fix (Thor).** Before the chain's first dispatch → `fixing`, in the
   same write as `chain_start_sha`. On the done report: the `§2.9` checks, then
   append the fix range, set `chain_start_sha` to null and `captain` in one

@@ -86,7 +86,8 @@ Thor's report), `phase8_start_sha` and the cycle count live in the state file's
 ## Resume
 
 Resume uses per-story markers, `phase7_step` and `phase8_step`, not
-`loop_state.completed`. Phase 7 skips `recorded`; Phase 8 skips `closed` and
+`loop_state.completed` (stories with no marker get one from marker inference
+first). Phase 7 skips `recorded`; Phase 8 skips `closed` and
 re-enters every other story at its recorded step. See relay-config `§3.2` and
 `§3.9`.
 

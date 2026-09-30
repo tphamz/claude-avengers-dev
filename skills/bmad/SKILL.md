@@ -106,7 +106,13 @@ and re-enter the sequence at `current_phase` (respecting
 `design_implementation_boundary_passed`). On re-entering Phase 7 or 8, follow
 relay-config `§3.2`. Resume decisions come from each story's `phase7_step` /
 `phase8_step` marker, never from `loop_state.completed` (every story is in it
-once Phase 7 ends). In order:
+once Phase 7 ends). Marker inference (relay-config State Schema) runs first,
+when the state file is read, and fills in missing markers for every
+`development_status` key: no `phase7_step` → `recorded` if the key is in
+`completed`, at `review` or `done`, or has a `phase7_end_sha` (Phase 8 then
+uses the `§2.9` resume fallback if that SHA is missing), else `dispatched` if
+it has a `baseline_commit`, else `pending`; no `phase8_step` → `closed` if
+`done`. In order:
 
 1. **Blocked replay.** If any `loop_state.stories` entry has a `blocked` entry,
    first replay its stored HALT point, question, options and work state to the
@@ -185,6 +191,8 @@ Phase-by-phase:
    detail in relay-config `§3.8`). Skip a story only when its `phase7_step` is
    `recorded` (`pending` → `dispatched` → `done_reported` → `recorded`, each
    saved immediately); other values re-enter as the resume rules above say.
+   Marker inference has already run, so a story at `review` or `done` with no
+   `loop_state.stories` entry (e.g. from an earlier sequence) is skipped.
    1. **Create (main loop).** Skip if the story is already past `backlog`.
       Otherwise check the epic's `sprint-status.yaml` entry: `backlog` or
       `contexted` → set it to `in-progress`; `in-progress` → no change; `done` →
@@ -230,8 +238,9 @@ Phase-by-phase:
       add the key to `completed`, set `in_progress` to null, update
       `remaining`, and set `phase7_step: recorded`, in one state write.
 10. **Phase 8 — Review.** On entry, write `phase8_start_sha` (`git rev-parse
-    HEAD`) to `loop_state` once, and set `phase8_step: pending` on every story
-    without one. Then per story, in this order (full detail in
+    HEAD`) to `loop_state` once, and set `phase8_step: pending` only on stories
+    still unmarked after marker inference (a `done` story was inferred `closed`
+    and is never set to `pending`). Then per story, in this order (full detail in
     `references/bmad/phase-8-review.md`; each `phase8_step` change is saved
     immediately, relay-config `§3.9`). Skip a story at `phase8_step: closed`. The story's review ranges are
     `<baseline_commit>..<phase7_end_sha>` plus each range in
@@ -255,8 +264,12 @@ Phase-by-phase:
        mark each resolved `[Review][Decision]` bullet checked (`[x]`); striking
        it through is optional and does not replace `[x]`. Unchecked Decision
        bullets make `bmad-dev-story` step 9 HALT. Make sure `### Review Findings`
-       sits inside `## Tasks / Subtasks`, where dev-story looks for tasks. Set the
-       story's `sprint-status.yaml` entry to `in-progress`. No unchecked
+       sits inside `## Tasks / Subtasks`, where dev-story looks for tasks, and
+       merge any duplicate `### Review Findings` section (a re-run code review
+       appends a second one) into it, keeping each bullet once. On a resume at
+       `code_review_done` with unchecked `[Review][Decision]` bullets, the
+       code-review conversation is lost: ask the user to decide each directly.
+       Set the story's `sprint-status.yaml` entry to `in-progress`. No unchecked
        `[Review][Patch]` or `[Gate]` items → set `phase8_step: captain`, go to
        step 4.
     3. **Fix (Thor).** If unchecked `[Review][Patch]` items exist after

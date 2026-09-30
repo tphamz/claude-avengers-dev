@@ -144,7 +144,12 @@ of the dispatch that reports done; neither is ever overwritten (relay-config
 `done_reported` on the done report (before the checks), `recorded` after step 5.
 
 **Resume (Phases 7 and 8):** decisions come from the per-story markers
-`phase7_step` and `phase8_step`, never from `loop_state.completed`. Phase 7
+`phase7_step` and `phase8_step`, never from `loop_state.completed`. Marker
+inference runs first, when the state file is read: a story with no
+`phase7_step` is `recorded` if it is in `completed`, at `review` or `done`, or
+has a `phase7_end_sha` (a missing SHA uses the `§2.9` resume fallback in
+Phase 8), else `dispatched` with a `baseline_commit`, else `pending`; a story
+with no `phase8_step` at `done` is `closed`. Phase 7
 skips only `recorded`, and recovers a `done_reported` story (or a `dispatched`
 one at `review` with no `blocked`) by taking `post_sha` from HEAD and running
 the checks and step 5. Phase 8 skips only `closed` and re-enters at the
@@ -154,7 +159,8 @@ step 4; an orphaned Phase 8 fix chain is put to the user (finish or treat as
 done). Full rules: relay-config `§3.2`, `§3.9`.
 
 **Phase 8 (Review):** on entry, write `phase8_start_sha` once (resume fallback in
-relay-config `§2.9`) and `phase8_step: pending` on each story; save each
+relay-config `§2.9`) and `phase8_step: pending` on each story still unmarked
+after marker inference (never on a `done` story, inferred `closed`); save each
 `phase8_step` change immediately (`code_review_done` → `fixing` → `captain` →
 `verify` → `closed`, relay-config `§3.9`). Per story, run `bmad-code-review` in the main loop with the
 story as the spec and the explicit range `<baseline_commit>..<phase7_end_sha>`,
@@ -162,7 +168,9 @@ and have the user pick "Leave as action items" (patches are never applied in the
 main loop; if the user picks "Apply every patch", hand the list to Thor). Reconcile the story's `### Review Findings`: decisions converted to
 patches become unchecked `[Review][Patch]` bullets, and resolved
 `[Review][Decision]` bullets are checked (`[x]`), with the section inside
-`## Tasks / Subtasks` and the `sprint-status.yaml` entry set to `in-progress`. If
+`## Tasks / Subtasks` (duplicate sections merged into one) and the
+`sprint-status.yaml` entry set to `in-progress`; on a resume at
+`code_review_done`, the user decides any unchecked Decision bullet directly. If
 unchecked `[Review][Patch]` items remain, `Agent(avengers-dev:thor)` gets the
 explicit story file path and the named items, resolves them via `bmad-dev-story`,
 runs tests and commits; write `chain_start_sha` before the fix chain's first
