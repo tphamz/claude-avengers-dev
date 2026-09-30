@@ -6,7 +6,8 @@
 
 The framework uses `.avengers/` as its configuration namespace.
 
-- **`~/.avengers/`** - Home-level global defaults (CA bundle, global settings)
+- **`~/.avengers/`** - Home-level global defaults (CA bundle, global settings,
+  `workstations.json` md workstation registry)
 - **`<project>/.avengers/`** - Project-level settings
 
 Both contain `settings.json` with at minimum `version` and `pluginDirectory`.
@@ -30,10 +31,24 @@ or the plugin's own `settings.json`.
 
 **Specifically:**
 - Spinner verbs -> `avengers-dev/settings.json` (plugin-scoped, auto-loaded with plugin)
-- SSL env vars -> project `~/.claude/settings.local.json` (written by `avengers-init`, project-scoped)
-- Git instructions -> project `~/.claude/settings.local.json` (written by `avengers-init`)
+- SSL env vars -> project `.claude/settings.local.json` (written by `avengers-init`, project-scoped)
+- Git instructions -> project `.claude/settings.local.json` (written by `avengers-init`)
+- md workstation directory grant -> project `.claude/settings.local.json`
+  `permissions.additionalDirectories` (via `manage-settings.py list-add --dry-run` + Write)
 - Persona includes -> project `.claude/rules/avengers-dev.md` (written by `avengers-init`)
+- KB import -> project `.claude/rules/avengers-kb.md` (written by `bmad-kb.py stamp`)
 - CA bundle -> `~/.avengers/ca-bundle.pem` (home-level, avengers namespace only)
+- md workstation registry -> `~/.avengers/workstations.json` (`{root, repos: {remote-key: path}}`)
+
+### `.git/info/exclude` for Per-Clone Artifacts
+
+Machine-specific artifacts that live in a target repo but must never be committed
+— the md workstation symlink (`/_bmad-output`) and `.claude/rules/avengers-kb.md` —
+are ignored through `.git/info/exclude`, not `.gitignore`. The exclude file is per
+clone (shared by its worktrees) and never reaches teammates; a `.gitignore` entry
+would also hide teammates' real `_bmad-output`. Patterns are root-anchored with no
+trailing slash, because a trailing-slash pattern does not match a symlink.
+`workstation.py set` adds the lines and `workstation.py unlink` removes them.
 
 **Never write to:**
 - `~/.claude/settings.json`

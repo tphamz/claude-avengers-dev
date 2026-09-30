@@ -71,6 +71,7 @@ gate_override:                # null, or set when the gate is passed despite blo
   at: timestamp
 kb_status_at_start: enum      # missing | unstamped | fresh | stale | unknown (Phase 0)
 kb_base_commit: string | null # HEAD at Phase 0; base for Phase 9 impact
+md_workstation: string | null # md workstation path from Step 0 (§3.11); null = in-repo
 created_at: timestamp
 last_active: timestamp
 
@@ -85,7 +86,8 @@ loop_state:                      # Phase 7 only
 ```
 
 Artifact paths are owned by the wrapped `bmad-*` skills (BMAD-METHOD writes under
-`docs/` by its own conventions) — the relay does not dictate them.
+its configured `output_folder` and `project_knowledge`) — the relay does not
+dictate them. With an md workstation, `output_folder` is a symlink into it (§3.11).
 
 ## Protocol Directives
 
@@ -122,7 +124,8 @@ Re-enter at `current_phase`, respecting `design_implementation_boundary_passed`.
 - `track` → `standard`.
 - At `8` or `complete` → finish as before; **not** routed into Phase 9.
 - Otherwise → continue through Phase 9. With no `kb_base_commit`, Phase 9 uses the
-  `commit` in `.avengers/kb.json`; if there is none, Phase 9 is skipped with a note.
+  `stamped_commit` reported by `bmad-kb.py status`; if there is none, Phase 9 is
+  skipped with a note.
 - Missing `gate_override` → `null`.
 
 State files with a `track` key follow the normal flow, including Phase 9.
@@ -160,8 +163,15 @@ defaults `docs` / `_bmad-output`):
   (`initial_scan` | `full_rescan` | `deep_dive`)
 - `{output_folder}/project-context.md` — `bmad-generate-project-context`
 
-The freshness marker is `.avengers/kb.json`
-(`{commit, stamped_at, index_path, context_path}`), written by `bmad-kb.py stamp`.
+The freshness marker is `<workstation>/avengers/kb.json` with an md workstation,
+else `.avengers/kb.json`; reads fall back to the legacy `.avengers/kb.json` and
+`stamp` moves it into the workstation. Schema:
+`{version: 2, index_path, context_path, branches: {<branch>: {commit, stamped_at,
+arch_hashes}}}` — keyed per branch so worktrees on different branches do not
+overwrite each other (detached HEAD uses `HEAD@<sha7>`). A branch with no entry
+falls back to the newest entry and reports `stale` with a `branch_unstamped`
+signal. Paths are relative to the workstation (in-repo paths as
+`{project-root}/...`). Read the marker through `bmad-kb.py status`, not by path.
 
 - **Build only when missing** — Phase 0 `status` = `missing` → Phase 1a.
 - **Offer refresh when meaningfully stale** — `stale` means at least one impact
@@ -169,7 +179,9 @@ The freshness marker is `.avengers/kb.json`
   folder, dependency manifest, migration, API contract, new top-level dir) or 20+
   changed files outside the KB dirs, `output_folder`, `.avengers/`, and `_bmad/`.
   An `unknown_stamp` signal (the stamped commit is no longer in history, e.g.
-  rebased away) also makes the KB `stale`. The user decides.
+  rebased away) also makes the KB `stale`. When the output folder is outside git
+  (an md workstation), architecture docs are compared by the sha256 hashes stored
+  at stamp time instead of by git diff. The user decides.
 - **Not a git repo** — `status` reports `unknown` (or `unstamped` with a null
   `head`); `stamp` and `impact` exit 1, so they are skipped and freshness is not
   tracked.
@@ -191,6 +203,32 @@ Any wrapped skill that asks the user questions — including `bmad-document-proj
 and `bmad-generate-project-context` in Phases 1a and 9, and `bmad-quick-dev` on the
 quick track — runs in the main loop via `Skill(bmad-X)`. Subagents are dispatched
 only for skills that need no user input (4.5, 5, 7, 8).
+
+### §3.11 md Workstation and md Commits
+
+**Step 0 (every run):** after preflight, `workstation.py resolve`. `ok` continues
+(a missing or mismatched symlink is repaired with `set`); `in_repo` continues
+in-repo; `guess` / `missing` / `broken` run the `/avengers-workstation` flow, where
+the user may still choose in-repo. Then `workstation.py check-config`: keys outside
+`output_folder` are offered for an opt-in, per-key `repoint-config` (it edits the
+team's committed config — say so). Declined keys are recorded in
+`.avengers/settings.json` → `mdRepointDeclined` and not offered again. It runs on
+every run because a BMAD reinstall can undo a re-point and a symlink can dangle.
+Record `md_workstation` in the state file.
+
+**md commits:** offered after the Phase 1a stamp, at the hard gate, and at
+completion (end of Phase 9, any track), only when `md_workstation` is set.
+
+1. `workstation.py md-status` — exit 2 (clean, or not a git repo): skip silently.
+2. Exit 0: ask "Commit N md changes in <md repo>?"
+3. On yes, Thor runs `git -C <toplevel> add -- <rel>`, then
+   `git -C <toplevel> commit -m "docs(<repo-name>): <phase> artifacts" -- <rel>`.
+   The pathspec commit leaves anything else staged in the md repo untouched.
+4. A hook or signing failure is reported and the relay continues. Never push.
+
+**Known limitation:** `bmad-story-automator` rejects artifact paths that resolve
+outside the repo root, so it does not work with a workstation. The relay's Phase 7
+(Thor running `bmad-create-story` → `bmad-dev-story`) does not use it.
 
 ## Execution Model — wrap, don't reimplement
 
