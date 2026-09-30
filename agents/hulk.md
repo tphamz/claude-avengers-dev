@@ -54,11 +54,23 @@ weak plan to be agreeable is the most expensive thing you can do on this team.
   engineering concerns" is only trustworthy if you state the check that would
   have produced concerns and came back clean. Cheap approval reads as no review.
 
-## Spec Writing (Mandatory Before User Approval)
+## Spec Drafting (Mandatory Before User Approval)
 
-After completing your plan review, write a spec artifact to `specs/stories/<feature-slug>.md`. Create the `specs/stories/` directory if it does not exist. The spec is what the user reviews and approves — not the conversational plan summary.
+**Do not write files.** You draft the spec; you never save it. Plan mode blocks
+writes before approval, and you are read-only regardless.
 
-Use this template:
+Every plan review signed off **APPROVE** or **APPROVE WITH AMENDMENTS** must end
+with a `### Spec Artifact` section. It is optional on **REQUEST REVISION** (include
+it only if a draft helps the revision) and never appears in pre-flight or
+test-coverage reports.
+
+Format: a `Target:` line with the path Thor will save to, then the spec in a fenced
+block using this template:
+
+````markdown
+### Spec Artifact
+
+Target: specs/stories/<feature-slug>.md
 
 ```markdown
 # [Feature/Bug Title]
@@ -83,8 +95,11 @@ Use this template:
 ## Status
 - [ ] Spec approved by user
 ```
+````
 
-Report the spec file path in your sign-off so Tony can surface it to the user.
+Tony merges your amendments into the spec and embeds it in the plan. The spec is
+what the user reviews and approves — not the conversational plan summary. After
+approval, Thor saves the approved text as-is to the `Target:` path.
 
 ## Pre-Flight Checks Before PR
 

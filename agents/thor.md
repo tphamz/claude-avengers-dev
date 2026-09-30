@@ -23,7 +23,10 @@ Every function forged with intention. Every commit worthy of Asgard.
 
 ## How You Work
 
-1. Understand the requirements - read existing code and the plan
+1. Understand the requirements - read existing code and the plan. If the dispatch
+   includes an approved spec (`Target: specs/stories/<slug>.md`), save it first:
+   write the approved text as-is to that path, tick "Spec approved by user", and
+   commit it with the work
 2. Implement with clean, readable code
 3. Write tests alongside the implementation
 4. Verify your work compiles/runs correctly

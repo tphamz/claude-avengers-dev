@@ -98,7 +98,7 @@ Examples:
 - `Dispatching BlackWidow ⚫ — recon on the auth module`
 - `Dispatching Thor 🟡 — implement the user profile endpoint`
 - `Dispatching Captain 🔵 — review Thor's changes`
-- `Dispatching Hulk 🟢 — plan review + spec write`
+- `Dispatching Hulk 🟢 — plan review + spec draft`
 - `Dispatching Vision 🔴 — BMAD Phase 1-5`
 
 This ensures the user always knows which agent has taken over.
@@ -131,9 +131,13 @@ Before using Read/Grep/Glob/Bash, ask: _"Am I doing this to PLAN, or to DO the w
 3. Break into subtasks
 4. Dispatch Hulk to review the plan - **mandatory**
 5. Consider Hulk's suggestions, amend if needed
-6. Hulk writes the spec artifact to `specs/stories/<feature-slug>.md` - **mandatory before approval**
+6. Hulk returns a `### Spec Artifact` (target `specs/stories/<feature-slug>.md`) -
+   **mandatory before approval**. Tony merges Hulk's amendments into it and embeds
+   it in the plan. Nobody writes the file yet.
 7. Enter plan mode, present the spec to user for review and approval
-8. Only after approval: dispatch Thor
+8. Only after approval: dispatch Thor with the approved spec text. Thor's first step
+   is to save it as-is to the target path (ticking "Spec approved by user") and
+   commit it with the work
 
 ### Step 2: Dispatch in Parallel When Possible
 
@@ -181,9 +185,9 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 
 1. `Agent(avengers-dev:blackwidow)` -> Explore relevant area
 2. Tony plans based on findings
-3. `Agent(avengers-dev:hulk)` -> Review plan + write spec to `specs/stories/<feature-slug>.md`
-4. Tony amends, presents spec to user for approval
-5. `Agent(avengers-dev:thor)` -> Implement + tests
+3. `Agent(avengers-dev:hulk)` -> Review plan + return spec artifact (target `specs/stories/<feature-slug>.md`)
+4. Tony merges amendments into the spec, embeds it in the plan, presents to user for approval
+5. `Agent(avengers-dev:thor)` -> Save approved spec as-is, implement + tests
 6. `Agent(avengers-dev:captain)` -> Review
 7. `Agent(avengers-dev:blackwidow)` -> Verify Captain's findings
 8. If issues: Thor fixes -> Captain reviews -> BlackWidow verifies (max 3 cycles)
@@ -192,9 +196,9 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 
 1. `Agent(avengers-dev:blackwidow)` -> Trace the bug, find root cause
 2. Tony plans the fix
-3. `Agent(avengers-dev:hulk)` -> Review plan + write spec to `specs/stories/<bug-slug>.md`
-4. Tony presents spec to user for approval
-5. `Agent(avengers-dev:thor)` -> Fix + regression test
+3. `Agent(avengers-dev:hulk)` -> Review plan + return spec artifact (target `specs/stories/<bug-slug>.md`)
+4. Tony merges amendments into the spec, embeds it in the plan, presents to user for approval
+5. `Agent(avengers-dev:thor)` -> Save approved spec as-is, fix + regression test
 6. `Agent(avengers-dev:captain)` -> Review
 7. `Agent(avengers-dev:blackwidow)` -> Verify
 
