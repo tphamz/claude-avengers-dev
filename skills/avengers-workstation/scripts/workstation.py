@@ -19,6 +19,8 @@ Commands:
   check-config                         List BMAD path keys that resolve outside output_folder
   repoint-config --key K [--decline]   Re-point one key under output_folder (or record a decline)
   md-status                            Dirty files under the workstation in its md git repo
+  spec-target --slug S                 Where a Hulk spec is saved, and whether it may be
+                                       committed in the md repo (JSON; read-only)
   grant-path                           Realpath of the workstation for additionalDirectories
   kb-rules                             (Re)write .claude/rules/avengers-kb.md
   unlink                               Remove the symlink, setting, avengers-kb.md and
@@ -27,7 +29,7 @@ Commands:
 Exit codes:
   0 = success
   1 = error
-  2 = no-op (see each subcommand's --help)
+  2 = no-op (see each subcommand's --help; spec-target never returns 2)
 """
 from __future__ import annotations
 
@@ -35,6 +37,7 @@ import argparse
 import filecmp
 import json
 import os
+import posixpath
 import re
 import shutil
 import subprocess
@@ -53,6 +56,9 @@ KB_RULES = Path(".claude") / "rules" / "avengers-kb.md"
 PATH_KEY_SUFFIXES = ("_folder", "_artifacts", "_knowledge", "_output", "_path", "_dir")
 AUTOMATOR = "bmad-story-automator"
 WS_SUFFIX = "-mds"
+SPEC_SUBDIR = ("specs", "stories")
+WS_SPEC_SUBDIR = ("avengers", *SPEC_SUBDIR)
+SLUG_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,79}")
 
 KB_RULES_TEMPLATE = """\
 # Avengers Dev - Knowledge Base
@@ -774,17 +780,39 @@ def cmd_repoint(project_dir: Path, key: str, decline: bool, dry_run: bool) -> in
 
 # --------------------------------------------------------------------------- md repo
 
+def md_repo(project_dir: Path, ws: Path) -> dict | None:
+    """The md git repo holding ws: {toplevel, rel, dedicated, home}. None when not in git.
+
+    Shared by md-status and spec-target, so a spec-target pathspec matches md-status
+    `dirty` entries exactly. dedicated is false when the md repo is $HOME or contains
+    the project.
+    """
+    top = git_toplevel(ws)
+    if top is None:
+        return None
+    real_top = Path(os.path.realpath(top))
+    rel = Path(os.path.realpath(ws)).relative_to(real_top).as_posix() or "."
+    real_project = Path(os.path.realpath(project_dir))
+    home = real_top == Path(os.path.realpath(Path.home()))
+    dedicated = not home and not is_within(real_project, real_top)
+    return {"toplevel": real_top, "rel": rel, "dedicated": dedicated, "home": home}
+
+
+def md_pathspec(rel: str, *parts: str) -> str:
+    """Toplevel-relative pathspec under rel, normalized (rel "." gives no "./")."""
+    return posixpath.normpath(posixpath.join(rel, *parts))
+
+
 def cmd_md_status(project_dir: Path, path: str | None) -> int:
     ws = require_workstation(project_dir, path)
     if not ws.is_dir():
         raise WSError(f"workstation not found: {ws}")
-    top = git_toplevel(ws)
+    info = md_repo(project_dir, ws)
     _, repo_name = remote_key(project_dir)
-    if top is None:
+    if info is None:
         print(json.dumps({"git": False, "path": str(ws), "count": 0, "dirty": []}, indent=2))
         return 2
-    real_top = Path(os.path.realpath(top))
-    rel = Path(os.path.realpath(ws)).relative_to(real_top).as_posix() or "."
+    real_top, rel = info["toplevel"], info["rel"]
     proc = run_git(real_top, "status", "--porcelain=v1", "-z", "--untracked-files=all",
                    "--", rel)
     entries = proc.stdout.split("\0") if proc and proc.returncode == 0 else []
@@ -797,14 +825,62 @@ def cmd_md_status(project_dir: Path, path: str | None) -> int:
             continue
         dirty.append(entry[3:])
         skip = entry[0] in "RC"
-    real_project = Path(os.path.realpath(project_dir))
-    dedicated = (real_top != Path(os.path.realpath(Path.home()))
-                 and not is_within(real_project, real_top))
     print(json.dumps({"git": True, "toplevel": str(real_top), "rel": rel,
-                      "dedicated": dedicated,
+                      "dedicated": info["dedicated"],
                       "repo_name": repo_name or project_dir.name,
                       "count": len(dirty), "dirty": dirty}, indent=2))
     return 0 if dirty else 2
+
+
+def spec_workstation(report: dict) -> Path | None:
+    """The recorded workstation (source project or registry) if it is an existing directory.
+
+    The link state is ignored: a dangling output_folder or openspec link never moves specs.
+    A guess never counts.
+    """
+    if report["source"] not in ("project", "registry") or not report["path"]:
+        return None
+    ws = Path(report["path"])
+    return Path(os.path.realpath(ws)) if ws.is_dir() else None
+
+
+def spec_target(project_dir: Path, slug: str) -> dict:
+    if not SLUG_RE.fullmatch(slug):
+        raise WSError(f"invalid slug {slug!r}: must match ^[a-z0-9][a-z0-9-]{{0,79}}$")
+    report = resolve(project_dir)
+    ws = spec_workstation(report)
+    name = f"{slug}.md"
+    if ws is None:
+        repo = Path(os.path.realpath(project_dir))
+        spec_dir = repo.joinpath(*SPEC_SUBDIR)
+        top = git_toplevel(repo)
+        real_top = Path(os.path.realpath(top)) if top else None
+        base = real_top or repo
+        pathspec = (spec_dir / name).relative_to(base).as_posix() if is_within(spec_dir, base) \
+            else None
+        commit = {"git": real_top is not None,
+                  "toplevel": str(real_top) if real_top else None,
+                  "pathspec": pathspec, "dedicated": None,
+                  "reason": "in-repo: commit with the work"}
+    else:
+        spec_dir = ws.joinpath(*WS_SPEC_SUBDIR)
+        info = md_repo(project_dir, ws)
+        if info is None:
+            commit = {"git": False, "toplevel": None, "pathspec": None, "dedicated": None,
+                      "reason": "workstation is not in a git repo: leave the spec uncommitted"}
+        else:
+            if info["dedicated"]:
+                reason = "dedicated md repo: commit only with the user's consent"
+            elif info["home"]:
+                reason = "md repo is $HOME (not dedicated): leave the spec uncommitted"
+            else:
+                reason = "md repo contains the project (not dedicated): leave the spec " \
+                         "uncommitted"
+            commit = {"git": True, "toplevel": str(info["toplevel"]),
+                      "pathspec": md_pathspec(info["rel"], *WS_SPEC_SUBDIR, name),
+                      "dedicated": info["dedicated"], "reason": reason}
+    return {"state": report["state"], "spec_dir": str(spec_dir),
+            "target": str(spec_dir / name), "commit": commit}
 
 
 def cmd_grant_path(project_dir: Path, path: str | None) -> int:
@@ -907,6 +983,20 @@ def build_parser() -> argparse.ArgumentParser:
                                "dirty}. dedicated is false when the md repo is $HOME or "
                                "contains the project. Exit 0 dirty; 2 clean or not a git "
                                "repo; 1 on error.")
+    spec = sub.add_parser("spec-target", parents=[common],
+                          help="Where a Hulk spec is saved, and whether it may be committed",
+                          description="Print {state, spec_dir, target, commit: {git, toplevel, "
+                                      "pathspec, dedicated, reason}}. spec_dir is "
+                                      "<realpath(workstation)>/avengers/specs/stories when "
+                                      "resolve's source is project or registry and that folder "
+                                      "exists "
+                                      "(whatever the link state), else <realpath(repo)>/specs/"
+                                      "stories. pathspec is toplevel-relative and matches "
+                                      "md-status dirty entries. Read-only; creates nothing. "
+                                      "Exit 0; 1 on error (invalid slug, missing project "
+                                      "dir). Never exits 2.")
+    spec.add_argument("--slug", required=True,
+                      help="Spec slug, matching ^[a-z0-9][a-z0-9-]{0,79}$")
     sub.add_parser("grant-path", parents=[common, ws_path],
                    help="Print the workstation realpath for additionalDirectories",
                    description="Print the realpath of the workstation. Exit 0; 1 on error.")
@@ -947,6 +1037,9 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_repoint(project_dir, args.key, args.decline, args.dry_run)
         if args.command == "md-status":
             return cmd_md_status(project_dir, args.path)
+        if args.command == "spec-target":
+            print(json.dumps(spec_target(project_dir, args.slug), indent=2))
+            return 0
         if args.command == "grant-path":
             return cmd_grant_path(project_dir, args.path)
         if args.command == "kb-rules":
