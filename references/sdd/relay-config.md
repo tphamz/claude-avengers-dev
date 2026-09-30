@@ -119,8 +119,8 @@ The `/bmad` directives apply unchanged unless noted. Section numbers refer to
 
 1. **The wrapper is the only OpenSpec caller.** Every `openspec` call goes through
    `sdd-openspec.py`, which sets `OPENSPEC_TELEMETRY=0` and `DO_NOT_TRACK=1` and runs
-   from the real parent of a symlinked `openspec/`. Subagents read and edit the
-   change files directly under `change_dir_real`; they do not run `openspec`.
+   from the real parent of a symlinked `openspec/`. Subagents read the change
+   files directly under `change_dir_real`; they do not run `openspec`.
 2. **No `/opsx` commands.** `init` uses `--tools none`, so no `/opsx:*` commands or
    `openspec-*` skills are installed and nothing bypasses the relay. The upstream
    `/opsx:archive` skill merges specs through the model; the relay uses the CLI.
@@ -131,7 +131,15 @@ The `/bmad` directives apply unchanged unless noted. Section numbers refer to
 4. **Archive is guarded.** `sdd-openspec.py archive` refuses missing or incomplete
    tasks unless the user confirms a reason (`--allow-incomplete --reason`, recorded
    as `archive_override`), validates first, and reads OpenSpec's JSON result.
-5. **OpenSpec Stores are not used.** They share one flat change namespace across
+5. **Read-only agents return; the main loop and Thor write.** Captain and Hulk
+   never write a file: Captain returns tagged findings (H, V) and Hulk returns
+   PASS/FAIL (R). The OpenSpec artifacts are written in the main loop (P, and spec
+   fixes after H and V); Thor edits `tests.md` and `tasks.md` and the code (B, V
+   fixes) and makes every commit. `/sdd` has no Hulk spec artifact — the OpenSpec
+   change is the spec. A Hulk plan-review spec outside `/sdd` follows
+   `agents/hulk.md`: Hulk returns a `### Spec Artifact` and Thor saves it at the
+   `workstation.py spec-target` Target (`agents/thor.md`).
+6. **OpenSpec Stores are not used.** They share one flat change namespace across
    repos and ignore the `store:` pointer when local content exists. The md
    workstation gives each repo its own `openspec/` instead.
 
