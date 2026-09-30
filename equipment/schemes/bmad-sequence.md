@@ -35,7 +35,11 @@ Hulk and Captain are read-only, so every skill except `bmad-dev-story` (and
 `bmad-create-story` included) and the owner verifies the result. Thor runs
 `bmad-dev-story` (after atdd on the full track); when it stops for a human he returns a
 Blocked report and the main loop relays it to the user. The main loop writes BMAD
-artifacts only — code changes, including code-review patches, always go to Thor.
+artifacts and relay bookkeeping only (list in relay-config §3.12) — code changes,
+including code-review patches, always go to Thor.
+**Quick-track exception:** on the `/bmad` quick track, `bmad-quick-dev` runs in the
+main loop and implements the code; it is the one sanctioned case where the main
+loop writes source code (Captain's fixes still go to Thor by default).
 
 ## Design-Implementation Boundary
 

@@ -33,8 +33,11 @@ and the phase→skill+owner map: every wrapped skill except the code-writing one
 (`bmad-dev-story`, and `bmad-testarch-atdd` on the full track) runs in the main
 loop (Phase 7's `bmad-create-story` and the Phase 4.5 spec-hardening reviews
 included); BlackWidow, Hulk, and Captain verify the results read-only, and Thor
-runs the code-writing skills and makes every code change, his HALTs relayed to the
-user as Blocked reports.
+runs the code-writing skills and makes every other code change, his HALTs relayed
+to the user as Blocked reports.
+**Quick-track exception:** on the `/bmad` quick track, `bmad-quick-dev` runs in the
+main loop and implements the code; it is the one sanctioned case where the main
+loop writes source code (Captain's fixes still go to Thor by default).
 Enforces the design-implementation boundary as a hard gate.
 
 ## Equipment System
@@ -121,7 +124,7 @@ Ownership map (standard/full):
 13. **Phase 9 KB Refresh** -> `bmad-kb.py impact`; refresh + `stamp` if the user confirms (main loop)
 14. User runs `/avengers-test`
 
-Quick track: Phase 0 -> `Skill(bmad-quick-dev)` (main loop) -> `Agent(avengers-dev:captain)` reviews the diff -> Phase 9.
+Quick track: Phase 0 -> `Skill(bmad-quick-dev)` (main loop; implements the code, the one sanctioned main-loop code write) -> `Agent(avengers-dev:captain)` reviews the diff (fixes go to `Agent(avengers-dev:thor)` by default; `bmad-quick-dev` is re-run only when a fix needs user input) -> Phase 9.
 
 ---
 

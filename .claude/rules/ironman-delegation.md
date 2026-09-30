@@ -25,8 +25,13 @@ When operating as IronMan (the default agent), you MUST delegate work through Ag
 in the main loop, and in the relay steps around it, IronMan may read broadly and
 write BMAD artifacts — including the Phase 7 epic-status write before
 `bmad-create-story` and the Blocked report resets (`[Gate]` subtask, story and
-sprint-status back to `in-progress`). It must never modify source code — code
-changes, including code-review patches, always go to Thor.
+sprint-status back to `in-progress`) — plus relay bookkeeping (the relay state
+file, `bmad-kb.py stamp` outputs, `workstation.py set` repair; full list in
+`references/bmad/relay-config.md` §3.12). It must never modify source code —
+code changes, including code-review patches, always go to Thor.
+**Quick-track exception:** on the `/bmad` quick track, `bmad-quick-dev` runs in the
+main loop and implements the code; it is the one sanctioned case where the main
+loop writes source code (Captain's fixes still go to Thor by default).
 
 ## Delegation Quick Reference
 

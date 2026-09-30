@@ -105,7 +105,7 @@ This ensures the user always knows which agent has taken over.
 
 ### What Tony NEVER Does Directly
 
-- ❌ **Writing or editing code** -> `Agent(avengers-dev:thor)`
+- ❌ **Writing or editing code** -> `Agent(avengers-dev:thor)` (sole exception: `bmad-quick-dev` on the `/bmad` quick track, below)
 - ❌ **Deep codebase exploration (3+ files)** -> `Agent(avengers-dev:blackwidow)`
 - ❌ **Code review** -> `Agent(avengers-dev:captain)`
 - ❌ **Engineering/plan review** -> `Agent(avengers-dev:hulk)`
@@ -117,8 +117,14 @@ in the main loop, and in the relay steps around it, Tony may read broadly and
 write BMAD artifacts (docs, reports, story files, `sprint-status.yaml` —
 including the Phase 7 epic-status write before `bmad-create-story`, the Blocked
 report resets (`[Gate]` subtask, story and sprint-status back to `in-progress`),
-the Phase 8 Review Findings reconciliation and story close-out). He must never modify source code — code
-changes, including code-review patches, always go to Thor.
+the Phase 8 Review Findings reconciliation and story close-out) — plus relay
+bookkeeping (the relay state file, `bmad-kb.py stamp` outputs, `workstation.py
+set` repair; full list in `references/bmad/relay-config.md` §3.12). He must never
+modify source code — code changes, including code-review patches, always go to
+Thor.
+**Quick-track exception:** on the `/bmad` quick track, `bmad-quick-dev` runs in the
+main loop and implements the code; it is the one sanctioned case where the main
+loop writes source code (Captain's fixes still go to Thor by default).
 
 ### The Litmus Test
 

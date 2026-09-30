@@ -53,11 +53,12 @@ Write, Edit or Agent tools. So the skills run in the main loop (`§3.12`) and th
 owners verify the output read-only. `bmad-dev-story` and `bmad-testarch-atdd`
 change source code, so they run in Thor, who returns a Blocked report whenever
 one stops for a human. The main loop may read broadly and write BMAD artifacts
-while running a wrapped skill and in the relay steps around it (the Phase 7
-epic-status write, Blocked resets, Phase 8 reconciliation and close-out), but
-never modifies source code — code changes (including code-review patches) always
-go to Thor. The one exception is the quick track, where `bmad-quick-dev` runs in
-the main loop as mapped above.
+and relay bookkeeping (the full list is `§3.12`), but never modifies source code
+— code changes (including code-review patches) always go to Thor. **Quick-track
+exception:** on the quick track, `bmad-quick-dev` runs in the main loop and
+implements the code; it is the one sanctioned case where the main loop writes
+source code. Captain's fixes on the quick track still go to Thor by default
+(`§3.12`).
 
 <!-- SEAM: A main-loop phase could later move to a write-capable subagent if its
      wrapped skill gains a batch mode. Never move one to a read-only agent, and
@@ -109,6 +110,8 @@ loop_state:                      # Phases 7 and 8
       chain_start_sha: string | null  # Phase 8 fix chain start: pre_sha of the chain's first
                                  # dispatch, written before it; null once the fix range is recorded
       phase8_fix_ranges: list    # one <chain_start_sha>..<done post_sha> per Phase 8 fix (or NO_VCS)
+      trace_report: string | null  # full track: path of the bmad-testarch-trace report for this
+                                 # story, written with code_review_done (§3.9); null otherwise
       review_cycles: int         # Captain verdicts so far in Phase 8 (max 3, §2.10)
       captain_findings: string | null  # latest Captain verdict + findings, written with
                                  # review_cycles; read by a resume at phase8_step: verify
@@ -140,10 +143,15 @@ entry step and before any loop. It covers every story key in the
 sequence). Epic keys (`epic-N`, `epic-N-retrospective`) are excluded. An
 absent field counts as empty or 0. The inferred markers are written back to the
 state file in one write.
-- **No `phase7_step`:** `dispatched` if it has a `baseline_commit` but no
-  `phase7_end_sha` and is not in `loop_state.completed` (tested first, whatever
-  its `development_status`, so a crashed dispatch goes through the `§3.2`
-  recovery and its checks); else `recorded` if the key is in
+- **No `phase7_step`:** `dispatched` if it has
+  `loop_state.stories[<key>].baseline_commit` (a `baseline_commit` in the story
+  frontmatter alone does not count), no `phase7_end_sha`, is not in
+  `loop_state.completed`, and its `development_status` entry is not `done`
+  (tested first, so a crashed dispatch goes through the `§3.2` recovery and its
+  checks). A `done` story that has a `loop_state` `baseline_commit` but no
+  `phase7_end_sha` and no `completed` entry is never inferred `dispatched` and
+  never re-dispatched: ask the user which Phase 7 step it reached. Else
+  `recorded` if the key is in
   `loop_state.completed`, or its `development_status` entry is `review` or
   `done`, or it has a `phase7_end_sha`; else `pending`. A story inferred as
   `recorded` may have no `phase7_end_sha`; Phase 8 then builds its range with
@@ -198,7 +206,8 @@ paths** — never globs or unresolved `{placeholders}`. Keys and installer defau
 |-----|---------|---------------|
 | `project_knowledge` | `docs` | `bmad-document-project` output |
 | `planning_artifacts` | `_bmad-output/planning-artifacts` | `implementation-readiness-report-{date}.md` (pass the newest file) |
-| `implementation_artifacts` | `_bmad-output/implementation-artifacts` | story files, `sprint-status.yaml`, `deferred-work.md`, `investigations/{slug}-investigation.md`, `epic-{N}-retro-{date}.md` |
+| `implementation_artifacts` | `_bmad-output/implementation-artifacts` | story files, `sprint-status.yaml`, `deferred-work.md`, `epic-{N}-retro-{date}.md` |
+| `output_folder` | `_bmad-output` | `project-context.md` (`bmad-generate-project-context`) |
 
 Phase 8 also needs, per story: the story file path, its `loop_state.stories`
 entry (the review ranges are `<baseline_commit>..<phase7_end_sha>` plus each range
@@ -387,6 +396,11 @@ markers of stories that have none.
        already done, then step 3 (Thor) if unchecked `[Review][Patch]` or
        `[Gate]` items remain, otherwise step 4. (A `fixing` story with
        `chain_start_sha` set is handled by step 1 or step 2 above first.)
+       **Full track, at `code_review_done`:** before step 2, if `trace_report`
+       is recorded, read that report and, for each untested AC in it with no
+       matching `[Review][Patch] Cover AC <n>:` bullet (checked or unchecked) in
+       the story's `### Review Findings`, re-derive the bullet from the report
+       exactly as Phase 8 step 1 writes it (`§3.9`). The trace never re-runs.
      - `captain` → step 4, Captain.
      - `verify` → step 5, BlackWidow, with the stored `captain_findings`.
      - After the loop, run any retrospective still owed (`§3.9` step 8).
@@ -515,10 +529,22 @@ immediately, in the same write as the data that step produced.
   file was read. With `phase8_start_sha`, set `phase8_step: pending` only on
   stories still unmarked after inference. A story whose `development_status`
   entry is `done` was inferred `closed` and is never set to `pending`.
-- **Step 1, code review.** Runs only at `pending`. When the user picks "Done" at
-  its next-steps menu (and, on the full track, `bmad-testarch-trace` has run for
-  the story in the main loop) → `code_review_done`.
-- **Step 2, reconcile.** Already done when the story's `### Review Findings`
+- **Step 1, code review.** Runs only at `pending`. Standard track: when the user
+  picks "Done" at its next-steps menu → `code_review_done`. **Full track:**
+  after "Done", run `bmad-testarch-trace` for the story in the main loop, before
+  any marker change. Right after it, the main
+  loop writes every AC the trace reports untested into the story's
+  `### Review Findings` (inside `## Tasks / Subtasks`; create the subsection
+  there if code review wrote none) as an unchecked
+  `- [ ] [Review][Patch] Cover AC <n>: <AC text, short>` bullet, skipping any
+  `Cover AC <n>` bullet already present. Then, in one state write, it records
+  `loop_state.stories[<key>].trace_report: <report path>` and sets
+  `code_review_done`. Recording the report path is what lets a resume re-derive
+  lost bullets (`§3.2`).
+- **Step 2, reconcile.** Trace output is never converted here; step 1 already
+  wrote the `Cover AC` bullets, and step 2 only dedupes against them (a
+  converted decision that duplicates a `Cover AC` bullet is not added again).
+  Already done when the story's `### Review Findings`
   (if code review wrote one) sits inside `## Tasks / Subtasks` and has no
   unchecked `[Review][Decision]` bullet, and the story's `sprint-status.yaml`
   entry is `in-progress`; skip it then. Before that check, merge duplicate
@@ -594,9 +620,31 @@ When either readiness result is NOT READY / NOT-READY (`§2.7`), or Phase 4.5
 Every wrapped skill runs in the main loop via `Skill(bmad-X)` — including
 `bmad-document-project` and `bmad-generate-project-context` in Phases 1a and 9,
 the Phase 4.5 review skills, and `bmad-quick-dev` on the quick track — except the
-code-writing skills Thor runs in Phase 7 (`bmad-dev-story`, and
-`bmad-testarch-atdd` on the full track). Read-only Avengers are dispatched only to
-verify a skill's output (1a, 4.5, 5, 8), never to run a write-capable skill.
+code-writing skills Thor runs (`bmad-dev-story` in Phase 7 and Phase 8 step 3,
+and `bmad-testarch-atdd` in Phase 7 on the full track). Read-only Avengers are
+dispatched only to verify a skill's output (1a, 4.5, 5, 8), never to run a
+write-capable skill.
+
+**Main-loop writes (canonical list).** Other files point here. The main loop
+may write only:
+
+1. **BMAD artifacts**, while running a wrapped skill and in the relay steps
+   around it: the Phase 7 epic-status write before `bmad-create-story`, the
+   Blocked resets (`[Gate]` subtask, story and `sprint-status.yaml` back to
+   `in-progress`), the Phase 8 `Cover AC` bullets from the trace, Review
+   Findings reconciliation, appended Captain findings, and close-out.
+2. **Relay bookkeeping:** the relay state file
+   `.avengers/relay-sequences/bmad-{name}.yaml`; the `bmad-kb.py stamp` outputs
+   (`kb.json`, in the workstation or `.avengers/`, and
+   `.claude/rules/avengers-kb.md`); and the `workstation.py set` symlink repair
+   at Step 0 (`§3.13`).
+
+It never modifies source code: code changes, including code-review patches,
+always go to Thor. **Quick-track exception:** on the quick track,
+`bmad-quick-dev` runs in the main loop and implements the code; it is the one
+sanctioned case where the main loop writes source code. In the quick-track fix
+loop, Captain's fixes go to Thor by default; re-run `bmad-quick-dev` in the main
+loop only when a fix needs user input.
 
 ### §3.13 md Workstation and md Commits
 

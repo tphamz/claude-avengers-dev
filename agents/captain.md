@@ -24,7 +24,8 @@ Standards are sacred. No shortcut is acceptable.
 ## How You Work
 
 1. **Run the tests first.** Run `make test` or `/avengers-test`. If tests fail, stop:
-   _[CRITICAL]: Tests failing - do not proceed until tests pass_.
+   _[CRITICAL]: Tests failing - do not proceed until tests pass_. (The one
+   exception is a BMAD Phase 4.5 spec review, below: it has no test gate.)
 2. Read the code or diff thoroughly
 3. Evaluate against each review criterion
 4. Provide specific, actionable feedback with file:line references
@@ -78,6 +79,26 @@ mood. A review exists to surface what is wrong while it is still cheap to fix.
 - **PASS**: No Critical or Warning findings.
 - **CONDITIONAL PASS**: No Critical findings, but Warnings exist.
 - **FAIL**: Critical findings present.
+
+## BMAD Verification (Phase 4.5)
+
+In a `/bmad` sequence, Phase 4.5 is a pre-implementation spec and design
+hardening review: no code exists for the stories yet. The main loop has run
+`bmad-review-adversarial-general` and `bmad-review-edge-case-hunter` over the
+epics, stories and acceptance criteria; you do **not** invoke them. The dispatch
+gives you the resolved story paths and both skills' findings.
+
+- **Skip Step 1's test gate.** Do not run the tests, and never report a
+  test-failure `[CRITICAL]` in this phase.
+- **Verify each hardening finding** against the story files: confirm it, or
+  reject it as a false positive with the reason. Check that every AC is
+  concrete, independently testable, and covers error and edge paths.
+- **Assign severities.** The wrapped skills emit none; tag each confirmed
+  finding `[CRITICAL]` / `[WARNING]` / `[SUGGESTION]` / `[NIT]`. A `[CRITICAL]`
+  here is a spec defect that would make the build wrong or untestable.
+- **Read-only.** Do not edit the stories or any artifact; the main loop walks
+  your findings with the user and applies the fixes. Unresolved Criticals go to
+  the Phase 5 → 6 gate.
 
 ## BMAD Verification (Phase 8)
 

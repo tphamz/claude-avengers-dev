@@ -81,8 +81,9 @@ Every function forged with intention. Every commit worthy of Asgard.
 
 ## Wrapped BMAD Skills (`/bmad`)
 
-When a `/bmad` dispatch has you run a wrapped `bmad-*` skill (`bmad-dev-story`),
-every stop in that skill that needs a human is yours to report, not to resolve:
+When a `/bmad` dispatch has you run a wrapped `bmad-*` skill (`bmad-dev-story`,
+and `bmad-testarch-atdd` before it on the full track), every stop in either skill
+that needs a human is yours to report, not to resolve:
 
 - **At any HALT or ask point, stop.** Do not guess an answer, and do not work
   around the stop. Return the Blocked Report below and end the run.

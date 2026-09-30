@@ -60,11 +60,14 @@ Captain have no Write, Edit or Agent tools. So:
   track); his HALTs come back as Blocked reports that the main loop relays to the
   user.
 
-The main loop may read broadly and write BMAD artifacts while running a wrapped
-skill and in the relay steps around it (the Phase 7 epic-status write, Blocked
-resets, Phase 8 reconciliation and close-out), but never modifies source code —
-code changes always go to Thor (the quick track's `bmad-quick-dev` is the one
-main-loop exception, as mapped below).
+The main loop may read broadly and write BMAD artifacts and relay bookkeeping
+(state file, `bmad-kb.py stamp` outputs, `workstation.py set` repair; full list
+in relay-config `§3.12`), but never modifies source code — code changes always
+go to Thor. **Quick-track exception:** on the quick track, `bmad-quick-dev` runs
+in the main loop and implements the code; it is the one sanctioned case where
+the main loop writes source code. Captain's quick-track fixes go to Thor by
+default; `bmad-quick-dev` is re-run in the main loop only when a fix needs user
+input.
 
 ## Phase → Skill → Owner → Tracks
 
@@ -114,9 +117,10 @@ authoring instructions.
 
 Written by the wrapped `bmad-*` skills. Paths resolve from `_bmad/bmm/config.yaml`
 (relay-config `§2.8`): `bmad-document-project` writes to `{project_knowledge}`
-(default `docs/`); planning artifacts and readiness reports go to
-`{planning_artifacts}`, and stories, sprint status, reviews, investigations and
-retrospectives go to `{implementation_artifacts}` (both default under
+(default `docs/`) and `bmad-generate-project-context` writes
+`{output_folder}/project-context.md`; planning artifacts and readiness reports go to
+`{planning_artifacts}`, and stories, sprint status, reviews and retrospectives
+go to `{implementation_artifacts}` (both default under
 `_bmad-output/`, which may be a symlink into an md workstation, relay-config
 `§3.13`). State file for the Avengers relay:
 `.avengers/relay-sequences/bmad-{name}.yaml`.
@@ -173,8 +177,10 @@ of the dispatch that reports done; neither is ever overwritten (relay-config
 `phase7_step` and `phase8_step`, never from `loop_state.completed`. Marker
 inference runs first, when the state file is read, and excludes epic keys
 (`epic-N`, `epic-N-retrospective`): a story with no `phase7_step` is
-`dispatched` if it has a `baseline_commit` but no `phase7_end_sha` and is not
-in `completed` (tested first), else `recorded` if it is in `completed`, at
+`dispatched` if it has `loop_state.stories[<key>].baseline_commit` (not just a
+frontmatter one), no `phase7_end_sha`, is not in `completed` and is not `done`
+(tested first; a `done` story matching the rest is never re-dispatched — ask the
+user which Phase 7 step it reached), else `recorded` if it is in `completed`, at
 `review` or `done`, or has a `phase7_end_sha` (a missing SHA uses the `§2.9`
 resume fallback in Phase 8), else `pending`; a story with no `phase8_step` is
 `closed` at `done`, else `pending` only if no fix ranges and `review_cycles` 0;
@@ -183,7 +189,9 @@ skips only `recorded`, and recovers a `done_reported` story (or a `dispatched`
 one at `review` with no `blocked`) by taking `post_sha` from HEAD and running
 the checks and step 5. Phase 8 skips only `closed` and re-enters at the
 recorded step; code review never re-runs past `pending`, and `review_cycles`
-carries over. A replayed Blocked chain continues at Phase 7 step 5 or Phase 8
+carries over. On the full track, a story at `code_review_done` with a recorded
+`trace_report` but missing `Cover AC <n>` bullets gets them re-derived from the
+report (the trace never re-runs). A replayed Blocked chain continues at Phase 7 step 5 or Phase 8
 step 4; an orphaned Phase 8 fix chain is put to the user (finish or treat as
 done). Full rules: relay-config `§3.2`, `§3.9`.
 
@@ -195,8 +203,10 @@ after marker inference (never on a `done` story, inferred `closed`); save each
 story as the spec and the explicit range `<baseline_commit>..<phase7_end_sha>`,
 and have the user pick "Leave as action items" (patches are never applied in the
 main loop; if the user picks "Apply every patch", hand the list to Thor). On the
-full track, then run `bmad-testarch-trace` for the story in the main loop; each
-uncovered AC becomes an unchecked `[Review][Patch]` bullet. Reconcile the story's `### Review Findings`: decisions converted to
+full track, then run `bmad-testarch-trace` for the story in the main loop and,
+right after it, write each untested AC into `### Review Findings` as an unchecked
+`[Review][Patch] Cover AC <n>: ...` bullet, then record `trace_report` and set
+`code_review_done` in one state write. Reconcile the story's `### Review Findings`: decisions converted to
 patches become unchecked `[Review][Patch]` bullets, and resolved
 `[Review][Decision]` bullets are checked (`[x]`), with the section inside
 `## Tasks / Subtasks` (duplicate sections merged into one) and the

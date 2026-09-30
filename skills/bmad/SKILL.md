@@ -34,10 +34,12 @@ and Captain are read-only subagents with no Write, Edit or Agent tools, so they
 cannot run these skills. They verify instead. `bmad-dev-story` and (full track)
 `bmad-testarch-atdd` change source code, so Thor runs them, and each stop that
 needs a human comes back as a Blocked report. The main loop may read broadly and
-write BMAD artifacts while running a wrapped skill and in the relay steps around
-it (the Phase 7 epic-status write, Blocked resets, Phase 8 reconciliation and
-close-out), but never modifies source code — code changes always go to Thor. The
-quick track's `bmad-quick-dev` is the one exception: it runs in the main loop.
+write BMAD artifacts and relay bookkeeping (state file, `bmad-kb.py stamp`
+outputs, `workstation.py set` repair; full list in relay-config `§3.12`), but
+never modifies source code — code changes always go to Thor. **Quick-track
+exception:** on the quick track, `bmad-quick-dev` runs in the main loop and
+implements the code; it is the one sanctioned case where the main loop writes
+source code (Captain's fixes still go to Thor by default, Step 6).
 
 The KB helper script is `${CLAUDE_PLUGIN_ROOT}/skills/bmad/scripts/bmad-kb.py`
 (referred to below as **bmad-kb.py**). The md workstation script is
@@ -180,8 +182,11 @@ relay-config `§3.2`. Resume decisions come from each story's `phase7_step` /
 once Phase 7 ends). Marker inference (relay-config State Schema) runs first,
 when the state file is read, and fills in missing markers for every
 `development_status` key (epic keys `epic-N` and `epic-N-retrospective` are
-excluded): no `phase7_step` → `dispatched` if it has a `baseline_commit` but no
-`phase7_end_sha` and is not in `completed` (tested first), else `recorded` if
+excluded): no `phase7_step` → `dispatched` if it has
+`loop_state.stories[<key>].baseline_commit` (not just a frontmatter one), no
+`phase7_end_sha`, is not in `completed` and is not `done` (tested first; a
+`done` story matching the rest is never re-dispatched — ask the user which
+Phase 7 step it reached), else `recorded` if
 the key is in `completed`, at `review` or `done`, or has a `phase7_end_sha`
 (Phase 8 then uses the `§2.9` resume fallback if that SHA is missing), else
 `pending`; no `phase8_step` → `closed` if `done`, else `pending` only if no fix
@@ -212,7 +217,10 @@ ranges and `review_cycles` 0; otherwise ask the user. In order:
 4. **The Phase 8 loop** (step 12 below) skips a story only at
    `phase8_step: closed`. `pending` → step 1; `code_review_done` or `fixing` →
    step 2 only if not already done, then step 3 if unchecked `[Review][Patch]`
-   or `[Gate]` items remain, else step 4; `captain` → step 4; `verify` → step 5
+   or `[Gate]` items remain, else step 4 (full track, at `code_review_done`: a
+   recorded `trace_report` whose untested ACs have no matching `Cover AC <n>`
+   bullet gets those bullets re-derived from the report first; the trace never
+   re-runs); `captain` → step 4; `verify` → step 5
    with the stored `captain_findings`. Never re-run code review past `pending`,
    never set a `closed` story back to `in-progress`, and carry `review_cycles`
    over unchanged. Then run any retrospective still owed.
@@ -278,7 +286,9 @@ Phase-by-phase (standard and full tracks; quick track is Step 6):
    and `Skill(bmad-review-edge-case-hunter)` in the main loop over the stories and
    acceptance criteria (ACs), checking every AC is testable. Then dispatch
    `Agent(avengers-dev:captain)` with the `adversarial` lens, the resolved story
-   paths and both skills' findings, to verify them read-only. **Captain assigns
+   paths and both skills' findings, to verify them read-only (no test gate:
+   this is a pre-implementation spec review, `agents/captain.md` BMAD
+   Verification (Phase 4.5)). **Captain assigns
    the `[CRITICAL]`/`[WARNING]`/`[SUGGESTION]` tags** — the wrapped skills emit no
    severity. Captain reports only; back in the main loop, walk the findings with
    the user and apply the agreed fixes to the stories. Record any unresolved
@@ -316,8 +326,9 @@ Phase-by-phase (standard and full tracks; quick track is Step 6):
       commit). **Full track only:** in the same dispatch, before dev-story, he
       runs `bmad-testarch-atdd` to write failing acceptance tests from the
       story's ACs (skipped on a re-dispatch once those tests exist), so dev-story
-      implements until they pass. Instruct him: at any dev-story HALT or ask point, do not guess or
-      work around it — stop without committing and return a Blocked report; the
+      implements until they pass. Instruct him: at any HALT or ask point in
+      `bmad-testarch-atdd` or `bmad-dev-story`, do not guess or work around it
+      — stop without committing and return a Blocked report; dev-story's
       step-10 completion prompts are not stops.
    4. **Blocked.** Record `blocked` in `loop_state.stories[<story_key>]`
       (HALT point, question, options, work state, resume instruction,
@@ -365,11 +376,15 @@ Phase-by-phase (standard and full tracks; quick track is Step 6):
        passed as the spec file, code-review never sets `{story_key}`, so its own
        `sprint-status.yaml` sync is skipped — close-out (step 7) does it instead.
        **Full track only:** after "Done", run `Skill(bmad-testarch-trace)` for
-       the story in the main loop to map every AC to a test; each AC it reports
-       uncovered (a trace FAIL) is added at step 2 as an unchecked
-       `[Review][Patch]` bullet, so it loops back through Thor.
-       Runs only at `phase8_step: pending`; after "Done" (and, on the full track,
-       the trace), set `code_review_done`.
+       the story in the main loop to map every AC to a test. Right after it,
+       write each AC it reports untested into the story's `### Review Findings`
+       (inside `## Tasks / Subtasks`) as an unchecked
+       `- [ ] [Review][Patch] Cover AC <n>: ...` bullet (skip any already
+       present), so it loops back through Thor. Then, in one state write, record
+       `trace_report: <report path>` in `loop_state.stories[<story_key>]` and
+       set `code_review_done`.
+       Runs only at `phase8_step: pending`; on the standard track, set
+       `code_review_done` after "Done".
     2. **Reconcile Review Findings (main loop).** In the story's
        `### Review Findings`, make sure every decision the user converted to a
        patch is recorded as an unchecked `- [ ] [Review][Patch] ...` bullet, and
@@ -378,7 +393,9 @@ Phase-by-phase (standard and full tracks; quick track is Step 6):
        bullets make `bmad-dev-story` step 9 HALT. Make sure `### Review Findings`
        sits inside `## Tasks / Subtasks`, where dev-story looks for tasks, and
        merge any duplicate `### Review Findings` section (a re-run code review
-       appends a second one) into it, keeping each bullet once. On a resume at
+       appends a second one) into it, keeping each bullet once. Trace output is
+       not converted here; step 1 already wrote the `Cover AC` bullets, so only
+       dedupe against them. On a resume at
        `code_review_done` with unchecked `[Review][Decision]` bullets, the
        code-review conversation is lost: ask the user to decide each directly.
        Set the story's `sprint-status.yaml` entry to `in-progress`. No unchecked
@@ -484,14 +501,15 @@ Whichever way Phase 9 ends (steps 1–6, on every track), offer an **md commit**
 
 1. Phase 0 as above (a `missing` KB is noted, not built — suggest `standard` if the
    change needs discovery).
-2. Run `Skill(bmad-quick-dev)` in the main loop. Its own step-4 review replaces
-   Captain's `bmad-code-review`.
+2. Run `Skill(bmad-quick-dev)` in the main loop; it implements the code. This is
+   the one sanctioned case where the main loop writes source code (relay-config
+   `§3.12`). Its own step-4 review replaces Captain's `bmad-code-review`.
 3. Dispatch `Agent(avengers-dev:captain)` to review the resulting diff — a project
    rule: every code change gets Captain's review.
 4. **Fix loop.** On FAIL, or CONDITIONAL PASS with any `[CRITICAL]`, fix the
-   flagged items — dispatch `Agent(avengers-dev:thor)`, or re-run
-   `Skill(bmad-quick-dev)` in the main loop when the fix needs user input — then
-   dispatch Captain to re-review. Max 3 review cycles, then escalate to the user.
+   flagged items — by default dispatch `Agent(avengers-dev:thor)`; re-run
+   `Skill(bmad-quick-dev)` in the main loop only when a fix needs user input —
+   then dispatch Captain to re-review. Max 3 review cycles, then escalate to the user.
    Advance only on PASS, or CONDITIONAL PASS with no `[CRITICAL]`.
 5. **Commit before Phase 9.** `bmad-quick-dev` commits its own work when the
    project is a git repo, but not in every case. Phase 9 measures committed

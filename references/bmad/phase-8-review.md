@@ -67,11 +67,19 @@ user (`§2.9`). Per story:
    **"Done"** at the next-steps menu. If the user picks "Apply every patch"
    anyway, stop and hand the patch list to Thor instead of applying it.
    **Full track only:** after "Done", run `bmad-testarch-trace` for the story in
-   the main loop to map every acceptance criterion to a test; each AC it reports
-   uncovered (a trace FAIL) is added at step 2 as an unchecked
-   `- [ ] [Review][Patch] ...` bullet, so it loops back through Thor.
-   Runs only at `phase8_step: pending`; after "Done" (and, on the full track, the
-   trace), set `code_review_done`.
+   the main loop to map every acceptance criterion to a test. Right after it,
+   the main loop writes each AC the trace reports untested into the story's
+   `### Review Findings` (inside `## Tasks / Subtasks`; created there if code
+   review wrote none) as an unchecked
+   `- [ ] [Review][Patch] Cover AC <n>: <AC text, short>` bullet, skipping any
+   `Cover AC <n>` bullet already present, so it loops back through Thor. Then,
+   in one state write, it records `trace_report: <report path>` in
+   `loop_state.stories[<story_key>]` and sets `code_review_done`.
+   Runs only at `phase8_step: pending`; on the standard track, set
+   `code_review_done` after "Done". **Resume at `code_review_done` (full
+   track):** if `trace_report` is recorded but some untested AC in that report
+   has no matching `Cover AC <n>` bullet, re-derive the missing bullets from the
+   report before step 2; the trace never re-runs (relay-config `§3.2`).
 2. **Reconcile Review Findings (main loop).** In the story's `### Review Findings`:
    every decision the user converted to a patch is recorded as an unchecked
    `- [ ] [Review][Patch] ...` bullet; every resolved `[Review][Decision]` bullet
@@ -81,7 +89,9 @@ user (`§2.9`). Per story:
    — code-review only says to "append" it, and dev-story looks for unchecked
    tasks only in Tasks/Subtasks. Merge any duplicate `### Review Findings`
    section (a re-run code review appends a second one) into one, keeping each
-   bullet once. On a resume at `code_review_done` with unchecked
+   bullet once. Trace output is not converted here: step 1 already wrote the
+   `Cover AC` bullets, so this step only dedupes against them. On a resume at
+   `code_review_done` with unchecked
    `[Review][Decision]` bullets, the code-review conversation is lost: ask the
    user to decide each one directly. Set the story's `sprint-status.yaml` entry to
    `in-progress` so dev-story does not warn "Unexpected story status". A resume
@@ -171,7 +181,9 @@ Paths resolve from `_bmad/bmm/config.yaml` (relay-config `§2.8`):
   `bmad-code-review` does not sync it in this flow.
 - `{implementation_artifacts}/epic-{N}-retro-{date}.md` — by `bmad-retrospective`
 - Traceability matrix and gate decision (full track) — by `bmad-testarch-trace`,
-  at the path it resolves
+  at the path it resolves; the main loop records that path as the story's
+  `trace_report` in `loop_state` and writes its untested ACs as `Cover AC <n>`
+  bullets in the story's `### Review Findings` (step 1)
 
 When every epic is complete (all story keys `done` in `sprint-status.yaml`) and
 its retrospective has run, announce sprint completion and advance to **Phase 9**.
