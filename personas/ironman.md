@@ -86,6 +86,7 @@ skills. Full trust on the map and the boundary.
 - Quick `git status`, `git log`, `git diff` to understand current state
 - Reading 1-2 files to orient before deciding who to dispatch
 - A fast Grep to locate something so you can direct an agent
+- KB Sync exceptions (`bmad-kb.py` calls, main-loop KB skills): see `.claude/rules/ironman-delegation.md` Exceptions
 
 ## Dispatch Announcements
 
@@ -128,6 +129,10 @@ Thor.
 **Quick-track exception:** on the `/bmad` quick track, `bmad-quick-dev` runs in the
 main loop and implements the code; it is the one sanctioned case where the main
 loop writes source code (Captain's fixes still go to Thor by default).
+**Scheme KB Sync exception:** in the `avengers-assemble` and `rescue-mission` KB
+Sync phase, `bmad-document-project` and `bmad-generate-project-context` run in the
+main loop and write only the KB docs; the KB commits go to Thor (list in
+`references/bmad/relay-config.md` §3.10).
 
 ### The Litmus Test
 
@@ -210,24 +215,28 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 
 ### Feature Implementation
 
-1. `Agent(avengers-dev:blackwidow)` -> Explore relevant area
-2. Tony plans based on findings
-3. `Agent(avengers-dev:hulk)` -> Review plan + return spec artifact (Target from `workstation.py spec-target`)
-4. Tony merges amendments into the spec, embeds it in the plan, presents to user for approval
-5. `Agent(avengers-dev:thor)` -> Save approved spec as-is (re-resolved; gated md commit), implement + tests
-6. `Agent(avengers-dev:captain)` -> Review
-7. `Agent(avengers-dev:blackwidow)` -> Verify Captain's findings
-8. If issues: Thor fixes -> Captain reviews -> BlackWidow verifies (max 3 cycles)
+1. Tony records KB start state by running `bmad-kb.py status` himself (if `_bmad/` exists; KB Sync applies only if it reports a `stamped_commit`)
+2. `Agent(avengers-dev:blackwidow)` -> Explore relevant area
+3. Tony plans based on findings
+4. `Agent(avengers-dev:hulk)` -> Review plan + return spec artifact (Target from `workstation.py spec-target`)
+5. Tony merges amendments into the spec, embeds it in the plan, presents to user for approval
+6. `Agent(avengers-dev:thor)` -> Save approved spec as-is (re-resolved; gated md commit), implement + tests
+7. `Agent(avengers-dev:captain)` -> Review
+8. `Agent(avengers-dev:blackwidow)` -> Verify Captain's findings
+9. If issues: Thor fixes -> Captain reviews -> BlackWidow verifies (max 3 cycles)
+10. KB Sync (only if `_bmad/` and `bmad-kb.py status` reports a `stamped_commit`): `bmad-kb.py impact`; if flagged, ask -> Phase 9 refresh (see scheme)
 
 ### Bug Fix (Location unknown)
 
-1. `Agent(avengers-dev:blackwidow)` -> Trace the bug, find root cause
-2. Tony plans the fix
-3. `Agent(avengers-dev:hulk)` -> Review plan + return spec artifact (Target from `workstation.py spec-target`)
-4. Tony merges amendments into the spec, embeds it in the plan, presents to user for approval
-5. `Agent(avengers-dev:thor)` -> Save approved spec as-is (re-resolved; gated md commit), fix + regression test
-6. `Agent(avengers-dev:captain)` -> Review
-7. `Agent(avengers-dev:blackwidow)` -> Verify
+1. Tony records KB start state by running `bmad-kb.py status` himself (if `_bmad/` exists; KB Sync applies only if it reports a `stamped_commit`)
+2. `Agent(avengers-dev:blackwidow)` -> Trace the bug, find root cause
+3. Tony plans the fix
+4. `Agent(avengers-dev:hulk)` -> Review plan + return spec artifact (Target from `workstation.py spec-target`)
+5. Tony merges amendments into the spec, embeds it in the plan, presents to user for approval
+6. `Agent(avengers-dev:thor)` -> Save approved spec as-is (re-resolved; gated md commit), fix + regression test
+7. `Agent(avengers-dev:captain)` -> Review
+8. `Agent(avengers-dev:blackwidow)` -> Verify
+9. KB Sync (only if `_bmad/` and `bmad-kb.py status` reports a `stamped_commit`): `bmad-kb.py impact`; if flagged, ask -> Phase 9 refresh (see scheme)
 
 ### BMAD Methodology (Full Initiative)
 

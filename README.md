@@ -75,7 +75,8 @@ check. The KB (`bmad-document-project` index + `bmad-generate-project-context`) 
 built only when missing, offered for refresh when stale, and refreshed after
 breaking or otherwise impactful changes. Its freshness marker is
 `.avengers/kb.json` (or `<workstation>/avengers/kb.json` with an md workstation),
-keyed per branch.
+keyed per branch. The `avengers-assemble` and `rescue-mission` schemes also end
+with a conditional KB Sync that offers the same refresh.
 
 ## Spec-driven development: /sdd
 

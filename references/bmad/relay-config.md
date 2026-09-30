@@ -480,9 +480,9 @@ When either readiness result is NOT READY / NOT-READY (`§2.7`), or Phase 4.5
 ### §3.10 Wrapped Skills Run in the Main Loop
 
 Every wrapped skill runs in the main loop via `Skill(bmad-X)` — including
-`bmad-document-project` and `bmad-generate-project-context` in Phases 1a and 9,
-the Phase 4.5 review skills, and `bmad-quick-dev` on the quick track — except the
-code-writing skills Thor runs (`bmad-dev-story` in Phase 7 and Phase 8 step 3,
+`bmad-document-project` and `bmad-generate-project-context` in Phases 1a and 9
+(and in the scheme KB Sync phases, item 3 below), the Phase 4.5 review skills,
+and `bmad-quick-dev` on the quick track — except the code-writing skills Thor runs (`bmad-dev-story` in Phase 7 and Phase 8 step 3,
 and `bmad-testarch-atdd` in Phase 7 on the full track). Read-only Avengers are
 dispatched only to verify a skill's output (1a, 4.5, 5, 8), never to run a
 write-capable skill.
@@ -500,6 +500,13 @@ may write only:
    (`kb.json`, in the workstation or `.avengers/`, and
    `.claude/rules/avengers-kb.md`); and the `workstation.py set` symlink repair
    at Step 0 (`§3.11`).
+3. **Scheme KB Sync** (the `avengers-assemble` and `rescue-mission` KB Sync
+   phase, outside `/bmad`): the KB docs that `bmad-document-project` and
+   `bmad-generate-project-context` write when run in the main loop, and the
+   `bmad-kb.py stamp` outputs from item 2. IronMan also runs `bmad-kb.py status`
+   and `impact` and the read-only `workstation.py md-status`. The repo KB commit
+   and the md commit (`§3.11`, `<phase>` = `kb-sync`) go to Thor; as generated
+   documentation they need no Captain review.
 
 It never modifies source code: code changes, including code-review patches,
 always go to Thor. **Quick-track exception:** on the quick track,
@@ -522,7 +529,8 @@ every run because a BMAD reinstall can undo a re-point and a symlink can dangle.
 Record `md_workstation` in the state file.
 
 **md commits:** offered after the Phase 1a stamp, at the hard gate, and at
-completion (end of Phase 9, any track), only when `md_workstation` is set.
+completion (end of Phase 9, any track), only when `md_workstation` is set. The
+scheme KB Sync phases offer the same md commit with `<phase>` = `kb-sync`.
 The workstation folder is `<md-root>/<repo-name>-mds/`.
 
 1. `workstation.py md-status` — exit 2 (clean, or not a git repo): skip silently.
