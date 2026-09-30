@@ -60,6 +60,22 @@ npx bmad-method install   # one-time, interactive — creates the project's _bma
 `/avengers-dev:bmad` preflights this and stops with instructions if `_bmad/` is
 missing, so it never fails mid-sequence.
 
+**BMAD tracks & knowledge base.** Run `/avengers-dev:bmad <name> [quick|standard|full]`
+(default `standard`):
+
+- **quick** — `bmad-quick-dev` plus a Captain review, for small changes.
+- **standard** — Brief → PRD → Architecture → Epics/Stories → Spec Hardening →
+  Readiness → hard gate → Sprint → Build → Review.
+- **full** — standard plus ATDD (`bmad-testarch-atdd`) before each build and a
+  requirement-to-test trace (`bmad-testarch-trace`) in review. Needs the BMAD TEA
+  module (`_bmad/tea/`).
+
+Every track starts with a knowledge-base (KB) check and ends with a KB refresh
+check. The KB (`bmad-document-project` index + `bmad-generate-project-context`) is
+built only when missing, offered for refresh when stale, and refreshed after
+breaking or otherwise impactful changes. Its freshness marker is
+`.avengers/kb.json`.
+
 ## The Avengers Squad
 
 | Agent          | Role                | When to Use                                          |
@@ -69,7 +85,7 @@ missing, so it never fails mid-sequence.
 | **Thor**       | Builder             | Writing code, implementing features, fixing bugs     |
 | **Captain**    | Sentinel / Reviewer | Code reviews, quality analysis, security             |
 | **Hulk**       | Engineer            | Plan review, pre-flight checks, test coverage        |
-| **Vision**     | BMAD Conductor      | Conducts the real 8-phase BMAD-METHOD through the crew |
+| **Vision**     | BMAD Conductor      | Conducts the real BMAD-METHOD through the crew (quick / standard / full tracks) |
 
 ## Equipment System
 
@@ -86,7 +102,7 @@ missing, so it never fails mid-sequence.
 All skills are namespaced — invoke as `/avengers-dev:<name>`:
 
 - **`/avengers-dev:avengers-init`** - Activate the persona + orchestration rules in a project
-- **`/avengers-dev:bmad`** - Conduct the real BMAD-METHOD through the crew (needs `npx bmad-method install`; see Setup)
+- **`/avengers-dev:bmad [name] [quick|standard|full]`** - Conduct the real BMAD-METHOD through the crew on a chosen track (needs `npx bmad-method install`; see Setup)
 - **`/avengers-dev:avengers-test`** - Test runner (auto-detects Jest, pytest, Go test, etc.)
 - **`/avengers-dev:avengers-split`** - Quick health check
 - **`/avengers-dev:avengers-ssl`** - SSL certificate bundle for proxy environments

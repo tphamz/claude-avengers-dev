@@ -26,10 +26,11 @@ Controlled precision. Reviews implementation plans, assesses test coverage.
 Read-only.
 
 ### Vision - The BMAD Conductor (`agents/vision.md`)
-Synthetic intellect. Conducts the 8-phase BMAD sequence, which **wraps the real
+Synthetic intellect. Conducts the BMAD sequence (Phase 0 KB check through Phase 9
+KB refresh, on a quick, standard, or full track), which **wraps the real
 BMAD-METHOD `bmad-*` skills** rather than reimplementing them. Vision is the voice
-and the phase→skill+owner map: interactive phases run in the main loop; discovery,
-readiness, build, and review are delegated to BlackWidow, Hulk, Thor, and Captain.
+and the phase→skill+owner map: interactive phases run in the main loop; spec
+hardening and review are delegated to Captain, readiness to Hulk, and build to Thor.
 Enforces the design-implementation boundary as a hard gate.
 
 ## Equipment System
@@ -56,7 +57,7 @@ Enforces the design-implementation boundary as a hard gate.
 - **/avengers-rules** - list|install|remove - Manage project rules
 - **/enable-ironman** / **/disable-ironman** - Persona control
 - **/git-workflow [enable|disable]** - Custom git workflow
-- **/bmad [sequence-name]** - Initiate or resume BMAD via Vision
+- **/bmad [sequence-name] [quick|standard|full]** - Initiate or resume BMAD via Vision
 - **/debug-session** - Analyze a --debug log after skill testing
 
 ## Critical Rules
@@ -98,18 +99,24 @@ are prefixed onto `gh` commands.
 
 ### BMAD Methodology (Full Initiative)
 The `/bmad` skill **wraps the real BMAD-METHOD `bmad-*` skills** and conducts them
-through the crew in Vision's voice. Ownership map:
-1. **Phase 1a Discovery** -> `Agent(avengers-dev:blackwidow)` runs `bmad-document-project` / `bmad-investigate`
-2. **Phase 1b Brief** -> `Skill(bmad-product-brief)` in the main loop (Vision voice)
-3. **Phase 2 PRD** -> `Skill(bmad-prd)` (main loop)
-4. **Phase 3 Architecture** -> `Skill(bmad-create-architecture)` (main loop)
-5. **Phase 4 Epics/Stories** -> `Skill(bmad-create-epics-and-stories)` (main loop)
-6. **Phase 5 Readiness** -> `Agent(avengers-dev:hulk)` runs `bmad-check-implementation-readiness`
-7. **HARD GATE** -> IronMan presents readiness; user chooses [1] Continue / [2] Exit
-8. **Phase 6 Sprint** -> `Skill(bmad-sprint-planning)` (main loop)
-9. **Phase 7 Build** -> `Agent(avengers-dev:thor)` runs `bmad-create-story` -> `bmad-dev-story` per story
-10. **Phase 8 Review** -> `Agent(avengers-dev:captain)` runs `bmad-code-review` + `bmad-retrospective`
-11. User runs `/avengers-test`
+through the crew in Vision's voice. Tracks: `quick`, `standard` (default), `full`.
+Ownership map (standard/full):
+1. **Phase 0 KB check** -> `bmad-kb.py status` (main loop)
+2. **Phase 1a Discovery** (KB missing, or stale + accepted) -> `Skill(bmad-document-project)` + `Skill(bmad-generate-project-context)` in the main loop, then `bmad-kb.py stamp`
+3. **Phase 1b Brief** -> `Skill(bmad-product-brief)` in the main loop (Vision voice)
+4. **Phase 2 PRD** -> `Skill(bmad-prd)` (main loop; optional validate / elicitation)
+5. **Phase 3 Architecture** -> `Skill(bmad-create-architecture)` (main loop)
+6. **Phase 4 Epics/Stories** -> `Skill(bmad-create-epics-and-stories)` (main loop)
+7. **Phase 4.5 Spec Hardening** -> `Agent(avengers-dev:captain)` (adversarial lens) runs `bmad-review-adversarial-general` + `bmad-review-edge-case-hunter`
+8. **Phase 5 Readiness** -> `Agent(avengers-dev:hulk)` runs `bmad-check-implementation-readiness`
+9. **HARD GATE** -> IronMan presents readiness; user chooses [1] Continue / [2] Exit (FAIL or open Criticals: [1] needs `override` + reason)
+10. **Phase 6 Sprint** -> `Skill(bmad-sprint-planning)` (main loop)
+11. **Phase 7 Build** -> `Agent(avengers-dev:thor)` runs `bmad-create-story` -> `bmad-testarch-atdd` (full only) -> `bmad-dev-story` per story
+12. **Phase 8 Review** -> `Agent(avengers-dev:captain)` runs `bmad-code-review` + `bmad-testarch-trace` (full only) + `bmad-retrospective`
+13. **Phase 9 KB Refresh** -> `bmad-kb.py impact`; refresh + `stamp` if the user confirms (main loop)
+14. User runs `/avengers-test`
+
+Quick track: Phase 0 -> `Skill(bmad-quick-dev)` (main loop) -> `Agent(avengers-dev:captain)` reviews the diff -> Phase 9.
 
 ---
 
