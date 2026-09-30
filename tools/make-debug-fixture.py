@@ -18,7 +18,7 @@ touches the real HOME.
 
 Exit codes:
   0 = fixture created
-  1 = error (git failure, or --force refused)
+  1 = error (git failure, --dest is a symlink, or --force refused)
   2 = no-op (--dest exists and --force was not given)
 """
 from __future__ import annotations
@@ -175,7 +175,12 @@ def main(argv: list[str] | None = None) -> int:
                         help=f"replace --dest, only if it holds the {MARKER} marker")
     args = parser.parse_args(argv)
 
-    dest = Path(os.path.realpath(args.dest.expanduser()))
+    given = args.dest.expanduser()
+    if given.is_symlink():
+        print(f"make-debug-fixture: refusing --dest {given}: it is a symlink; pass the "
+              f"real directory path", file=sys.stderr)
+        return 1
+    dest = Path(os.path.realpath(given))
     try:
         if dest.exists() or dest.is_symlink():
             if not args.force:

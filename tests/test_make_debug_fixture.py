@@ -151,6 +151,23 @@ class ExistingDestTests(FixtureCase):
         self.assertTrue((self.base / "work" / fixture.MARKER).exists())
         self.assertTrue((self.home / fixture.MARKER).exists())
 
+    def test_refuses_symlink_dest(self) -> None:
+        self.build()
+        link = self.base / "link"
+        link.symlink_to(self.dest)
+        for args in (("--dest", str(link)), ("--dest", str(link), "--force")):
+            with self.subTest(args=args):
+                code, _, err = self.run_tool(*args)
+                self.assertEqual(code, 1)
+                self.assertIn("is a symlink", err)
+        self.assertTrue((self.dest / fixture.MARKER).exists())
+        self.assertTrue(link.is_symlink())
+        dangling = self.base / "dangling"
+        dangling.symlink_to(self.base / "nowhere")
+        code, _, err = self.run_tool("--dest", str(dangling))
+        self.assertEqual(code, 1)
+        self.assertFalse((self.base / "nowhere").exists())
+
     def test_force_refuses_repo_root(self) -> None:
         code, _, err = self.run_tool("--dest", str(ROOT), "--force")
         self.assertEqual(code, 1)

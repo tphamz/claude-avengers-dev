@@ -16,10 +16,13 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import re
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -288,7 +291,9 @@ def citations(text: str) -> list[tuple[int, str, str | None]]:
 
     A title is either `§N.N (Title)` or, in a table cell that starts with the
     citation, the rest of that cell. `### §N.N` headings are definitions, not
-    citations, and are skipped."""
+    citations, and are skipped. A non-title parenthetical right after a citation
+    (e.g. "§3.8 (see below)") is read as a title and fails loudly on purpose:
+    reword the citation instead."""
     clean = blank_code(text)
     lines = clean.splitlines()
     out: list[tuple[int, str, str | None]] = []
@@ -503,14 +508,21 @@ def read(rel: str) -> str:
     return (ROOT / rel).read_text(encoding="utf-8")
 
 
-def tracked_markdown() -> list[str]:
+def tracked_markdown(root: Path = ROOT) -> list[str]:
     """Tracked *.md files. Never a recursive glob: the main checkout holds
-    .claude/worktrees/* copies that would be scanned twice."""
-    proc = subprocess.run(["git", "ls-files", "-z", "--", "*.md"], cwd=ROOT,
+    .claude/worktrees/* copies that would be scanned twice.
+
+    Fails loudly unless the result includes SECTION_SOURCE: a tree that is not a git
+    checkout of avengers-dev (for example `git archive` output inside an unrelated
+    repo) lists nothing, and the § checks would otherwise pass vacuously."""
+    proc = subprocess.run(["git", "ls-files", "-z", "--", "*.md"], cwd=root,
                           capture_output=True, text=True, check=False)
-    if proc.returncode != 0:
-        raise AssertionError(f"git ls-files failed in {ROOT}: {proc.stderr.strip()}")
-    return sorted(p for p in proc.stdout.split("\0") if p)
+    files = sorted(p for p in proc.stdout.split("\0") if p) if proc.returncode == 0 else []
+    if SECTION_SOURCE not in files:
+        detail = proc.stderr.strip() or f"{len(files)} tracked *.md, none is {SECTION_SOURCE}"
+        raise AssertionError(f"{root}: not a git checkout of avengers-dev; § scan needs "
+                             f"git ls-files ({detail})")
+    return files
 
 
 BMAD_TABLES = ["skills/bmad/SKILL.md", "references/bmad/relay-config.md", "agents/vision.md",
@@ -563,6 +575,27 @@ class CitationTests(DocConsistencyCase):
         for rel in tracked_markdown():
             problems += check_citations(read(rel), rel, sections)
         self.assertNoProblems(problems)
+
+    def test_scan_fails_outside_an_avengers_checkout(self) -> None:
+        """An unrelated git repo (or no repo) fails clearly instead of passing vacuously."""
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(os.path.realpath(tmp))
+            env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1",
+                   "GIT_CEILING_DIRECTORIES": str(base.parent)}
+            (base / "notes.md").write_text("see §3.8\n", encoding="utf-8")
+            (base / "references" / "bmad").mkdir(parents=True)
+            (base / SECTION_SOURCE).write_text("### §3.8 KB Lifecycle\n", encoding="utf-8")
+            for label, setup in (("no repo", []),
+                                 ("unrelated repo", [["git", "init", "-q"],
+                                                     ["git", "add", "notes.md"]])):
+                for cmd in setup:
+                    subprocess.run(cmd, cwd=base, env=env, check=True, capture_output=True)
+                with self.subTest(case=label), \
+                        mock.patch.dict(os.environ, env, clear=True):
+                    with self.assertRaises(AssertionError) as ctx:
+                        tracked_markdown(base)
+                    self.assertIn("not a git checkout of avengers-dev; § scan needs "
+                                  "git ls-files", str(ctx.exception))
 
     def test_only_bmad_relay_config_defines_sections(self) -> None:
         """No other markdown (notably references/sdd/relay-config.md) defines § headings."""
