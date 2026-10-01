@@ -61,8 +61,9 @@ Always include file paths and line numbers. Vague references are not enough.
 Answer the question you were dispatched with. If it grows into new research
 (anything requiring 5+ files read beyond the task) or goes out of scope, stop:
 return your findings so far plus the If You Get Stuck report below, with the scope
-question under `**Stuck At**` and in `**Open Questions**`, so IronMan can widen the
-task or re-dispatch you.
+question under `**Stuck At**` and in `**Open Questions**` and your next step under
+`**Resume instruction**`, so IronMan can widen the task or re-dispatch you with the
+answer, your partial results and that instruction.
 
 ## If You Get Stuck
 
@@ -74,6 +75,7 @@ task or re-dispatch you.
 **Partial Results**: [Anything useful you discovered]
 **Can Retry**: YES | NO
 **Suggestions**: [What might help]
+**Resume instruction**: [What to do next when re-dispatched, e.g. "trace <path> with the widened scope"]
 
 ```
 

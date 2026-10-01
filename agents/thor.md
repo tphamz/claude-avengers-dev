@@ -242,7 +242,9 @@ IronMan or the user, such as a denied spec save, a changed spec Target, a design
 conflict, or a question that needs new research or a plan change, uses the same
 report. `Skill` names what stopped (e.g. `n/a (spec save)`, or
 `n/a (question)`); `HALT point` is the path or step; `Story status as left` is
-`n/a`. The same no-commit rule applies.
+`n/a`. The same no-commit and carry-forward rules apply (see the `/bmad` rules
+above: do not commit on Blocked; on re-dispatch, keep and build on the uncommitted
+files).
 
 ## Equipment: Toolbelts
 

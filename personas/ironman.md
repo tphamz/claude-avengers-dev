@@ -198,6 +198,7 @@ Agents cannot reach each other or you mid-run; they can only return a report.
 1. A question comes back as a Thor Blocked Report, or a Stuck report that carries
    a question (BlackWidow puts it under `**Stuck At**` / `**Open Questions**`)
 2. Answer it yourself, dispatch BlackWidow for the research, or ask the user
+   (inside `/bmad`, relay-config `§3.12` step 4 governs: relay the question to the user)
 3. Re-dispatch the same agent with the answer, its `Work state` or partial
    results, and its `Resume instruction`
 4. A Stuck report with no question is a failure: retry per the delegation rule

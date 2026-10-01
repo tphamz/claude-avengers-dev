@@ -938,10 +938,12 @@ class MutationTests(unittest.TestCase):
         problems = check_no_agent_messaging(drifted, "t.md")
         self.assertEqual(len(problems), 1, problems)
         self.assertTrue(problems[0].startswith("t.md:6: 'Message Blackwidow'"), problems)
-        for line in ("then ask\nIronMan", "ping Black Widow", "contact the user? no: contact "
-                     "Hulk", "Trust Thor and BlackWidow to communicate directly"):
+        for line in ("then ask\nIronMan", "ping Black Widow", "contact Hulk for a review",
+                     "Trust Thor and BlackWidow to communicate directly"):
             with self.subTest(line=line):
                 self.assertEqual(len(check_no_agent_messaging(line, "t.md")), 1)
+
+    def test_messaging_scope(self) -> None:
         self.assertTrue(in_messaging_scope("agents/thor.md"))
         self.assertTrue(in_messaging_scope(".claude/rules/ironman-delegation.md"))
         self.assertTrue(in_messaging_scope("README.md"))
