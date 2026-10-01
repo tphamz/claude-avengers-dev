@@ -22,7 +22,7 @@ Tracks: `quick` (0 → P lite → B → V → A, `spec-driven` schema), `standar
 | 0 Preflight | `sdd-openspec.py preflight` → workstation (`--link openspec`) → `init` → KB check (BMAD only) | main loop | quick, standard |
 | E Explore (optional) | `openspec/specs/` and code, with the user | main loop (Vision voice) | standard |
 | P Propose | `sdd-openspec.py new` → `instructions` per artifact | main loop (Vision voice) | quick (lite), standard |
-| H Harden | `sdd-openspec.py validate` + adversarial / edge-case review | Captain (`adversarial` lens) | standard |
+| H Harden | `sdd-openspec.py validate` + adversarial / edge-case review (with `_bmad/`: main loop runs `bmad-review-*` skills first) | Captain (`adversarial` lens), verifies read-only | standard |
 | R Readiness | readiness of the change | Hulk | standard |
 | B Build | failing tests from `tests.md` first (standard), then `tasks.md` | Thor | quick, standard |
 | V Verify + review | `references/sdd/verify.md` + code review | Captain | quick, standard |

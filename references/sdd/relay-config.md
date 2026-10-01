@@ -33,7 +33,7 @@ number**; this file only records what differs.
 | 0 Preflight | `sdd-openspec.py preflight` → workstation (`--link openspec`) → `sdd-openspec.py init` → KB check (BMAD only) | main loop | quick, standard |
 | E Explore (optional) | read `openspec/specs/` and the code with the user | main loop (Vision voice) | standard |
 | P Propose | `sdd-openspec.py new` → `instructions <artifact>` per artifact | main loop (Vision voice) | quick (lite), standard |
-| H Harden | `sdd-openspec.py validate`, then adversarial + edge-case review of the delta specs | `Agent(avengers-dev:captain)`, `adversarial` lens; fixes in main loop | standard |
+| H Harden | `sdd-openspec.py validate`, then adversarial + edge-case review of the delta specs (with `_bmad/`: main loop runs `bmad-review-adversarial-general` + `bmad-review-edge-case-hunter` first) | `Agent(avengers-dev:captain)`, `adversarial` lens, verifies findings read-only; fixes in main loop | standard |
 | R Readiness | readiness check of the change | `Agent(avengers-dev:hulk)` | standard |
 | — | **DESIGN-IMPLEMENTATION BOUNDARY** | IronMan | **hard gate** (standard) |
 | B Build | quick: tasks.md; standard: failing tests from tests.md first, then tasks.md | `Agent(avengers-dev:thor)` | quick, standard |
@@ -45,8 +45,9 @@ Per-phase stubs: `phase-0-preflight.md`, `phase-p-propose.md`, `phase-h-harden.m
 `phase-b-build.md`, `phase-v-verify.md`, `phase-a-archive.md`, and `track-quick.md`.
 
 **Why the split:** the same as `/bmad` §3.10. Propose, Explore, applying hardening
-fixes and the gate ask the user questions, so they run in the main loop. Harden,
-Readiness, Build and Verify need no user input and belong to a specialist Avenger.
+fixes and the gate ask the user questions, so they run in the main loop, as do the
+wrapped `bmad-review-*` skills in Harden. Captain's Harden verification, Readiness,
+Build and Verify need no user input and belong to a specialist Avenger.
 
 ## Schemas
 
@@ -112,15 +113,15 @@ The `/bmad` directives apply unchanged unless noted. Section numbers refer to
 | §3.7 Scope Creep Prevention | applies in B; an out-of-scope requirement becomes a new change, a spec edit (back to P), or an informal note |
 | §3.8 KB Lifecycle | only when `_bmad/` exists. Without BMAD the KB is `openspec/specs/` alone, refreshed by `archive` |
 | §3.9 Gate Override | unchanged: readiness FAIL or unresolved Harden `[CRITICAL]`s need `override` plus a reason |
-| §3.10 Interactive Skills Run in the Main Loop | unchanged; delegated phases are H, R, B and V |
+| §3.10 Wrapped Skills Run in the Main Loop | applies unchanged, plus directive 5's OpenSpec writes (main loop only); delegated phases are H, R, B and V |
 | §3.11 md Workstation and md Commits | Step 0 adds the `openspec` link; md commits are offered at the gate (`design`) and after archive (`complete`) |
 
 ### SDD-specific directives
 
 1. **The wrapper is the only OpenSpec caller.** Every `openspec` call goes through
    `sdd-openspec.py`, which sets `OPENSPEC_TELEMETRY=0` and `DO_NOT_TRACK=1` and runs
-   from the real parent of a symlinked `openspec/`. Subagents read and edit the
-   change files directly under `change_dir_real`; they do not run `openspec`.
+   from the real parent of a symlinked `openspec/`. Subagents read the change
+   files directly under `change_dir_real`; they do not run `openspec`.
 2. **No `/opsx` commands.** `init` uses `--tools none`, so no `/opsx:*` commands or
    `openspec-*` skills are installed and nothing bypasses the relay. The upstream
    `/opsx:archive` skill merges specs through the model; the relay uses the CLI.
@@ -131,7 +132,15 @@ The `/bmad` directives apply unchanged unless noted. Section numbers refer to
 4. **Archive is guarded.** `sdd-openspec.py archive` refuses missing or incomplete
    tasks unless the user confirms a reason (`--allow-incomplete --reason`, recorded
    as `archive_override`), validates first, and reads OpenSpec's JSON result.
-5. **OpenSpec Stores are not used.** They share one flat change namespace across
+5. **Read-only agents return; the main loop and Thor write.** Captain and Hulk
+   never write a file: Captain returns tagged findings (H, V) and Hulk returns
+   PASS/FAIL (R). The OpenSpec artifacts are written in the main loop (P, and spec
+   fixes after H and V); Thor edits `tests.md` and `tasks.md` and the code (B, V
+   fixes) and makes every commit. `/sdd` has no Hulk spec artifact — the OpenSpec
+   change is the spec. A Hulk plan-review spec outside `/sdd` follows
+   `agents/hulk.md`: Hulk returns a `### Spec Artifact` and Thor saves it at the
+   `workstation.py spec-target` Target (`agents/thor.md`).
+6. **OpenSpec Stores are not used.** They share one flat change namespace across
    repos and ignore the `store:` pointer when local content exists. The md
    workstation gives each repo its own `openspec/` instead.
 

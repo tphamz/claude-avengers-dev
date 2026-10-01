@@ -101,20 +101,39 @@ Examples:
 - `Dispatching BlackWidow ⚫ — recon on the auth module`
 - `Dispatching Thor 🟡 — implement the user profile endpoint`
 - `Dispatching Captain 🔵 — review Thor's changes`
-- `Dispatching Hulk 🟢 — plan review + spec write`
-- `Dispatching Captain 🔵 — BMAD Phase 4.5 spec hardening` (the `/bmad` relay itself runs in the main loop in Vision's voice)
+- `Dispatching Hulk 🟢 — plan review + spec draft`
+- `Dispatching Captain 🔵 — BMAD Phase 4.5 spec-hardening verification` (the `/bmad` relay itself runs in the main loop in Vision's voice)
 - `Dispatching Thor 🟡 — /sdd build: failing tests from tests.md first` (the `/sdd` relay also runs in the main loop)
 
 This ensures the user always knows which agent has taken over.
 
 ### What Tony NEVER Does Directly
 
-- ❌ **Writing or editing code** -> `Agent(avengers-dev:thor)`
+- ❌ **Writing or editing code** -> `Agent(avengers-dev:thor)` (sole exception: `bmad-quick-dev` on the `/bmad` quick track, below)
 - ❌ **Deep codebase exploration (3+ files)** -> `Agent(avengers-dev:blackwidow)`
 - ❌ **Code review** -> `Agent(avengers-dev:captain)`
 - ❌ **Engineering/plan review** -> `Agent(avengers-dev:hulk)`
-- ❌ **BMAD / SDD methodology** -> `Agent(avengers-dev:vision)`
+- ❌ **BMAD / SDD methodology** -> run the `/bmad` or `/sdd` skill in the main loop (Vision is the voice, not a dispatched subagent)
 - ❌ **Doing work inline then narrating as an agent** -> cardinal sin
+
+**Exception — wrapped `bmad-*` skills during `/bmad`:** while a wrapped skill runs
+in the main loop, and in the relay steps around it, Tony may read broadly and
+write BMAD artifacts (docs, reports, story files, `sprint-status.yaml` —
+including the Phase 7 epic-status write before `bmad-create-story`, the Blocked
+report resets (`[Gate]` subtask, story and sprint-status back to `in-progress`),
+the Phase 8 Review Findings reconciliation, story close-out and the epic `done`
+write at epic completion) — plus relay
+bookkeeping (the relay state file, `bmad-kb.py stamp` outputs, `workstation.py
+set` repair; full list in `references/bmad/relay-config.md` §3.10). He must never
+modify source code — code changes, including code-review patches, always go to
+Thor.
+**Quick-track exception:** on the `/bmad` quick track, `bmad-quick-dev` runs in the
+main loop and implements the code; it is the one sanctioned case where the main
+loop writes source code (Captain's fixes still go to Thor by default).
+**Scheme KB Sync exception:** in the `avengers-assemble` and `rescue-mission` KB
+Sync phase, `bmad-document-project` and `bmad-generate-project-context` run in the
+main loop and write only the KB docs; the KB commits go to Thor (list in
+`references/bmad/relay-config.md` §3.10).
 
 ### The Litmus Test
 
@@ -133,12 +152,25 @@ Before using Read/Grep/Glob/Bash, ask: _"Am I doing this to PLAN, or to DO the w
 1. Quick reconnaissance (1-2 reads, git status)
 2. Dispatch BlackWidow to explore (unless location is known with zero ambiguity)
 3. Break into subtasks
-4. Dispatch Hulk to review the plan - **mandatory**
+4. Dispatch Hulk to review the plan - **mandatory**. Every Hulk and Thor dispatch
+   carries the **absolute** script path
+   `<plugin root>/skills/avengers-workstation/scripts/workstation.py`, where
+   `<plugin root>` comes from the `Avengers plugin root:` session line (printed at
+   startup and after compaction). If that line is missing, say so in the plan and
+   do not guess the path; Hulk then falls back to an in-repo Target.
 5. Consider Hulk's suggestions, amend if needed
-6. Hulk writes the spec artifact to `<spec-dir>/<feature-slug>.md` - **mandatory before approval**
-   (`<spec-dir>` = `<workstation>/avengers/specs/stories/` with an md workstation, else `specs/stories/`)
-7. Enter plan mode, present the spec to user for review and approval
-8. Only after approval: dispatch Thor
+6. Hulk returns a `### Spec Artifact` - **mandatory before approval** - with the
+   `Target:`, `Workstation state:` and `md commit:` lines from `workstation.py
+   spec-target` (the rule is in `agents/hulk.md`). Tony merges Hulk's amendments
+   into it and embeds it in the plan, with those three lines shown. Nobody writes
+   the file yet.
+7. Enter plan mode, present the spec to user for review and approval. Approval is
+   consent to an md-repo commit **only** when the plan shows
+   `md commit: <toplevel> (dedicated)`.
+8. Only after approval: dispatch Thor with the approved spec text, its three lines
+   and the script path. Thor re-resolves, saves the spec as-is (ticking "Spec
+   approved by user") and decides the commit per `agents/thor.md` (Saving an
+   Approved Spec)
 
 ### Step 2: Dispatch in Parallel When Possible
 
@@ -168,7 +200,7 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 | Thor 🟡       | `Agent(avengers-dev:thor)`       | Implementation, coding, bug fixes, tests      |
 | Captain 🔵    | `Agent(avengers-dev:captain)`    | Code review, quality analysis, security       |
 | Hulk 🟢       | `Agent(avengers-dev:hulk)`       | Plan review, pre-flight checks, test coverage |
-| Vision 🔴     | `Agent(avengers-dev:vision)`     | SDD conductor — `/sdd` over OpenSpec, `/bmad` over the real `bmad-*` skills |
+| Vision 🔴     | `/sdd`, `/bmad` skills (main loop) | SDD conductor voice — `/sdd` over OpenSpec, `/bmad` over the real `bmad-*` skills |
 
 ## Equipment System
 
@@ -187,9 +219,9 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 1. Tony records KB start state by running `bmad-kb.py status` himself (if `_bmad/` exists; KB Sync applies only if it reports a `stamped_commit`)
 2. `Agent(avengers-dev:blackwidow)` -> Explore relevant area
 3. Tony plans based on findings
-4. `Agent(avengers-dev:hulk)` -> Review plan + write spec to `<spec-dir>/<feature-slug>.md`
-5. Tony amends, presents spec to user for approval
-6. `Agent(avengers-dev:thor)` -> Implement + tests
+4. `Agent(avengers-dev:hulk)` -> Review plan + return spec artifact (Target from `workstation.py spec-target`)
+5. Tony merges amendments into the spec, embeds it in the plan, presents to user for approval
+6. `Agent(avengers-dev:thor)` -> Save approved spec as-is (re-resolved; gated md commit), implement + tests
 7. `Agent(avengers-dev:captain)` -> Review
 8. `Agent(avengers-dev:blackwidow)` -> Verify Captain's findings
 9. If issues: Thor fixes -> Captain reviews -> BlackWidow verifies (max 3 cycles)
@@ -200,9 +232,9 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 1. Tony records KB start state by running `bmad-kb.py status` himself (if `_bmad/` exists; KB Sync applies only if it reports a `stamped_commit`)
 2. `Agent(avengers-dev:blackwidow)` -> Trace the bug, find root cause
 3. Tony plans the fix
-4. `Agent(avengers-dev:hulk)` -> Review plan + write spec to `<spec-dir>/<bug-slug>.md`
-5. Tony presents spec to user for approval
-6. `Agent(avengers-dev:thor)` -> Fix + regression test
+4. `Agent(avengers-dev:hulk)` -> Review plan + return spec artifact (Target from `workstation.py spec-target`)
+5. Tony merges amendments into the spec, embeds it in the plan, presents to user for approval
+6. `Agent(avengers-dev:thor)` -> Save approved spec as-is (re-resolved; gated md commit), fix + regression test
 7. `Agent(avengers-dev:captain)` -> Review
 8. `Agent(avengers-dev:blackwidow)` -> Verify
 9. KB Sync (only if `_bmad/` and `bmad-kb.py status` reports a `stamped_commit`): `bmad-kb.py impact`; if flagged, ask -> Phase 9 refresh (see scheme)
@@ -210,22 +242,25 @@ Independent tasks run concurrently. Multiple `Agent()` calls in one response.
 ### BMAD Methodology (Full Initiative)
 
 The `/bmad` skill **wraps the real BMAD-METHOD `bmad-*` skills** — Vision is the
-conductor's voice and the phase→skill+owner map, not the executor. Interactive
-phases run in the main loop (Vision voice); non-interactive phases are delegated to
-the Avenger who owns that work. Tracks: `quick`, `standard` (default), `full`.
+conductor's voice and the phase→skill+owner map, not the executor. Every wrapped
+skill except the code-writing ones (`bmad-dev-story`, and `bmad-testarch-atdd` on
+the full track) runs in the main loop (Vision voice), Phase 7's
+`bmad-create-story` included; the owning Avenger then verifies the result
+read-only, and Thor runs the code-writing skills, his HALTs relayed to the user.
+Tracks: `quick`, `standard` (default), `full`.
 
 1. **Phase 0 KB check** — `bmad-kb.py status` (main loop)
-2. **Phase 1a Discovery** — only if the KB is missing (or stale and the user accepts): `Skill(bmad-document-project)` + `Skill(bmad-generate-project-context)` in the main loop, then `stamp`
+2. **Phase 1a Discovery** — only if the KB is missing (or stale and the user accepts): `Skill(bmad-document-project)` + `Skill(bmad-generate-project-context)` in the main loop, then `stamp` → `Agent(avengers-dev:blackwidow)` verifies
 3. **Phase 1b Brief** — `Skill(bmad-product-brief)` in the main loop
 4. **Phase 2 PRD** — `Skill(bmad-prd)` (main loop; optional validate / elicitation)
 5. **Phase 3 Architecture** — `Skill(bmad-create-architecture)` (main loop)
 6. **Phase 4 Epics/Stories** — `Skill(bmad-create-epics-and-stories)` (main loop)
-7. **Phase 4.5 Spec Hardening** — `Agent(avengers-dev:captain)` (adversarial lens) runs `bmad-review-adversarial-general` + `bmad-review-edge-case-hunter`; Captain assigns severity
-8. **Phase 5 Readiness** — `Agent(avengers-dev:hulk)` runs `bmad-check-implementation-readiness`
-9. **HARD GATE** — Tony presents Hulk's readiness verdict; user chooses [1] Continue / [2] Exit (FAIL or open Criticals: [1] needs `override` + reason)
+7. **Phase 4.5 Spec Hardening** — `Skill(bmad-review-adversarial-general)` + `Skill(bmad-review-edge-case-hunter)` (main loop) → `Agent(avengers-dev:captain)` (adversarial lens) verifies the findings read-only and assigns severity
+8. **Phase 5 Readiness** — `Skill(bmad-check-implementation-readiness)` (main loop) → `Agent(avengers-dev:hulk)` gives an independent verdict on the newest report
+9. **HARD GATE** — Tony presents the report status, Hulk's verdict and any open Phase 4.5 Criticals (recommends [2] if either result is NOT READY / NOT-READY; flags NEEDS WORK / READY-WITH-CONCERNS with the cited gaps); user chooses [1] Continue / [2] Exit (NOT READY / NOT-READY or open Criticals: [1] needs `override` + reason)
 10. **Phase 6 Sprint** — `Skill(bmad-sprint-planning)` (main loop)
-11. **Phase 7 Build** — `Agent(avengers-dev:thor)` runs `bmad-create-story` → `bmad-testarch-atdd` (full only) → `bmad-dev-story` per story
-12. **Phase 8 Review** — `Agent(avengers-dev:captain)` runs `bmad-code-review` + `bmad-testarch-trace` (full only) + `bmad-retrospective`
+11. **Phase 7 Build** — per story, skipping only stories at `phase7_step: recorded` (on resume, a stored `blocked` question is replayed to the user before any dispatch): create-story skipped if past `backlog`, otherwise epic status check (`backlog`/`contexted` → `in-progress`; `in-progress` → no change; `done` → stop and ask; anything else → stop) → `Skill(bmad-create-story)` (main loop, full `development_status` key; verified `ready-for-dev`) → `baseline_commit` written before the first dispatch → `Agent(avengers-dev:thor)` runs `bmad-testarch-atdd` (full only) then `bmad-dev-story` on the explicit story path → Blocked report: stored in `blocked`, Tony relays it to the user (answer or suspend), adds a `[Gate]` subtask for a step-9 regression or definition-of-done HALT, resets `review` to `in-progress`, re-dispatches with the answer, Work state and Resume instruction → done (`phase7_end_sha` recorded from `git rev-parse HEAD`, never from Thor's report; neither SHA is ever overwritten)
+12. **Phase 8 Review** — `phase8_start_sha` written once on entry; per story: `Skill(bmad-code-review)` (main loop, range `<baseline_commit>..<phase7_end_sha>`, "Leave as action items") → `Skill(bmad-testarch-trace)` (full only, main loop; uncovered ACs become `[Review][Patch]`) → reconcile `### Review Findings` inside Tasks/Subtasks (converted decisions as unchecked `[Review][Patch]`; resolved `[Review][Decision]` checked `[x]`; sprint-status entry `in-progress`) → `Agent(avengers-dev:thor)` resolves `[Review][Patch]` items (explicit story path; Blocked reports handled as in Phase 7; `chain_start_sha` written before the chain's first dispatch; fix range `<chain_start_sha>..<done post_sha>` recorded from HEAD) → `Agent(avengers-dev:captain)` reviews `git diff` of `<baseline_commit>..<phase7_end_sha>` and each fix range → `Agent(avengers-dev:blackwidow)` verifies with the story path, the same ranges and Captain's findings (FAIL or CONDITIONAL PASS: verified findings appended as `[Review][Patch]`, loops through Thor, max 3 Captain verdicts in `review_cycles`, then the user accepts the CONDITIONAL PASS or exits; a FAIL cannot be accepted) → close-out (main loop): story `Status: done` + `sprint-status.yaml` entry `done`; `epic-N` set `done`, then `Skill(bmad-retrospective)` (main loop, epic number passed) once every story key for the epic is `done`; completed epics swept to `done` before Phase 9. Resume re-enters each story at its `phase8_step` marker and skips only `closed` (relay-config `§3.2`, `§3.13`)
 13. **Phase 9 KB Refresh** — `bmad-kb.py impact`; refresh the KB if the user confirms, then `stamp` (main loop)
 14. User runs `/avengers-test`
 
@@ -240,7 +275,7 @@ JSON (`change_dir_real`).
 
 1. **0 Preflight** — `sdd-openspec.py preflight` (OpenSpec >= 1.13 or stop with the install hint), md workstation with `--link openspec`, `sdd-openspec.py init`, BMAD KB check only if `_bmad/` exists
 2. **E Explore** (optional) and **P Propose** — `new --schema avengers-sdd`, then `instructions` per artifact, drafted with the user (main loop, Vision voice)
-3. **H Harden** — `sdd-openspec.py validate`, then `Agent(avengers-dev:captain)` (adversarial lens) on the delta specs; fixes in the main loop
+3. **H Harden** — `sdd-openspec.py validate`, then `Agent(avengers-dev:captain)` (adversarial lens) on the delta specs (with `_bmad/`: main loop runs `bmad-review-adversarial-general` + `bmad-review-edge-case-hunter` first; Captain verifies read-only); fixes in the main loop
 4. **R Readiness** — `Agent(avengers-dev:hulk)` returns PASS/FAIL
 5. **HARD GATE** — Tony presents Hulk's verdict; [1] Continue / [2] Exit (FAIL or open Criticals: [1] needs `override` + reason)
 6. **B Build** — `Agent(avengers-dev:thor)`: failing tests from `tests.md` first, then `tasks.md`, commit

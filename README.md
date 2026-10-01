@@ -144,8 +144,11 @@ only if the folder is gone.
   `openspec` link. A tracked `openspec/` is refused like a tracked `_bmad-output`
   (`migrate --link openspec --untrack`, with the same warning).
 - **What lands there:** BMAD planning and implementation artifacts,
-  `project-context.md`, Hulk specs (`avengers/specs/stories/`), the KB marker
-  (`avengers/kb.json`), and OpenSpec's `openspec/` (changes and living specs). Per-clone relay state stays in `.avengers/`.
+  `project-context.md`, Hulk specs (`avengers/specs/stories/`; the Target comes
+  from `workstation.py spec-target`, and Thor commits a spec in the md repo only
+  when it is dedicated and the approved plan says so), the KB marker
+  (`avengers/kb.json`), and OpenSpec's `openspec/` (changes and living specs).
+  Per-clone relay state stays in `.avengers/`.
 - **Keys outside the output folder** (usually `project_knowledge: {project-root}/docs`)
   stay in the repo unless you opt in, per key, to re-point them. Re-pointing edits
   the team's committed `_bmad/*/config.yaml`; a declined key is not asked again.

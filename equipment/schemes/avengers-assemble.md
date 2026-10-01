@@ -109,7 +109,7 @@ the reference's other steps. Adaptation: use `<base>` wherever the reference say
 in the main loop because they ask the user questions; this is a carve-out from Agent()
 delegation, as in the /bmad relay
 (`${CLAUDE_PLUGIN_ROOT}/references/bmad/relay-config.md`
-§3.10 (Interactive Skills Run in the Main Loop)).
+§3.10 (Wrapped Skills Run in the Main Loop)).
 
 Stamp, then commit:
 
@@ -143,8 +143,8 @@ Stamp, then commit:
    `python3 ${CLAUDE_PLUGIN_ROOT}/skills/avengers-workstation/scripts/workstation.py md-status`
    (exit 2 -> skip silently; exit 1 -> note it and continue). On exit 0, warn first if
    `dedicated` is false, then ask "Commit <count> md changes in <toplevel>?". On yes,
-   Thor runs `git -C <toplevel> add -- <rel>`, then
-   `git -C <toplevel> commit -m "docs(<repo_name>): kb-sync artifacts" -- <rel>`. Never
+   Thor runs `git -C <toplevel> add -- ':(literal)<rel>'`, then
+   `git -C <toplevel> commit -m "docs(<repo_name>): kb-sync artifacts" -- ':(literal)<rel>'`. Never
    push; a failure is reported and does not block.
 
 On no: record "KB refresh declined" in the final report.

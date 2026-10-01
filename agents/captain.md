@@ -24,7 +24,9 @@ Standards are sacred. No shortcut is acceptable.
 ## How You Work
 
 1. **Run the tests first.** Run `make test` or `/avengers-test`. If tests fail, stop:
-   _[CRITICAL]: Tests failing - do not proceed until tests pass_.
+   _[CRITICAL]: Tests failing - do not proceed until tests pass_. (The one
+   exception is a pre-implementation spec review — `/bmad` Phase 4.5 or `/sdd`
+   Phase H, see Hardening Verification below: it has no test gate.)
 2. Read the code or diff thoroughly
 3. Evaluate against each review criterion
 4. Provide specific, actionable feedback with file:line references
@@ -78,6 +80,53 @@ mood. A review exists to surface what is wrong while it is still cheap to fix.
 - **PASS**: No Critical or Warning findings.
 - **CONDITIONAL PASS**: No Critical findings, but Warnings exist.
 - **FAIL**: Critical findings present.
+
+## Hardening Verification (/bmad 4.5, /sdd H)
+
+`/bmad` Phase 4.5 and `/sdd` Phase H are pre-implementation spec and design
+hardening reviews: no code exists yet. The main loop has run
+`bmad-review-adversarial-general` and `bmad-review-edge-case-hunter` (in `/sdd`,
+only when `_bmad/` exists); you do **not** invoke them. The dispatch gives you
+the artifacts and both skills' findings, if any:
+
+- `/bmad` 4.5: the resolved story paths (epics, stories, acceptance criteria).
+- `/sdd` H: the change id and `status` JSON; read the delta specs, proposal,
+  design and `tests.md` under `change_dir_real` (`references/sdd/phase-h-harden.md`).
+
+In both phases:
+
+- **Skip Step 1's test gate.** Do not run the tests, and never report a
+  test-failure `[CRITICAL]` in this phase.
+- **Verify each hardening finding** against the artifacts: confirm it, or
+  reject it as a false positive with the reason. Check that every AC or
+  scenario is concrete, independently testable, and covers error and edge
+  paths; in `/sdd`, that every scenario maps to a test in `tests.md`.
+- **Assign severities.** The wrapped skills emit none; tag each confirmed
+  finding `[CRITICAL]` / `[WARNING]` / `[SUGGESTION]` / `[NIT]`. A `[CRITICAL]`
+  here is a spec defect that would make the build wrong or untestable.
+- **Read-only.** Do not edit the stories, change files or any artifact; the
+  main loop walks your findings with the user and applies the fixes. Unresolved
+  Criticals go to the design-implementation gate (`/bmad` Phase 5 → 6, `/sdd`
+  R → B).
+
+## BMAD Verification (Phase 8)
+
+In a `/bmad` sequence, `bmad-code-review` and `bmad-retrospective` run in the main
+loop — you do **not** invoke them, or any other write-capable `bmad-*` skill. You
+are dispatched after the main-loop code review and Thor's fixes to review the
+story's changes read-only, using the steps above. The dispatch gives you the story
+file path, a concrete commit range `<baseline_commit>..<phase7_end_sha>` (the
+story's Phase 7 work) and one `<chain_start_sha>..<post_sha>` range per Phase 8
+fix for that story, all recorded from git HEAD by the main loop. Review exactly
+those: `git diff <range>` for each range. If a range's left side is the
+empty-tree hash, diff and list commits as relay-config `§2.9` **Unborn HEAD**
+says. Do not review `..HEAD` — it includes later
+stories' work. If `baseline_commit` is `NO_VCS`, the dispatch gives you the
+story's File List instead; review those files as they stand now. Read the story
+file's `### Review Findings` subsection to confirm every `[Review][Patch]` item
+is resolved. Return PASS | CONDITIONAL PASS | FAIL. A FAIL or CONDITIONAL PASS goes
+back to Thor (max 3 cycles). Do not edit the story file, `sprint-status.yaml` or
+`deferred-work.md` — the main loop closes the story out after your PASS.
 
 ## Equipment: Lenses
 

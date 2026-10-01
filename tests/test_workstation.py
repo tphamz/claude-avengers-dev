@@ -603,6 +603,318 @@ class MdStatusTests(WSCase):
         self.assertFalse(json.loads(out)["git"])
 
 
+class SpecTargetTests(WSCase):
+    SLUG = "my-spec"
+
+    def target(self, slug: str | None = None, project: Path | None = None) -> dict:
+        code, out, err = self.run_cli("spec-target", "--slug", slug or self.SLUG,
+                                      project=project)
+        self.assertEqual(code, 0, err)
+        return json.loads(out)
+
+    def in_repo_target(self) -> str:
+        return os.path.join(os.path.realpath(self.repo), "specs", "stories", f"{self.SLUG}.md")
+
+    def ws_target(self, ws: Path) -> str:
+        return os.path.join(os.path.realpath(ws), "avengers", "specs", "stories",
+                            f"{self.SLUG}.md")
+
+    def init_md_repo(self, top: Path) -> None:
+        top.mkdir(parents=True, exist_ok=True)
+        self.git("init", "-q", cwd=top)
+
+    def assert_in_repo(self, report: dict, state: str) -> None:
+        self.assertEqual(report["state"], state)
+        self.assertEqual(report["target"], self.in_repo_target())
+        self.assertEqual(report["spec_dir"], os.path.dirname(self.in_repo_target()))
+        self.assertEqual(report["commit"], {
+            "git": True, "toplevel": os.path.realpath(self.repo),
+            "pathspec": f"specs/stories/{self.SLUG}.md", "dedicated": None,
+            "reason": "in-repo: commit with the work"})
+
+    def test_missing_is_in_repo(self) -> None:
+        self.assert_in_repo(self.target(), "missing")
+
+    def test_in_repo_choice(self) -> None:
+        self.assertEqual(self.run_cli("set", "--in-repo")[0], 0)
+        self.assert_in_repo(self.target(), "in_repo")
+
+    def test_guess_stays_in_repo(self) -> None:
+        (self.md / "repo-mds").mkdir(parents=True)
+        self.write_registry({"root": str(self.md), "repos": {}})
+        self.assert_in_repo(self.target(), "guess")
+
+    def test_broken_folder_gone_is_in_repo(self) -> None:
+        self.assertEqual(self.set_ws()[0], 0)
+        shutil.rmtree(self.md / "repo-mds")
+        self.assert_in_repo(self.target(), "broken")
+
+    def test_ok_workstation_without_git(self) -> None:
+        ws = self.md / "repo-mds"
+        self.assertEqual(self.set_ws(ws)[0], 0)
+        report = self.target()
+        self.assertEqual(report["state"], "ok")
+        self.assertEqual(report["target"], self.ws_target(ws))
+        self.assertEqual(report["spec_dir"], os.path.dirname(self.ws_target(ws)))
+        commit = report["commit"]
+        self.assertFalse(commit["git"])
+        self.assertIsNone(commit["toplevel"])
+        self.assertIsNone(commit["pathspec"])
+        self.assertIsNone(commit["dedicated"])
+        self.assertIn("not in a git repo", commit["reason"])
+
+    def test_registry_source_counts(self) -> None:
+        ws = self.md / "repo-mds"
+        self.assertEqual(self.set_ws(ws)[0], 0)
+        (self.repo / ".avengers" / "settings.json").unlink()
+        report = self.target()
+        self.assertEqual((report["state"], report["target"]), ("ok", self.ws_target(ws)))
+
+    def test_dangling_link_with_folder_present_is_workstation(self) -> None:
+        ws = self.md / "repo-mds"
+        self.assertEqual(self.set_ws(ws)[0], 0)
+        link = self.repo / "_bmad-output"
+        link.unlink()
+        link.symlink_to(self.base / "nowhere")
+        report = self.target()
+        self.assertEqual(report["state"], "broken")
+        self.assertEqual(report["target"], self.ws_target(ws))
+
+    def test_dangling_openspec_link_only_is_workstation(self) -> None:
+        ws = self.md / "repo-mds"
+        code, _, err = self.run_cli("set", "--path", str(ws), "--link", "bmad",
+                                    "--link", "openspec")
+        self.assertEqual(code, 0, err)
+        shutil.rmtree(ws / "openspec")
+        resolved = self.resolve()
+        self.assertEqual(resolved["state"], "broken")
+        self.assertEqual(resolved["symlinks"]["openspec"], "dangling")
+        self.assertEqual(resolved["symlinks"]["bmad"], "ok")
+        report = self.target()
+        self.assertEqual(report["state"], "broken")
+        self.assertEqual(report["target"], self.ws_target(ws))
+        self.assertEqual(report["spec_dir"], os.path.dirname(self.ws_target(ws)))
+
+    def test_in_repo_openspec_keeps_workstation_target(self) -> None:
+        ws = self.md / "repo-mds"
+        code, _, err = self.run_cli("set", "--path", str(ws), "--link", "bmad",
+                                    "--link", "openspec")
+        self.assertEqual(code, 0, err)
+        code, _, err = self.run_cli("set", "--in-repo", "--link", "openspec")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.settings()["mdLinksInRepo"], ["openspec"])
+        report = self.target()
+        self.assertEqual(report["state"], "ok")
+        self.assertEqual(report["target"], self.ws_target(ws))
+        self.assertEqual(report["spec_dir"], os.path.dirname(self.ws_target(ws)))
+        # Commit guidance follows the workstation (not a git repo here), not the code repo.
+        commit = report["commit"]
+        self.assertFalse(commit["git"])
+        self.assertIsNone(commit["pathspec"])
+        self.assertIn("not in a git repo", commit["reason"])
+        self.assertNotIn("in-repo", commit["reason"])
+
+    def test_in_repo_openspec_only_is_in_repo(self) -> None:
+        code, _, err = self.run_cli("set", "--in-repo", "--link", "openspec")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(self.settings(), {"mdLinksInRepo": ["openspec"]})
+        self.assert_in_repo(self.target(), "missing")
+
+    def test_symlinked_md_root_uses_realpath(self) -> None:
+        real = self.base / "real-md"
+        real.mkdir()
+        alias = self.base / "alias-md"
+        alias.symlink_to(real)
+        self.assertEqual(self.set_ws(alias / "repo-mds")[0], 0)
+        report = self.target()
+        self.assertEqual(report["target"], self.ws_target(real / "repo-mds"))
+        self.assertNotIn("alias-md", report["target"])
+
+    def test_dedicated_md_repo_subdir(self) -> None:
+        mdrepo = self.base / "mdrepo"
+        self.init_md_repo(mdrepo)
+        ws = mdrepo / "team" / "repo-mds"
+        self.assertEqual(self.set_ws(ws)[0], 0)
+        commit = self.target()["commit"]
+        self.assertEqual(commit["toplevel"], os.path.realpath(mdrepo))
+        self.assertEqual(commit["pathspec"],
+                         f"team/repo-mds/avengers/specs/stories/{self.SLUG}.md")
+        self.assertTrue(commit["dedicated"])
+        self.assertTrue(commit["git"])
+
+    def test_rel_dot_has_no_dot_slash(self) -> None:
+        ws = self.md / "repo-mds"
+        self.init_md_repo(ws)
+        self.assertEqual(self.set_ws(ws)[0], 0)
+        commit = self.target()["commit"]
+        self.assertEqual(commit["pathspec"], f"avengers/specs/stories/{self.SLUG}.md")
+        self.assertEqual(commit["toplevel"], os.path.realpath(ws))
+        self.assertTrue(commit["dedicated"])
+
+    def test_pathspec_is_in_md_status_dirty(self) -> None:
+        for label, top, ws in (("subdir", self.base / "mdrepo", self.base / "mdrepo" / "t"),
+                               ("rel-dot", self.base / "solo", self.base / "solo")):
+            with self.subTest(layout=label):
+                self.init_md_repo(top)
+                self.assertEqual(self.set_ws(ws)[0], 0)
+                report = self.target()
+                self.write(report["target"], "# spec\n", base=Path("/"))
+                code, out, err = self.run_cli("md-status", "--path", str(ws))
+                self.assertEqual(code, 0, err)
+                self.assertIn(report["commit"]["pathspec"], json.loads(out)["dirty"])
+
+    def test_home_toplevel_is_not_dedicated(self) -> None:
+        self.git("init", "-q", cwd=self.home)
+        self.assertEqual(self.set_ws(self.home / "notes" / "repo-mds")[0], 0)
+        commit = self.target()["commit"]
+        self.assertEqual(commit["toplevel"], os.path.realpath(self.home))
+        self.assertFalse(commit["dedicated"])
+        self.assertIn("$HOME", commit["reason"])
+
+    def test_toplevel_containing_project_is_not_dedicated(self) -> None:
+        self.git("init", "-q", cwd=self.base)
+        self.assertEqual(self.set_ws(self.base / "docs" / "repo-mds")[0], 0)
+        with mock.patch.dict(os.environ, {"GIT_CEILING_DIRECTORIES": str(self.base.parent)}):
+            commit = self.target()["commit"]
+        self.assertEqual(commit["toplevel"], os.path.realpath(self.base))
+        self.assertFalse(commit["dedicated"])
+        self.assertIn("contains the project", commit["reason"])
+
+    def test_in_repo_without_git(self) -> None:
+        plain = self.base / "plain"
+        plain.mkdir()
+        report = self.target(project=plain)
+        self.assertEqual(report["target"], os.path.join(os.path.realpath(plain), "specs",
+                                                        "stories", f"{self.SLUG}.md"))
+        self.assertEqual(report["commit"]["git"], False)
+        self.assertIsNone(report["commit"]["toplevel"])
+        self.assertEqual(report["commit"]["pathspec"], f"specs/stories/{self.SLUG}.md")
+
+    def test_in_repo_project_in_subdir_of_larger_repo(self) -> None:
+        project = self.repo / "packages" / "app"
+        project.mkdir(parents=True)
+        report = self.target(project=project)
+        self.assertEqual(report["target"], os.path.join(os.path.realpath(project), "specs",
+                                                        "stories", f"{self.SLUG}.md"))
+        commit = report["commit"]
+        self.assertTrue(commit["git"])
+        self.assertEqual(commit["toplevel"], os.path.realpath(self.repo))
+        self.assertEqual(commit["pathspec"], f"packages/app/specs/stories/{self.SLUG}.md")
+        self.assertIsNone(commit["dedicated"])
+
+    def test_workstation_outside_reported_toplevel_is_clean_error(self) -> None:
+        mdrepo = self.base / "mdrepo"
+        self.init_md_repo(mdrepo)
+        ws = mdrepo / "repo-mds"
+        self.assertEqual(self.set_ws(ws)[0], 0)
+        elsewhere = self.base / "Elsewhere"
+        elsewhere.mkdir()
+        real_toplevel = workstation.git_toplevel
+
+        def fake_toplevel(cwd: Path) -> Path | None:
+            if os.path.realpath(cwd) == os.path.realpath(ws):
+                return elsewhere
+            return real_toplevel(cwd)
+
+        with mock.patch.object(workstation, "git_toplevel", side_effect=fake_toplevel):
+            code, out, err = self.run_cli("spec-target", "--slug", self.SLUG)
+            self.assertEqual(code, 1)
+            self.assertEqual(out, "")
+            self.assertIn("is not under md repo toplevel", err)
+            self.assertIn("path case or symlink mismatch", err)
+            self.assertIn(os.path.realpath(elsewhere), err)
+            self.assertEqual(self.run_cli("md-status")[0], 1)
+
+    def test_read_only(self) -> None:
+        ws = self.md / "repo-mds"
+        self.assertEqual(self.set_ws(ws)[0], 0)
+        self.target()
+        self.assertFalse((ws / "avengers" / "specs").exists())
+        shutil.rmtree(self.md)
+        self.target()
+        self.assertFalse((self.repo / "specs").exists())
+
+    def test_exists_false_when_absent(self) -> None:
+        self.assertIs(self.target()["exists"], False)
+        ws = self.md / "repo-mds"
+        self.assertEqual(self.set_ws(ws)[0], 0)
+        self.assertIs(self.target()["exists"], False)
+
+    def test_exists_true_when_present_in_repo(self) -> None:
+        self.write(self.in_repo_target(), "# old spec\n", base=Path("/"))
+        report = self.target()
+        self.assertEqual(report["target"], self.in_repo_target())
+        self.assertIs(report["exists"], True)
+
+    def test_exists_true_when_present_in_workstation(self) -> None:
+        ws = self.md / "repo-mds"
+        self.assertEqual(self.set_ws(ws)[0], 0)
+        self.write(self.ws_target(ws), "# old spec\n", base=Path("/"))
+        report = self.target()
+        self.assertEqual(report["target"], self.ws_target(ws))
+        self.assertIs(report["exists"], True)
+        # The in-repo path is not consulted for a workstation Target.
+        self.assertFalse(os.path.lexists(self.in_repo_target()))
+
+    def test_exists_true_for_dangling_symlink(self) -> None:
+        target = Path(self.in_repo_target())
+        target.parent.mkdir(parents=True)
+        target.symlink_to(self.base / "nowhere.md")
+        self.assertIs(self.target()["exists"], True)
+
+    @unittest.skipIf(os.geteuid() == 0, "root bypasses directory permissions")
+    def test_exists_unknown_when_parent_not_searchable(self) -> None:
+        target = Path(self.in_repo_target())
+        self.write(str(target), "# old spec\n", base=Path("/"))
+        parent = target.parent
+        mode = parent.stat().st_mode
+        parent.chmod(0)
+        self.addCleanup(parent.chmod, mode)
+        self.assertIsNone(self.target()["exists"])
+
+    def test_exists_false_when_parent_is_a_file(self) -> None:
+        stories = Path(os.path.dirname(self.in_repo_target()))
+        stories.parent.mkdir(parents=True)
+        stories.write_text("not a directory\n")
+        self.assertIs(self.target()["exists"], False)
+
+    def test_exists_check_writes_nothing(self) -> None:
+        for label in ("workstation", "in-repo"):
+            with self.subTest(target=label):
+                if label == "workstation":
+                    ws = self.md / "repo-mds"
+                    self.assertEqual(self.set_ws(ws)[0], 0)
+                    spec_dir = Path(os.path.dirname(self.ws_target(ws)))
+                else:
+                    self.assertEqual(self.run_cli("set", "--in-repo")[0], 0)
+                    spec_dir = Path(os.path.dirname(self.in_repo_target()))
+                report = self.target()
+                self.assertEqual(report["spec_dir"], str(spec_dir))
+                self.assertIs(report["exists"], False)
+                self.assertFalse(spec_dir.exists())
+                self.assertFalse(spec_dir.parent.exists())
+
+    def test_slug_accepts_valid_forms(self) -> None:
+        for slug in ("a", "0", "bug-123", "a" * 80):
+            with self.subTest(slug=slug):
+                self.assertTrue(self.target(slug)["target"].endswith(f"/{slug}.md"))
+
+    def test_invalid_slug_exits_1(self) -> None:
+        for slug in ("", "/", "a/b", "..", "../x", ".hidden", "-lead", "Upper", "a_b",
+                     "a.md", "a b", "abc\n", "a" * 81):
+            with self.subTest(slug=slug):
+                code, out, err = self.run_cli("spec-target", f"--slug={slug}")
+                self.assertEqual(code, 1)
+                self.assertEqual(out, "")
+                self.assertIn("invalid slug", err)
+
+    def test_missing_project_dir_exits_1(self) -> None:
+        code, _, err = self.run_cli("spec-target", "--slug", self.SLUG,
+                                    project=self.base / "nope")
+        self.assertEqual(code, 1)
+        self.assertIn("not found", err)
+
+
 class UnlinkTests(WSCase):
     def test_keeps_contents(self) -> None:
         self.assertEqual(self.set_ws()[0], 0)
@@ -664,8 +976,8 @@ class GrantPathTests(WSCase):
 class CliHelpTests(unittest.TestCase):
     def test_help_for_each_subcommand(self) -> None:
         for argv in ([], ["resolve"], ["set"], ["migrate"], ["check-config"],
-                     ["repoint-config"], ["md-status"], ["grant-path"], ["kb-rules"],
-                     ["unlink"]):
+                     ["repoint-config"], ["md-status"], ["spec-target"], ["grant-path"],
+                     ["kb-rules"], ["unlink"]):
             with self.subTest(argv=argv):
                 proc = subprocess.run([sys.executable, str(SCRIPT), *argv, "--help"],
                                       capture_output=True, text=True, check=False)

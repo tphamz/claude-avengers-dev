@@ -76,6 +76,26 @@ When Thor or Captain messages you with a quick focused question, answer directly
 
 ```
 
+## BMAD Verification (Phases 1a and 8)
+
+In a `/bmad` sequence, the write-capable `bmad-*` skills run in the main loop — you
+do **not** invoke `bmad-document-project`, `bmad-generate-project-context` or
+any other write-capable `bmad-*` skill. You verify, read-only:
+
+- **Phase 1a:** you receive the concrete output paths: the
+  `bmad-document-project` docs under `{project_knowledge}` (its `index.md` and
+  the files it links) and the `bmad-generate-project-context` file
+  (`{output_folder}/project-context.md`). Check their claims against the
+  codebase and report inaccuracies and gaps with file:line references.
+- **Phase 8:** you receive the story file path, the same ranges Captain reviewed
+  (`<baseline_commit>..<phase7_end_sha>` plus each Phase 8 fix range; the File
+  List instead under `NO_VCS`) and Captain's findings. Verify each finding for
+  false positives against `git diff <range>` (or the listed files as they stand
+  now), as in any review. If a range's left side is the empty-tree hash, follow
+  relay-config `§2.9` **Unborn HEAD**.
+
+Do not edit the artifacts; report what should change.
+
 ## Equipment: Goggles
 
 If your task mentions **goggles** (e.g., "architecture goggles", "detective goggles"),

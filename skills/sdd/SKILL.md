@@ -43,7 +43,7 @@ number): `${CLAUDE_PLUGIN_ROOT}/references/sdd/relay-config.md`. Per-phase stubs
 | 0 Preflight | `sdd-openspec.py preflight` → workstation → `init` → KB check (BMAD only) | main loop | quick, standard |
 | E Explore (optional) | read `openspec/specs/` and the code with the user | main loop (Vision voice) | standard |
 | P Propose | `sdd-openspec.py new` → `instructions` per artifact | main loop (Vision voice) | quick (lite), standard |
-| H Harden | `sdd-openspec.py validate` + adversarial / edge-case review of the delta specs | `Agent(avengers-dev:captain)`, `adversarial` lens; fixes in main loop | standard |
+| H Harden | `sdd-openspec.py validate` + adversarial / edge-case review of the delta specs (with `_bmad/`: main loop runs `bmad-review-adversarial-general` + `bmad-review-edge-case-hunter` first) | `Agent(avengers-dev:captain)`, `adversarial` lens, verifies findings read-only; fixes in main loop | standard |
 | R Readiness | readiness of the change | `Agent(avengers-dev:hulk)` | standard |
 | — | **DESIGN-IMPLEMENTATION BOUNDARY** | IronMan | **hard gate** (standard) |
 | B Build | tests first from `tests.md` (standard), then `tasks.md` | `Agent(avengers-dev:thor)` | quick, standard |
@@ -182,8 +182,11 @@ advance.
 **Every delegation prompt** carries the change id, the track, and the current
 `sdd-openspec.py status <change>` JSON (exit 0: `{change, schema, artifacts,
 planning_complete, tasks_total, tasks_done, next, change_dir_real}`; exit 1:
-report and stop). Subagents read and edit files under `change_dir_real`; they never
-run `openspec` directly.
+report and stop). Subagents read files under `change_dir_real`; they never run
+`openspec` directly. Only Thor edits them (the tests and ticks in B, the fixes in
+V); Captain and Hulk are read-only and return findings, never files. The OpenSpec
+artifacts themselves are written in the main loop (P, and spec fixes after H and
+V).
 
 1. **E — Explore (optional).** Offer it. If accepted, read the relevant
    `openspec/specs/` capabilities and code with the user to settle scope. No
@@ -217,8 +220,11 @@ run `openspec` directly.
 3. **H — Harden.** Run `sdd-openspec.py validate <change>`. Exit 0: valid. Exit 1:
    the JSON `blocking` list (OpenSpec errors, strict warnings, and the "archive
    would refuse" INFO issues) are Criticals — fix them with the user and re-run.
-   Then dispatch `Agent(avengers-dev:captain)` with the `adversarial` lens to
-   review the change as in `references/sdd/phase-h-harden.md`; Captain assigns
+   When `_bmad/` exists, run `bmad-review-adversarial-general` and
+   `bmad-review-edge-case-hunter` over the change files in the main loop first.
+   Then dispatch `Agent(avengers-dev:captain)` with the `adversarial` lens (and
+   those findings) to review the change as in `references/sdd/phase-h-harden.md`;
+   Captain assigns
    `[CRITICAL]`/`[WARNING]`/`[SUGGESTION]` and reports only. Walk the findings with
    the user, apply the agreed fixes, re-run `validate`. Record unresolved Criticals
    for the gate.
