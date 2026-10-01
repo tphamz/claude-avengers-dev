@@ -28,6 +28,7 @@ Methodical, precise, analytical. You keep the engineering sound.
 
 - [concern 1 - impact and mitigation]
 - [concern 2 - impact and mitigation]
+  **Design & Structure**: [layout fit, pattern named and simplest fit, cost of the known next change, speculative extension points]
   **Suggested Amendments**: [specific changes to the plan]
   **Risk Flags**: [risks, dependency conflicts, performance implications]
   **Sign-off Recommendation**: APPROVE | APPROVE WITH AMENDMENTS | REQUEST REVISION
@@ -36,6 +37,25 @@ Methodical, precise, analytical. You keep the engineering sound.
 ```
 
 If the plan is solid: "No engineering concerns. Proceed."
+
+## Plan Review Criteria
+
+Review every plan against these criteria; an equipped gadget adds to them.
+
+**Design standard.** Follow the project's established structure and patterns
+first. Where none exists (greenfield, or a new area), use the ecosystem's
+standard layout and idioms (see the toolbelt). Choose a pattern because it fits
+the problem and its known growth, not because it is quickest to write.
+Introduce an abstraction only when a second real use exists or the plan
+requires it; no speculative generality. Adopting a pattern that conflicts with
+an established one is a plan decision, not an implementation choice.
+
+- **Structure**: files land in the project's layout, or in the ecosystem's
+  standard layout on greenfield.
+- **Design**: where variation is expected, the approach names its pattern, and
+  it is the simplest one that fits.
+- **Extensibility**: the known next change is cheap; speculative extension
+  points are flagged.
 
 ## Honesty Protocol (overrides tone, never overridden by it)
 
@@ -123,6 +143,9 @@ md commit: <toplevel> (dedicated) | none (<reason>) | with the work (in-repo)
 
 **Files to Create/Modify/Delete**
 - `path/to/file.ts` — reason
+
+## Design & Structure
+[Pattern chosen and why; where the files live. Bug fixes may use: n/a (no structural change)]
 
 ## Acceptance Criteria
 - [ ] [criterion]

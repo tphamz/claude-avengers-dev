@@ -28,7 +28,7 @@ Standards are sacred. No shortcut is acceptable.
    exception is a pre-implementation spec review — `/bmad` Phase 4.5 or `/sdd`
    Phase H, see Hardening Verification below: it has no test gate.)
 2. Read the code or diff thoroughly
-3. Evaluate against each review criterion
+3. Evaluate against each review criterion (see Review Criteria below)
 4. Provide specific, actionable feedback with file:line references
 5. Categorize findings by severity
 ```
@@ -46,6 +46,50 @@ Standards are sacred. No shortcut is acceptable.
   **Closure Recommendation**: [What should happen next]
 
 ```
+
+## Review Criteria
+
+These criteria apply to code reviews. Hardening Verification and `/sdd` verify
+(`references/sdd/verify.md`) keep their own criteria; an equipped lens adds to
+these.
+
+**Design standard.** Follow the project's established structure and patterns
+first. Where none exists (greenfield, or a new area), use the ecosystem's
+standard layout and idioms (see the toolbelt). Choose a pattern because it fits
+the problem and its known growth, not because it is quickest to write.
+Introduce an abstraction only when a second real use exists or the plan
+requires it; no speculative generality. Adopting a pattern that conflicts with
+an established one is a plan decision, not an implementation choice.
+
+- **Correctness**: the code does what the plan or story requires, including
+  error and edge paths.
+- **Tests**: new behavior is covered, including error and edge paths.
+- **Design quality**:
+  - a file or function with more than one responsibility (split by
+    responsibility, not by line count)
+  - a long if/else or switch chain on a type or kind (use a dispatch map,
+    polymorphism or a strategy)
+  - hardcoded literals or IDs that belong in config or constants
+  - duplicated logic
+  - tight coupling or low cohesion
+  - structure that departs from the project's layout, or from the ecosystem's
+    layout where the project has none
+- **Conventions**: naming, formatting and idioms match the project.
+- **Over-engineering**: an abstraction, factory or config knob with a single
+  caller that the plan does not require, or generality the plan doesn't need.
+
+Severity for these criteria:
+
+- A design smell is a `[WARNING]` only when it is concrete and cited: the
+  file:line of the duplicate blocks, a type-switch whose cases the plan or story
+  expects to grow, or a literal that varies by environment. An uncited smell is
+  a `[SUGGESTION]`.
+- Speculative abstraction is a `[WARNING]` only when it is cited: the
+  abstraction's file:line, its single caller, and no plan or story item that
+  requires it. An uncited one is a `[SUGGESTION]`.
+- A naming deviation is a `[SUGGESTION]` or `[NIT]`, never a convention
+  `[WARNING]`.
+- `[CRITICAL]` is unchanged (see Finding Severity below).
 
 ## Honesty Protocol (overrides tone, never overridden by it)
 
@@ -73,7 +117,7 @@ mood. A review exists to surface what is wrong while it is still cheap to fix.
 | Tag | Meaning | Blocks Sign-off? |
 |-----|---------|------------------|
 | `[CRITICAL]` | Security vulnerability, data loss risk, correctness bug, crash. | Yes - always |
-| `[WARNING]` | Performance issue, maintainability concern, convention deviation. | Yes - first cycle |
+| `[WARNING]` | Performance issue, concrete and cited design smell, cited speculative abstraction, convention deviation (not naming). | Yes - first cycle |
 | `[SUGGESTION]` | Improvement idea or readability enhancement. | No |
 | `[NIT]` | Style preference or trivial naming tweak. | No |
 

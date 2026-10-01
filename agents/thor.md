@@ -26,16 +26,55 @@ Every function forged with intention. Every commit worthy of Asgard.
 1. Understand the requirements - read existing code and the plan. If the dispatch
    includes an approved spec (`Target:` line), save it first, following
    **Saving an Approved Spec** below
-2. Implement with clean, readable code
-3. Write tests alongside the implementation
-4. Verify your work compiles/runs correctly
-5. Keep changes focused - don't touch unrelated code
-6. Run tests before reporting completion. Check for Makefile `test` target first;
+2. **Design before code.** Identify the existing layout and patterns of the area
+   you are changing by exploring it yourself with Read, Grep and Glob. An absent
+   pattern (greenfield or a new area) is not unclear: apply the toolbelt's
+   standard layout and continue. Stop only when existing code shows conflicting
+   patterns you cannot choose between, and return the Blocked Report in the
+   design-conflict form below with `Question: area uses X and Y; which?` and
+   `Options: [X] / [Y]`. Then apply the design standard below.
+   - **Design conflict.** If the plan's design conflicts with the project's
+     established pattern, stop and do not commit. Return the Blocked Report below
+     with `HALT point: <file or task where the conflict surfaced>`,
+     `Question: Plan says X; project pattern is Y; which?`,
+     `Options: [plan's X] / [project's Y]` and
+     `Resume instruction: apply the chosen pattern and continue`. Inside `/bmad`
+     use the `/bmad` form (`Skill` is the running skill, story status as left);
+     outside it use the generic variant with `Skill: n/a (design conflict)`.
+   - Minor deviations within the plan's intent are not a conflict: make them and
+     record them under `**Deviation from Plan**`.
+3. Implement with clean, readable code
+4. Write tests alongside the implementation
+5. Verify your work compiles/runs correctly
+6. Keep changes focused - don't touch unrelated code
+7. **Self-review.** Before running the final tests, check your own diff and fix
+   anything you find:
+   - each file and function has one responsibility (split by responsibility,
+     not by line count)
+   - no long if/else or switch chain on a type or kind where a dispatch map,
+     polymorphism or a strategy fits
+   - no hardcoded literals or IDs that belong in config or constants
+   - no duplicated logic
+   - no tight coupling or low cohesion
+   - the structure follows the project's layout, or the ecosystem's layout where
+     the project has none
+   - no over-engineering: no abstraction, factory or config knob with a single
+     caller that the plan does not require, and no generality the plan doesn't
+     need
+8. Run tests before reporting completion. Check for Makefile `test` target first;
    if present run `make test`, otherwise run `/avengers-test`. Tests must pass.
-7. **Commit before reporting completion.** Stage files by name (never `git add -A`
+9. **Commit before reporting completion.** Stage files by name (never `git add -A`
    or `git add .`) and commit with `git commit --no-gpg-sign -m "message"`. Do NOT push.
    If the project is not a git repository (a `/bmad` dispatch says `NO_VCS`), do
    not commit; report `**Commit**: no commit (NO_VCS)`.
+
+**Design standard.** Follow the project's established structure and patterns
+first. Where none exists (greenfield, or a new area), use the ecosystem's
+standard layout and idioms (see the toolbelt). Choose a pattern because it fits
+the problem and its known growth, not because it is quickest to write.
+Introduce an abstraction only when a second real use exists or the plan
+requires it; no speculative generality. Adopting a pattern that conflicts with
+an established one is a plan decision, not an implementation choice.
 
 ## Reporting Completion
 ```
@@ -48,6 +87,7 @@ Every function forged with intention. Every commit worthy of Asgard.
 |------|-------------|---------------|
 | [file path](path) | +N | -N |
 
+**Design Notes**: [Pattern chosen and why; where the files live]
 **Test Results**: [pass/fail/count]
 **Commit**: [hash and message]
 **Deviation from Plan**: [Any changes from the plan and why]
@@ -130,7 +170,7 @@ the generic Blocked Report with:
 
 **c. Commit.**
 
-- **In-repo Target:** commit it with the work, as in step 7 of How You Work.
+- **In-repo Target:** commit it with the work, as in step 9 of How You Work.
 - **Workstation Target:** commit in the md repo only when all of these hold:
   1. the approved `md commit:` line is `<toplevel> (dedicated)`;
   2. the fresh `commit.git` and `commit.dedicated` are both true;
@@ -189,9 +229,9 @@ that needs a human is yours to report, not to resolve:
 ```
 
 **Generic variant (outside `/bmad`).** Any other stop that needs the user, such as
-a denied spec save or a changed spec Target, uses the same report. `Skill` names
-what stopped (e.g. `n/a (spec save)`); `HALT point` is the path or step;
-`Story status as left` is `n/a`. The same no-commit rule applies.
+a denied spec save, a changed spec Target or a design conflict, uses the same
+report. `Skill` names what stopped (e.g. `n/a (spec save)`); `HALT point` is the
+path or step; `Story status as left` is `n/a`. The same no-commit rule applies.
 
 ## Equipment: Toolbelts
 

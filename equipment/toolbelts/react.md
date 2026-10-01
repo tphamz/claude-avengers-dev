@@ -5,6 +5,16 @@
 Use when implementing or modifying React components, hooks, state management,
 or frontend features in a React/Next.js project.
 
+## Folder Structure
+
+When the project has no established layout:
+
+- `src/features/<feature>/`: components, hooks, API calls and tests for one feature
+- `src/components/`: shared components used by more than one feature
+- `src/hooks/`: shared hooks used by more than one feature
+- `src/app/` (or `app/` when the project does not use `src/`): Next.js only;
+  routes and layouts, which import domain code from `src/features/`
+
 ## Conventions
 
 - **Functional components only** - no class components
@@ -37,3 +47,4 @@ or frontend features in a React/Next.js project.
 - Object/array literals in JSX props (new reference every render)
 - Index as key for lists that can reorder, insert, or delete
 - useEffect for data that can be computed during render
+- Long `if`/`switch` chains on a type or kind to choose what to render - use a lookup map from kind to component

@@ -299,6 +299,10 @@ JSON (`change_dir_real`).
 - [Step 1]
 - [Step 2]
 
+## Design & Structure
+
+[Pattern chosen and why, where the files live (project layout, or the ecosystem standard on greenfield), and how the known next change fits; n/a for bug fixes with no structural change]
+
 ## Scope
 
 **Files to Create/Modify/Delete** with rationale

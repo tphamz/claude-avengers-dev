@@ -5,6 +5,18 @@
 Use when implementing or modifying NestJS modules, controllers, providers,
 guards, interceptors, or backend features in a NestJS (TypeScript/Node) project.
 
+## Folder Structure
+
+When the project has no established layout (this matches the output of
+`nest g resource`):
+
+- `src/<feature>/`: one feature module per domain
+- `src/<feature>/<feature>.module.ts`: the module that wires the feature's providers
+- `src/<feature>/<feature>.controller.ts`: HTTP concerns only
+- `src/<feature>/<feature>.service.ts`: the feature's business logic
+- `src/<feature>/dto/`: request and response DTOs
+- `src/<feature>/entities/`: persistence entities
+
 ## Conventions
 
 - **Modular architecture** - one feature module per domain; import modules, don't reach across them
@@ -38,4 +50,5 @@ guards, interceptors, or backend features in a NestJS (TypeScript/Node) project.
 - Reading `process.env` directly instead of the config service
 - Fat `useFactory` providers - keep DI wiring thin
 - Skipping DTO validation on "internal" endpoints
+- Long `if`/`switch` chains on a type or kind in a service - inject one strategy provider per kind and resolve it from a map
 - Deep pure-TypeScript typing or DB-query tuning - defer those to a specialist pass
