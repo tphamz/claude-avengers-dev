@@ -47,7 +47,7 @@ Record every BMAD review range from `git rev-parse HEAD` in the main loop instea
 - create-story is artifact-only (story file and sprint-status.yaml; on_complete empty by default), so it fits A2 once the carve-out wording is extended beyond "while a wrapped skill runs".
 - The explicit story key must be the full sprint-status key, or create-story step 6 misses the entry and dev-story step 4 never writes baseline_commit.
 - A debug session in the plugin repo stops at BMAD_MISSING, so a scratch project is required to validate Phase 7/8. CLEAN is a pre-PR gate here, which departs from development-standards "before committing".
-- Out of scope: the relay never sets epic-N done.
+- Out of scope here: setting epic-N done. Handled by the follow-up PR stacked on this one (commit "fix(bmad): main loop sets epic-N done at epic completion"): the main loop sets epic-N done at Phase 8 step 8, plus a pre-Phase-9 sweep.
 
 ## Status
 - [x] Spec approved by user

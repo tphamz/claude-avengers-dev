@@ -224,7 +224,11 @@ ranges and `review_cycles` 0; otherwise ask the user. In order:
    re-runs); `captain` → step 4; `verify` → step 5
    with the stored `captain_findings`. Never re-run code review past `pending`,
    never set a `closed` story back to `in-progress`, and carry `review_cycles`
-   over unchanged. Then run any retrospective still owed.
+   over unchanged. Then run the epic sweep (set `epic-N: done` as in Phase 8
+   step 8, with `last_updated`, preserving comments and structure, for every
+   complete epic per step 8 (at least one story key, all `done`) whose `epic-N`
+   entry is not `done`) and tell the user which epics it set to `done` (none →
+   say nothing), then any retrospective still owed.
 
 On a new sequence: create the state file with `current_phase: 0`, `track`,
 `status: active`, `design_implementation_boundary_passed: false`,
@@ -446,15 +450,25 @@ Phase-by-phase (standard and full tracks; quick track is Step 6):
        name without `.md`, e.g. `1-2-user-auth`) and `last_updated` to today,
        preserving all comments and structure. This is a BMAD artifact write, allowed under the
        wrapped-skill exception. Then set `phase8_step: closed` and save.
-    8. **Retrospective (main loop, at epic completion).** Epic N is complete when
-       every story key for epic N (keys starting `N-`, excluding `epic-N` and
-       `epic-N-retrospective`) is `done` in `sprint-status.yaml`. Only then run
-       `Skill(bmad-retrospective)` with epic N passed explicitly. It writes
-       `{implementation_artifacts}/epic-{N}-retro-{date}.md` and updates
+    8. **Epic done + retrospective (main loop, at epic completion).** Epic N is
+       complete when every story key for epic N (keys starting `N-`, excluding
+       `epic-N` and `epic-N-retrospective`; at least one) is `done` in
+       `sprint-status.yaml`. First set `development_status["epic-N"]: done` and
+       `last_updated` to today, preserving all comments and structure (skip if
+       already `done`). The `bmad-sprint-planning` sprint-status header marks
+       `in-progress → done` as manual and no `bmad-*` skill writes it, so the
+       main loop owns it (relay-config `§3.10`). The relay never downgrades
+       `epic-N`; only the user reopens it (Phase 7's `done` → stop and ask).
+       Only then run `Skill(bmad-retrospective)` with epic N passed explicitly.
+       It writes `{implementation_artifacts}/epic-{N}-retro-{date}.md` and updates
        `sprint-status.yaml`. Relay its output; no Captain verification.
 
     Phase 8 does **not** set `complete`; once every epic is closed out and its
-    retrospective has run, it advances to Phase 9.
+    retrospective has run, it runs the epic sweep (set `epic-N: done` as in
+    step 8, with `last_updated`, preserving comments and structure, for every
+    complete epic per step 8 (at least one story key, all `done`) whose `epic-N`
+    entry is not `done`), tells the user which epics the sweep set to `done`
+    (none → says nothing), then advances to Phase 9.
 13. **Phase 9 — KB Refresh.** Step 5.
 
 Update `current_phase` in the state file at each advance.
