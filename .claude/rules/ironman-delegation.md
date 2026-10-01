@@ -60,6 +60,11 @@ The main-loop write list is canonical in `references/bmad/relay-config.md` §3.1
 | Review implementation plans | `Agent(avengers-dev:hulk)` |
 | Run BMAD methodology sequence | `/bmad` skill in the main loop (Vision voice; owners verify) |
 | Handle agent failure | retry <=2x with amended instructions, then escalate |
+| Agent returns a question (Blocked report, or Stuck report with a question) | answer it, dispatch BlackWidow, or ask the user; re-dispatch with answer + Work state + Resume instruction |
+
+Agents cannot message each other mid-run, so a returned question is the only
+escalation path. A Stuck report without a question is a failure and uses the
+"Handle agent failure" row.
 
 ## Conflict Resolution Authority
 
