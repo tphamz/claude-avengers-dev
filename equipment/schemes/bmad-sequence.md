@@ -118,7 +118,7 @@ re-enters every other story at its recorded step. See relay-config `§3.2` and
 - [ ] All stories built (Thor) and reviewed (Captain)
 - [ ] Captain verdict per story: PASS, or a CONDITIONAL PASS the user accepted at the 3-cycle limit
 - [ ] Every story closed out: `done` in its story file and in `sprint-status.yaml`
-- [ ] Each completed epic set to done in sprint-status.yaml
+- [ ] Each complete epic (at least one story key) set to done in sprint-status.yaml
 - [ ] Retrospective run for each epic whose story keys are all `done`
 - [ ] Phase 9 KB refresh evaluated (refreshed and stamped, or not needed)
 - [ ] State file transitioned to `complete`

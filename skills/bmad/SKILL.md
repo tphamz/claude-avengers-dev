@@ -227,7 +227,8 @@ ranges and `review_cycles` 0; otherwise ask the user. In order:
    over unchanged. Then run the epic sweep (set `epic-N: done` as in Phase 8
    step 8, with `last_updated`, preserving comments and structure, for every
    complete epic per step 8 (at least one story key, all `done`) whose `epic-N`
-   entry is not `done`), then any retrospective still owed.
+   entry is not `done`) and tell the user which epics it set to `done` (none →
+   say nothing), then any retrospective still owed.
 
 On a new sequence: create the state file with `current_phase: 0`, `track`,
 `status: active`, `design_implementation_boundary_passed: false`,

@@ -48,7 +48,8 @@ step 3 if unchecked `[Review][Patch]` or `[Gate]` items remain, else step 4;
 `captain` → step 4; `verify` → step 5 with the stored `captain_findings`. Code
 review never re-runs past `pending`, a `closed` story is never set back to
 `in-progress`, and `review_cycles` carries over unchanged. After the loop, run
-the epic sweep, then any retrospective still owed (both step 8).
+the epic sweep and tell the user which epics it set to `done` (none → say
+nothing), then any retrospective still owed (both step 8).
 **Resume fallback:** if `loop_state.stories` has no
 `phase7_end_sha` for a story (including a story marker inference set to
 `recorded`), its `baseline_commit` comes from `loop_state`,
