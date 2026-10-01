@@ -5,6 +5,14 @@
 Use when implementing Python code - scripts, libraries, APIs, CLI tools, or
 data processing pipelines.
 
+## Folder Structure
+
+When the project has no established layout (libraries and packages; Django and
+FastAPI apps follow their framework's layout):
+
+- `src/<pkg>/`: the importable package, one module per responsibility
+- `tests/`: tests mirroring the `src/<pkg>/` module layout
+
 ## Conventions
 
 - **PEP 8**: 4-space indent, snake_case for functions/vars, PascalCase for classes
@@ -39,3 +47,4 @@ data processing pipelines.
 - Star imports (`from module import *`)
 - Global mutable state
 - `os.system()` or `subprocess.call(shell=True)`
+- Long `if`/`elif` or `match` chains on a type or kind - use a dict dispatch table, `functools.singledispatch` or polymorphism

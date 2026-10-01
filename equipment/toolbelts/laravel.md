@@ -5,6 +5,18 @@
 Use when implementing or modifying Laravel models, controllers, migrations,
 jobs, or backend/API features in a Laravel (PHP 8.2+) project.
 
+## Folder Structure
+
+When the project has no established layout:
+
+- `app/Http/Controllers/`: thin HTTP handlers
+- `app/Http/Requests/`: Form Request validation
+- `app/Http/Resources/`: API Resources for responses
+- `app/Models/`: Eloquent models
+- `app/Policies/`: authorization rules per model
+- `app/Jobs/`: queued work
+- `app/Services/` or `app/Actions/`: business logic; pick one per project and use it throughout
+
 ## Conventions
 
 - **Thin controllers, fat services/actions** - keep HTTP handlers small
@@ -40,3 +52,4 @@ jobs, or backend/API features in a Laravel (PHP 8.2+) project.
 - Raw SQL string interpolation - use the query builder and bindings
 - Disabling mass-assignment guards (`$guarded = []`)
 - Migrations that mix schema changes with data manipulation
+- Long `if`/`switch`/`match` chains on a type or kind - use polymorphism (one class per kind behind an interface) or a strategy resolved from the container

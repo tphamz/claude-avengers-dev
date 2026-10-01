@@ -1,8 +1,9 @@
 """Doc-consistency checks across the plugin's markdown and metadata (stdlib unittest).
 
 Several facts are written down in more than one place: the /bmad and /sdd phase
-maps, the equipment names, the skill list, the relay-config section numbers and the
-plugin version. These tests keep the copies in agreement.
+maps, the equipment names, the skill list, the relay-config section numbers, the
+plugin version and the agents' shared design standard. These tests keep the copies
+in agreement.
 
 Every checker is a pure function over text: it takes the file contents plus a path
 label and returns a list of problems, each "path:line: what is wrong, what was
@@ -501,6 +502,41 @@ def check_versions(versions: dict[str, str | None]) -> list[str]:
     return ["versions disagree: " + ", ".join(f"{k}={v!r}" for k, v in versions.items())]
 
 
+# -- shared paragraphs ----------------------------------------------------------------------------
+
+
+def lead_paragraph(text: str, label: str, lead: str) -> tuple[str | None, int, list[str]]:
+    """The one paragraph whose first line starts with `lead`, up to the next blank line.
+
+    Returns (paragraph, 1-based line of its first line, problems)."""
+    lines = text.split("\n")
+    starts = [i for i, line in enumerate(lines) if line.startswith(lead)]
+    if len(starts) != 1:
+        return None, 1, [f"{label}:1: {len(starts)} paragraphs start with {lead!r}; "
+                         f"expected exactly one"]
+    end = starts[0]
+    while end < len(lines) and lines[end].strip():
+        end += 1
+    return "\n".join(lines[starts[0]:end]), starts[0] + 1, []
+
+
+def check_shared_paragraph(texts: dict[str, str], lead: str) -> list[str]:
+    """Every file carries exactly one paragraph starting with `lead`, byte-identical."""
+    problems: list[str] = []
+    reference: tuple[str, str] | None = None
+    for label, text in texts.items():
+        para, lineno, errs = lead_paragraph(text, label, lead)
+        problems += errs
+        if para is None:
+            continue
+        if reference is None:
+            reference = (label, para)
+        elif para != reference[1]:
+            problems.append(f"{label}:{lineno}: the {lead} paragraph differs from "
+                            f"{reference[0]}; expected byte-identical copies")
+    return problems
+
+
 # -- real-file tests ----------------------------------------------------------------------------
 
 
@@ -530,6 +566,8 @@ BMAD_TABLES = ["skills/bmad/SKILL.md", "references/bmad/relay-config.md", "agent
 SDD_TABLES = ["skills/sdd/SKILL.md", "references/sdd/relay-config.md", "agents/vision.md",
               "equipment/schemes/sdd-sequence.md"]
 LIST_COPIES = ["CLAUDE.md", "personas/ironman.md"]
+DESIGN_STANDARD_COPIES = ["agents/captain.md", "agents/hulk.md", "agents/thor.md"]
+DESIGN_STANDARD_LEAD = "**Design standard.**"
 
 
 class DocConsistencyCase(unittest.TestCase):
@@ -663,6 +701,13 @@ class MetadataTests(DocConsistencyCase):
             versions[rel], errs = parse(read(rel), rel)
             problems += errs
         self.assertNoProblems(problems + check_versions(versions))
+
+
+class SharedRuleTests(DocConsistencyCase):
+    def test_design_standard_is_identical(self) -> None:
+        """Captain, Hulk and Thor carry one byte-identical design standard paragraph."""
+        texts = {rel: read(rel) for rel in DESIGN_STANDARD_COPIES}
+        self.assertNoProblems(check_shared_paragraph(texts, DESIGN_STANDARD_LEAD))
 
 
 # -- mutation tests: every check reports injected drift ------------------------------------------
@@ -830,6 +875,23 @@ class MutationTests(unittest.TestCase):
         self.assertIn("i.py='1.3.0'", problems[0])
         _, errs = marketplace_version('{"plugins": [{"name": "other", "version": "1"}]}', "m")
         self.assertEqual(len(errs), 1)
+
+    def test_shared_paragraph_drift(self) -> None:
+        lead = "**Rule.**"
+        clean = "# A\n\n**Rule.** Do one thing\nwell.\n\n## Next\n"
+        self.assertEqual(check_shared_paragraph({"a.md": clean, "b.md": clean}, lead), [])
+        drifted = "# B\n\nintro\n\n**Rule.** Do one thing\nbadly.\n"
+        problems = check_shared_paragraph({"a.md": clean, "b.md": drifted}, lead)
+        self.assertEqual(len(problems), 1, problems)
+        self.assertTrue(problems[0].startswith("b.md:5: the **Rule.** paragraph differs "
+                                               "from a.md"), problems)
+        rewrapped = clean.replace("thing\nwell.", "thing well.")
+        self.assertEqual(len(check_shared_paragraph({"a.md": clean, "c.md": rewrapped},
+                                                    lead)), 1)
+        problems = check_shared_paragraph({"a.md": clean, "d.md": "# D\n"}, lead)
+        self.assertTrue(problems and problems[0].startswith("d.md:1: 0 paragraphs"), problems)
+        problems = check_shared_paragraph({"a.md": clean + "\n" + clean}, lead)
+        self.assertTrue(problems and "2 paragraphs" in problems[0], problems)
 
 
 if __name__ == "__main__":
