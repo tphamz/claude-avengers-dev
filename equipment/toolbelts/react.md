@@ -47,4 +47,5 @@ When the project has no established layout:
 - Object/array literals in JSX props (new reference every render)
 - Index as key for lists that can reorder, insert, or delete
 - useEffect for data that can be computed during render
-- Long `if`/`switch` chains on a type or kind to choose what to render - use a lookup map from kind to component
+- The same type or kind discriminated in more than one place - register each variant once in the shared kind-to-component map
+- Long `if`/`switch` chains on a type or kind to choose what to render - use a lookup map from kind to component (one `switch` over a fixed, closed external enum is not this smell)
