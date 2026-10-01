@@ -47,4 +47,5 @@ FastAPI apps follow their framework's layout):
 - Star imports (`from module import *`)
 - Global mutable state
 - `os.system()` or `subprocess.call(shell=True)`
-- Long `if`/`elif` or `match` chains on a type or kind - use a dict dispatch table, `functools.singledispatch` or polymorphism
+- The same type or kind discriminated in more than one place - register each variant once in a shared dispatch table or base class
+- Long `if`/`elif` or `match` chains on a type or kind - use a dict dispatch table, `functools.singledispatch` or polymorphism (one `match` over a fixed, closed external enum is not this smell)

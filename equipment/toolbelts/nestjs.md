@@ -50,5 +50,6 @@ When the project has no established layout (this matches the output of
 - Reading `process.env` directly instead of the config service
 - Fat `useFactory` providers - keep DI wiring thin
 - Skipping DTO validation on "internal" endpoints
-- Long `if`/`switch` chains on a type or kind in a service - inject one strategy provider per kind and resolve it from a map
+- The same type or kind discriminated in more than one place - register each variant once in the shared strategy map
+- Long `if`/`switch` chains on a type or kind in a service - inject one strategy provider per kind and resolve it from a map (one `switch` over a fixed, closed external enum is not this smell)
 - Deep pure-TypeScript typing or DB-query tuning - defer those to a specialist pass

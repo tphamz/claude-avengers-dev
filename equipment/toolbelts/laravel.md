@@ -52,4 +52,5 @@ When the project has no established layout:
 - Raw SQL string interpolation - use the query builder and bindings
 - Disabling mass-assignment guards (`$guarded = []`)
 - Migrations that mix schema changes with data manipulation
-- Long `if`/`switch`/`match` chains on a type or kind - use polymorphism (one class per kind behind an interface) or a strategy resolved from the container
+- The same type or kind discriminated in more than one place - register each variant once behind the shared interface or container binding
+- Long `if`/`switch`/`match` chains on a type or kind - use polymorphism (one class per kind behind an interface) or a strategy resolved from the container (one `match` over a fixed, closed external enum is not this smell)

@@ -51,8 +51,13 @@ Every function forged with intention. Every commit worthy of Asgard.
    anything you find:
    - each file and function has one responsibility (split by responsibility,
      not by line count)
+   - no type, kind or mode discriminator branched on in more than one place,
+     where a new variant would mean editing several parallel if/else or switch
+     ladders - put the dispatch on the base class, registry or dispatcher the
+     project already uses for that family
    - no long if/else or switch chain on a type or kind where a dispatch map,
-     polymorphism or a strategy fits
+     polymorphism or a strategy fits (a single switch over a fixed, closed
+     external enum — field-type marshalling, say — is not this smell)
    - no hardcoded literals or IDs that belong in config or constants
    - no duplicated logic
    - no tight coupling or low cohesion
