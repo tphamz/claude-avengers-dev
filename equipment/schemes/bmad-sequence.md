@@ -95,10 +95,14 @@ PASS or exits; a FAIL cannot be accepted) → close-out (main loop): story
 complete when every story key for epic N (at least one) is `done` in
 `sprint-status.yaml`; the
 main loop then sets `epic-N: done` (upstream leaves it manual; the relay never
-downgrades it), and only then does `bmad-retrospective` run, with epic N passed
-explicitly. Before Phase 9 (and on resume, after the story loop and before any
-owed retrospective), a sweep sets `epic-N: done` for every complete epic (as
-defined above) whose `epic-N` entry is not `done`. Per-story SHAs
+downgrades it), and only then, if the retrospective is owed, is the user
+offered "[1] Run retrospective for epic N / [2] Skip" ([1] runs
+`bmad-retrospective` with epic N passed explicitly; [2] records `"N"` in
+`loop_state.retros_declined`). After the story loop and before Phase 9 (fresh
+entry or resume), the epic close-out sweep first sets `epic-N: done` for every
+complete epic (as defined above) whose `epic-N` entry is not `done`, then
+offers each owed retrospective ("in this sequence" and "owed" per relay-config
+`§3.13` step 8). Per-story SHAs
 and ranges (recorded by the main loop from `git rev-parse HEAD`, never from
 Thor's report), `phase8_start_sha` and the cycle count live in the state file's
 `loop_state` (relay-config `§2.9`, `§2.10`). See `references/bmad/phase-8-review.md`.
@@ -107,7 +111,8 @@ Thor's report), `phase8_start_sha` and the cycle count live in the state file's
 
 Resume uses per-story markers, `phase7_step` and `phase8_step`, not
 `loop_state.completed` (stories with no marker get one from marker inference
-first). Phase 7 skips `recorded`; Phase 8 skips `closed` and
+first; `completed` is also read by the `§3.13` step 8 scope check, never for
+resume decisions). Phase 7 skips `recorded`; Phase 8 skips `closed` and
 re-enters every other story at its recorded step. See relay-config `§3.2` and
 `§3.13`.
 
@@ -119,6 +124,6 @@ re-enters every other story at its recorded step. See relay-config `§3.2` and
 - [ ] Captain verdict per story: PASS, or a CONDITIONAL PASS the user accepted at the 3-cycle limit
 - [ ] Every story closed out: `done` in its story file and in `sprint-status.yaml`
 - [ ] Each complete epic (at least one story key) set to done in sprint-status.yaml
-- [ ] Retrospective run for each epic whose story keys are all `done`
+- [ ] Retrospective run or declined for each complete epic in this sequence
 - [ ] Phase 9 KB refresh evaluated (refreshed and stamped, or not needed)
 - [ ] State file transitioned to `complete`
