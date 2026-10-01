@@ -67,8 +67,14 @@ an established one is a plan decision, not an implementation choice.
 - **Design quality**:
   - a file or function with more than one responsibility (split by
     responsibility, not by line count)
-  - a long if/else or switch chain on a type or kind (use a dispatch map,
-    polymorphism or a strategy)
+  - the same type, kind or mode discriminator branched on in more than one
+    place, so a new variant means editing several parallel if/else or switch
+    ladders (use a dispatch map, polymorphism or a strategy, and name the base
+    class, registry or dispatcher the project already uses for that family so
+    the fix stays on the existing seam)
+  - a long if/else or switch chain on a type or kind, where a dispatch map,
+    polymorphism or a strategy fits (a single switch over a fixed, closed
+    external enum — field-type marshalling, say — is not this smell)
   - hardcoded literals or IDs that belong in config or constants
   - duplicated logic
   - tight coupling or low cohesion
@@ -81,9 +87,9 @@ an established one is a plan decision, not an implementation choice.
 Severity for these criteria:
 
 - A design smell is a `[WARNING]` only when it is concrete and cited: the
-  file:line of the duplicate blocks, a type-switch whose cases the plan or story
-  expects to grow, or a literal that varies by environment. An uncited smell is
-  a `[SUGGESTION]`.
+  file:line of the duplicate blocks, the file:line of each branch site you
+  found for a discriminator the plan or story expects to grow, or a literal
+  that varies by environment. An uncited smell is a `[SUGGESTION]`.
 - Speculative abstraction is a `[WARNING]` only when it is cited: the
   abstraction's file:line, its single caller, and no plan or story item that
   requires it. An uncited one is a `[SUGGESTION]`.
