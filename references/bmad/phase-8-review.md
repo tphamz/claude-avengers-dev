@@ -212,8 +212,8 @@ Paths resolve from `_bmad/bmm/config.yaml` (relay-config `§2.8`):
 When every story is `closed`, run the epic close-out sweep (step 8): the epic
 sweep so every complete epic is `done` (tell the user which epics it set to
 `done`; none → say nothing), then the retrospective offer for each owed epic.
-Once every complete epic in this sequence has had its retrospective run or
-declined (relay-config `§3.13` step 8), announce sprint completion and advance
+The sweep repeats the offer for any epic still owed ([2] skips it). Once no
+retrospective is owed (relay-config `§3.13` step 8), announce sprint completion and advance
 to **Phase 9**.
 Phase 8 no longer sets `complete`; Phase 9 does.
 

@@ -341,8 +341,9 @@ State files with a `track` key follow the normal flow, including Phase 9.
 
 On a resume into Phase 7 or 8, in this order. Resume decisions come from the
 per-story markers `phase7_step` and `phase8_step`, never from
-`loop_state.completed` or a `development_status` value alone (every story is in
-`completed` once Phase 7 ends). Those two are read by marker inference
+`loop_state.completed` or a `development_status` value alone (`completed` lists
+only the stories this sequence recorded in Phase 7; a story inferred `recorded`
+is skipped by the story loop and never added). Those two are read by marker inference
 (State Schema), which runs first, when the state file is read, and fills in the
 markers of stories that have none; `completed` is also read by the `§3.13`
 step 8 scope check. Neither drives a resume decision.
@@ -708,7 +709,7 @@ immediately, in the same write as the data that step produced.
     `review_cycles >= 1`. Marker inference never writes any of these fields,
     so stories built by an earlier sequence do not pull their epic in.
     **Legacy fallback:** if the state file has no `track`, or no
-    `loop_state.completed` entry matches a `development_status` key, every
+    `development_status` story key meets any of the three markers above, every
     complete epic is in this sequence.
   - **Owed.** A retrospective is owed for epic N when the epic is complete
     (as defined above), it is in this sequence, its `epic-N-retrospective`
@@ -723,7 +724,9 @@ immediately, in the same write as the data that step produced.
     auto-detection picks the highest epic with any `done` story) and relay its
     output. [2] → append `"N"` (a string) to `loop_state.retros_declined` and
     save the state file immediately. A [1] the user abandons leaves the entry
-    not `done` and no decline recorded, so the epic is offered again.
+    not `done` and no decline recorded, so the epic is still owed: the sweep
+    repeats the offer for it before advancing to Phase 9 ([2] skips it), and if
+    the session ends first, the next resume offers it again.
     `bmad-retrospective` has no skip of its own and writes `done` only after
     its doc is saved, which is why the decline is recorded here.
   - **Epic close-out sweep.** After the story loop, before advancing to Phase 9
@@ -732,11 +735,13 @@ immediately, in the same write as the data that step produced.
     structure) for every complete epic (as defined above, at least one story
     key) whose `epic-N` entry is not `done`, and tell the user which epics the
     sweep set to `done` (none → say nothing); (2) the retrospective offer for
-    each owed epic, in epic order. On a fresh entry this covers epics whose
+    each owed epic, in epic order, repeated until no retrospective is owed. On
+    a fresh entry this covers epics whose
     stories were already `done` (inferred `closed`), which step 8 never
     reached in the story loop.
-  - **Exit.** Phase 8 is finished when every story is `closed` and every
-    complete epic in this sequence has had its retrospective run or declined.
+  - **Exit.** Phase 8 is finished when every story is `closed` and no
+    retrospective is owed (as defined above): every owed epic's retrospective
+    has run or been declined.
 
 ## Execution Model — wrap, don't reimplement
 

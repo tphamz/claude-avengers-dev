@@ -297,9 +297,9 @@ and relays it; [2] records `"N"` in `loop_state.retros_declined`. The relay
 never downgrades `epic-N`; only the user reopens it. After the story loop
 (fresh entry or resume), run the epic close-out sweep: sweep every complete
 epic (at least one story key, all `done`) whose `epic-N` entry is not `done` to
-`done`, then offer each owed retrospective. Once every complete epic in this
-sequence has had its retrospective run or declined (relay-config `§3.13`
-step 8), advance to Phase 9 (KB Refresh), which sets `complete`. Full detail:
+`done`, then offer each owed retrospective, repeating the offer for any epic
+still owed. Once no retrospective is owed (relay-config `§3.13` step 8),
+advance to Phase 9 (KB Refresh), which sets `complete`. Full detail:
 `references/bmad/phase-8-review.md`.
 
 ## Reporting Format

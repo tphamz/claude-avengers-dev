@@ -16,12 +16,12 @@ Close the gap PRs #5 and #7 left in `/bmad` Phase 8: an epic whose stories were 
 - `CLAUDE.md` — Phase 8 one-liner
 
 ## Acceptance Criteria
-- [ ] relay-config `§3.13` step 8 is the single canonical definition of "in this sequence" (a story key in `loop_state.completed`, a non-null `baseline_commit` with `NO_VCS` counting, or `review_cycles >= 1`), the legacy fallback (no `track`, or no `completed` entry matching a `development_status` key → every complete epic in scope), "owed" (complete, in this sequence, `epic-N-retrospective` exists and is not `done`, `"N"` not in `retros_declined`; a missing retro key is not owed), the offer, the epic close-out sweep and the exit
-- [ ] The offer is "[1] Run retrospective for epic N / [2] Skip", names any existing `epic-N-retro-*.md`, passes N explicitly on [1], and on [2] appends `"N"` (a string) to `loop_state.retros_declined` and saves immediately; an abandoned [1] is offered again
+- [ ] relay-config `§3.13` step 8 is the single canonical definition of "in this sequence" (a story key in `loop_state.completed`, a non-null `baseline_commit` with `NO_VCS` counting, or `review_cycles >= 1`), the legacy fallback (no `track`, or no `development_status` story key meeting any of the three markers → every complete epic in scope), "owed" (complete, in this sequence, `epic-N-retrospective` exists and is not `done`, `"N"` not in `retros_declined`; a missing retro key is not owed), the offer, the epic close-out sweep and the exit
+- [ ] The offer is "[1] Run retrospective for epic N / [2] Skip", names any existing `epic-N-retro-*.md`, passes N explicitly on [1], and on [2] appends `"N"` (a string) to `loop_state.retros_declined` and saves immediately; an abandoned [1] leaves the epic owed, so the sweep repeats the offer before advancing to Phase 9 ([2] skips it) and, if the session ends first, the next resume offers it again
 - [ ] The epic close-out sweep runs after the story loop on fresh entry and resume, in order: epic `done` sweep (unchanged from PR #7), then the offer for each owed epic
-- [ ] Exit: every complete epic in this sequence has had its retrospective run or declined
+- [ ] Exit: no retrospective is owed (every owed epic's retrospective has run or been declined)
 - [ ] `loop_state` schema lists `retros_declined: list  # epic numbers (strings) the user skipped`
-- [ ] `completed` is described consistently: read by marker inference and the `§3.13` step 8 scope check, never for resume decisions (relay-config schema and `§3.2`, `bmad-sequence.md` Resume)
+- [ ] `completed` is described consistently: read by marker inference and the `§3.13` step 8 scope check, never for resume decisions, and listing only stories this sequence recorded in Phase 7, since a story inferred `recorded` is never added (relay-config schema and `§3.2`, `bmad-sequence.md` Resume, SKILL.md resume)
 - [ ] Every other file references "`§3.13` step 8" with no parenthetical directly after the citation
 - [ ] `python3 -m unittest discover -s tests` passes
 

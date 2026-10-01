@@ -179,8 +179,8 @@ and re-enter at `current_phase` (respecting `design_implementation_boundary_pass
 
 On re-entering Phase 7 or 8, follow
 relay-config `§3.2`. Resume decisions come from each story's `phase7_step` /
-`phase8_step` marker, never from `loop_state.completed` (every story is in it
-once Phase 7 ends). Marker inference (relay-config State Schema) runs first,
+`phase8_step` marker, never from `loop_state.completed` (it lists only the
+stories this sequence recorded in Phase 7). Marker inference (relay-config State Schema) runs first,
 when the state file is read, and fills in missing markers for every
 `development_status` key (epic keys `epic-N` and `epic-N-retrospective` are
 excluded): no `phase7_step` → `dispatched` if it has
@@ -474,9 +474,8 @@ Phase-by-phase (standard and full tracks; quick track is Step 6):
     structure, for every complete epic whose `epic-N` entry is not `done`),
     telling the user which epics the sweep set to `done` (none → says nothing),
     then the retrospective offer for each owed epic, including epics whose
-    stories were already `done` at Phase 8 entry. Once every complete epic in
-    this sequence has had its retrospective run or declined, it advances to
-    Phase 9.
+    stories were already `done` at Phase 8 entry, repeating the offer for any
+    epic still owed. Once no retrospective is owed, it advances to Phase 9.
 13. **Phase 9 — KB Refresh.** Step 5.
 
 Update `current_phase` in the state file at each advance.
