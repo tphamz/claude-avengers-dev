@@ -3,7 +3,8 @@
 Several facts are written down in more than one place: the /bmad and /sdd phase
 maps, the equipment names, the skill list, the relay-config section numbers, the
 plugin version and the agents' shared design standard. These tests keep the copies
-in agreement.
+in agreement, and keep the instruction docs free of mid-run agent messaging, a
+channel subagents do not have.
 
 Every checker is a pure function over text: it takes the file contents plus a path
 label and returns a list of problems, each "path:line: what is wrong, what was
@@ -537,6 +538,32 @@ def check_shared_paragraph(texts: dict[str, str], lead: str) -> list[str]:
     return problems
 
 
+# -- agent messaging ------------------------------------------------------------------------------
+
+# Subagents have no tool to message IronMan or each other mid-run; a question comes
+# back in a Blocked or Stuck report and IronMan re-dispatches. Any instruction to
+# message, ask, ping or contact a named agent describes a channel that does not exist.
+AGENT_MESSAGING = re.compile(
+    r"\b(message|messages|ask|asks|ping|contact)\s+"
+    r"(ironman|tony|blackwidow|black widow|thor|captain|hulk|vision)\b"
+    r"|communicate directly", re.IGNORECASE)
+MESSAGING_SCOPE_DIRS = ("agents/", "personas/", "equipment/", "skills/", "references/",
+                        ".claude/rules/")
+MESSAGING_SCOPE_FILES = ("CLAUDE.md", "README.md")
+
+
+def in_messaging_scope(rel: str) -> bool:
+    """Instruction docs only; specs/ and tests/ record the history and the check itself."""
+    return rel.startswith(MESSAGING_SCOPE_DIRS) or rel in MESSAGING_SCOPE_FILES
+
+
+def check_no_agent_messaging(text: str, label: str) -> list[str]:
+    """No instruction tells an agent to message another agent mid-run."""
+    return [f"{label}:{line_of(text, m.start())}: '{m.group(0)}' describes mid-run agent "
+            f"messaging; agents return a Blocked or Stuck report and IronMan re-dispatches"
+            for m in AGENT_MESSAGING.finditer(text)]
+
+
 # -- real-file tests ----------------------------------------------------------------------------
 
 
@@ -708,6 +735,16 @@ class SharedRuleTests(DocConsistencyCase):
         """Captain, Hulk and Thor carry one byte-identical design standard paragraph."""
         texts = {rel: read(rel) for rel in DESIGN_STANDARD_COPIES}
         self.assertNoProblems(check_shared_paragraph(texts, DESIGN_STANDARD_LEAD))
+
+    def test_no_mid_run_agent_messaging(self) -> None:
+        """No agent, persona, skill, equipment, reference or rule doc tells an agent to
+        message another agent mid-run."""
+        scanned = [rel for rel in tracked_markdown() if in_messaging_scope(rel)]
+        self.assertIn("agents/thor.md", scanned)
+        problems: list[str] = []
+        for rel in scanned:
+            problems += check_no_agent_messaging(read(rel), rel)
+        self.assertNoProblems(problems)
 
 
 # -- mutation tests: every check reports injected drift ------------------------------------------
@@ -892,6 +929,26 @@ class MutationTests(unittest.TestCase):
         self.assertTrue(problems and problems[0].startswith("d.md:1: 0 paragraphs"), problems)
         problems = check_shared_paragraph({"a.md": clean + "\n" + clean}, lead)
         self.assertTrue(problems and "2 paragraphs" in problems[0], problems)
+
+    def test_agent_messaging_drift(self) -> None:
+        clean = ("# Thor\n\nLook facts up yourself, then stop and return the Blocked "
+                 "Report.\nAsk the user only through IronMan's re-dispatch.\n")
+        self.assertEqual(check_no_agent_messaging(clean, "t.md"), [])
+        drifted = clean + "\n**Quick questions** -> Message Blackwidow directly\n"
+        problems = check_no_agent_messaging(drifted, "t.md")
+        self.assertEqual(len(problems), 1, problems)
+        self.assertTrue(problems[0].startswith("t.md:6: 'Message Blackwidow'"), problems)
+        for line in ("then ask\nIronMan", "ping Black Widow", "contact Hulk for a review",
+                     "Trust Thor and BlackWidow to communicate directly"):
+            with self.subTest(line=line):
+                self.assertEqual(len(check_no_agent_messaging(line, "t.md")), 1)
+
+    def test_messaging_scope(self) -> None:
+        self.assertTrue(in_messaging_scope("agents/thor.md"))
+        self.assertTrue(in_messaging_scope(".claude/rules/ironman-delegation.md"))
+        self.assertTrue(in_messaging_scope("README.md"))
+        self.assertFalse(in_messaging_scope("specs/stories/agent-escalation-path.md"))
+        self.assertFalse(in_messaging_scope("tests/README.md"))
 
 
 if __name__ == "__main__":
