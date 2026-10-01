@@ -48,8 +48,9 @@ step 3 if unchecked `[Review][Patch]` or `[Gate]` items remain, else step 4;
 `captain` → step 4; `verify` → step 5 with the stored `captain_findings`. Code
 review never re-runs past `pending`, a `closed` story is never set back to
 `in-progress`, and `review_cycles` carries over unchanged. After the loop, run
-the epic sweep and tell the user which epics it set to `done` (none → say
-nothing), then any retrospective still owed (both step 8).
+the epic close-out sweep (step 8): the epic sweep, telling the user which epics
+it set to `done` (none → say nothing), then the retrospective offer for each
+owed epic.
 **Resume fallback:** if `loop_state.stories` has no
 `phase7_end_sha` for a story (including a story marker inference set to
 `recorded`), its `baseline_commit` comes from `loop_state`,
@@ -152,7 +153,7 @@ user (`§2.9`). Per story:
    e.g. `1-2-user-auth`) and `last_updated` to today, preserving all comments and
    structure. This is a BMAD artifact write under the wrapped-skill exception.
    Then set `phase8_step: closed` and save. A `closed` story is never reopened.
-8. **Epic done + retrospective (main loop, at epic completion).** Epic N is
+8. **Epic done + retrospective offer (main loop, at epic completion).** Epic N is
    complete when every story key for epic N (keys starting `N-`, excluding
    `epic-N` and `epic-N-retrospective`; at least one) is `done` in
    `sprint-status.yaml`. Then the main loop first sets
@@ -161,13 +162,20 @@ user (`§2.9`). Per story:
    a human: the `bmad-sprint-planning` sprint-status header marks
    `in-progress → done` as manual, and no `bmad-*` skill writes it. The relay
    never downgrades `epic-N`; only the user reopens it (Phase 7's `done` → stop
-   and ask). Only then run `bmad-retrospective` with epic N passed explicitly
-   (its auto-detection picks the highest epic with any `done` story) and relay
-   its output. No Captain verification. **Epic sweep:** before advancing to
-   Phase 9 (fresh entry or resume), set `epic-N: done` the same way (with
-   `last_updated`, preserving comments and structure) for every epic complete
-   by the definition above (at least one story key, all `done`) whose `epic-N`
-   entry is not `done`; on resume the sweep runs before any owed retrospective.
+   and ask). Only then, if the retrospective is owed, make the retrospective
+   offer: "[1] Run retrospective for epic N / [2] Skip", naming any existing
+   `epic-N-retro-*.md`. [1] → `bmad-retrospective` with epic N passed
+   explicitly (its auto-detection picks the highest epic with any `done` story),
+   relaying its output; no Captain verification. [2] → append `"N"` to
+   `loop_state.retros_declined` and save immediately. "In this sequence",
+   "owed" and the offer are defined in relay-config `§3.13` step 8.
+   **Epic close-out sweep:** after the story loop and before advancing to
+   Phase 9 (fresh entry or resume), first run the epic sweep: set `epic-N: done`
+   the same way (with `last_updated`, preserving comments and structure) for
+   every epic complete by the definition above (at least one story key, all
+   `done`) whose `epic-N` entry is not `done`. Then make the retrospective offer
+   for each owed epic, including epics whose stories were already `done` at
+   Phase 8 entry (inferred `closed`, so step 8 never ran for them).
 
 **Why close-out exists:** code-review sets the story `in-progress` when patches are
 left as action items, and dev-story sets it to `review`. Neither sets `done` in
@@ -191,18 +199,21 @@ Paths resolve from `_bmad/bmm/config.yaml` (relay-config `§2.8`):
   (`in-progress`, `review`) and by the main loop (`in-progress` before each Thor
   fix and after a Blocked report, `done` at close-out); epic status (`done`) by
   the main loop at step 8 and in the epic sweep; epic retrospective status by
-  `bmad-retrospective`.
+  `bmad-retrospective` (a declined retrospective is recorded only in the relay
+  state file's `loop_state.retros_declined`).
   `bmad-code-review` does not sync it in this flow.
-- `{implementation_artifacts}/epic-{N}-retro-{date}.md` — by `bmad-retrospective`
+- `{implementation_artifacts}/epic-{N}-retro-{date}.md` — by `bmad-retrospective`,
+  when the user picks [1] at the retrospective offer
 - Traceability matrix and gate decision (full track) — by `bmad-testarch-trace`,
   at the path it resolves; the main loop records that path as the story's
   `trace_report` in `loop_state` and writes its untested ACs as `Cover AC <n>`
   bullets in the story's `### Review Findings` (step 1)
 
-When every epic is complete (step 8's definition: at least one story key, all
-`done` in `sprint-status.yaml`) and its retrospective has run, run the epic sweep
-(step 8) so every complete epic is `done`, tell the user which epics the sweep
-set to `done` (none → say nothing), then announce sprint completion and advance
+When every story is `closed`, run the epic close-out sweep (step 8): the epic
+sweep so every complete epic is `done` (tell the user which epics it set to
+`done`; none → say nothing), then the retrospective offer for each owed epic.
+The sweep repeats the offer for any epic still owed ([2] skips it). Once no
+retrospective is owed (relay-config `§3.13` step 8), announce sprint completion and advance
 to **Phase 9**.
 Phase 8 no longer sets `complete`; Phase 9 does.
 

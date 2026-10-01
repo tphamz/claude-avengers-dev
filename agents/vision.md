@@ -290,13 +290,16 @@ Close-out (main loop): set the story `Status: done` and its `sprint-status.yaml`
 entry to `done` with `last_updated`, preserving comments — code-review's own
 sprint-status sync does not run in this flow. When every story key for epic N (at
 least one) is `done` in `sprint-status.yaml`, first set `epic-N: done` (and `last_updated`) in
-the main loop — upstream marks that transition manual — then run
-`bmad-retrospective` in the main loop with epic N passed explicitly and relay it.
-The relay never downgrades `epic-N`; only the user reopens it. When every epic
-is closed out, sweep every complete epic (at least one story key, all `done`)
-whose `epic-N` entry is not `done` to `done` (on resume,
-before any owed retrospective), then advance to Phase 9 (KB Refresh), which sets
-`complete`. Full detail:
+the main loop — upstream marks that transition manual — then, if its
+retrospective is owed, offer "[1] Run retrospective for epic N / [2] Skip":
+[1] runs `bmad-retrospective` in the main loop with epic N passed explicitly
+and relays it; [2] records `"N"` in `loop_state.retros_declined`. The relay
+never downgrades `epic-N`; only the user reopens it. After the story loop
+(fresh entry or resume), run the epic close-out sweep: sweep every complete
+epic (at least one story key, all `done`) whose `epic-N` entry is not `done` to
+`done`, then offer each owed retrospective, repeating the offer for any epic
+still owed. Once no retrospective is owed (relay-config `§3.13` step 8),
+advance to Phase 9 (KB Refresh), which sets `complete`. Full detail:
 `references/bmad/phase-8-review.md`.
 
 ## Reporting Format

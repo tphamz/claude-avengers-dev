@@ -94,9 +94,11 @@ relay_modifiers:
 loop_state:                      # Phases 7 and 8
   total_items: int
   completed: list                # story keys whose Phase 7 step 5 finished (phase7_step: recorded);
-                                 # bookkeeping only, never a resume skip rule (§3.2)
+                                 # read by marker inference and the §3.13 step 8 scope check,
+                                 # never a resume skip rule (§3.2)
   in_progress: string | null     # story key of the dispatch that last started (§3.12 step 2)
   remaining: list
+  retros_declined: list          # epic numbers (strings) the user skipped (§3.13 step 8)
   phase8_start_sha: string       # HEAD at Phase 8 entry, written once (or NO_VCS)
   stories:                       # per story key (story file name without .md)
     <story_key>:
@@ -339,10 +341,12 @@ State files with a `track` key follow the normal flow, including Phase 9.
 
 On a resume into Phase 7 or 8, in this order. Resume decisions come from the
 per-story markers `phase7_step` and `phase8_step`, never from
-`loop_state.completed` or a `development_status` value alone (every story is in
-`completed` once Phase 7 ends). Those two are read only by marker inference
+`loop_state.completed` or a `development_status` value alone (`completed` lists
+only the stories this sequence recorded in Phase 7; a story inferred `recorded`
+is skipped by the story loop and never added). Those two are read by marker inference
 (State Schema), which runs first, when the state file is read, and fills in the
-markers of stories that have none.
+markers of stories that have none; `completed` is also read by the `§3.13`
+step 8 scope check. Neither drives a resume decision.
 
 1. **Suspended Blocked stories first.** If any `loop_state.stories` entry has a
    `blocked` entry, replay it to the user before any dispatch: the stored
@@ -403,10 +407,9 @@ markers of stories that have none.
        exactly as Phase 8 step 1 writes it (`§3.13`). The trace never re-runs.
      - `captain` → step 4, Captain.
      - `verify` → step 5, BlackWidow, with the stored `captain_findings`.
-     - After the loop, set `epic-N: done` for every complete epic (`§3.13`
-       step 8's definition: at least one story key, all `done`) whose `epic-N`
-       entry is not `done` (the epic sweep), then run any retrospective still
-       owed (`§3.13` step 8).
+     - After the loop, run the epic close-out sweep of `§3.13` step 8: the
+       epic sweep (set `epic-N: done` for every complete epic whose `epic-N`
+       entry is not `done`), then the retrospective offer for each owed epic.
    - Never re-run code review on a story past `pending`. Never set a `closed`
      story back to `in-progress`. Carry `review_cycles` over unchanged.
 
@@ -688,7 +691,7 @@ immediately, in the same write as the data that step produced.
   step 6: append the verified findings as unchecked `[Review][Patch]` bullets
   (skipping any already present, so a repeat is harmless), set the
   `sprint-status.yaml` entry to `in-progress`, then `fixing` and step 3.
-- **Step 8, epic done + retrospective.** Runs once epic N is complete: every
+- **Step 8, epic done + retrospective offer.** Runs once epic N is complete: every
   story key for epic N (keys starting `N-`, excluding `epic-N` and
   `epic-N-retrospective`; at least one) is `done`. The main loop first sets `epic-N: done` and
   `last_updated` (skip if already `done`); the `bmad-sprint-planning`
@@ -696,13 +699,49 @@ immediately, in the same write as the data that step produced.
   it. The relay never downgrades `epic-N`; only the user reopens it (Phase 7's
   `done` → stop and ask). Neither write has a marker: the epic status lives in
   `epic-N`, and `bmad-retrospective` records its run in the
-  `epic-N-retrospective` entry of `sprint-status.yaml`. Before advancing to
-  Phase 9 (fresh entry or resume), sweep: set `epic-N: done` as above (with
-  `last_updated`, preserving comments and structure) for every complete epic
-  (as defined above, at least one story key) whose `epic-N` entry is not
-  `done`, and tell the user which epics the sweep set to `done` (none → say
-  nothing). After a resume, run that sweep first, then the retrospective for
-  every complete epic whose `epic-N-retrospective` entry is not `done`.
+  `epic-N-retrospective` entry of `sprint-status.yaml`. After the `epic-N`
+  write, if the retrospective is owed (below), make the retrospective offer;
+  the relay never runs `bmad-retrospective` without it. The definitions below
+  are canonical; other files point here.
+  - **In this sequence.** An epic is in this sequence when at least one of its
+    story keys is in `loop_state.completed`, has a non-null
+    `loop_state.stories[<key>].baseline_commit` (`NO_VCS` counts), or has
+    `review_cycles >= 1`. Marker inference never writes any of these fields,
+    so stories built by an earlier sequence do not pull their epic in.
+    **Legacy fallback:** if the state file has no `track`, or no
+    `development_status` story key meets any of the three markers above, every
+    complete epic is in this sequence.
+  - **Owed.** A retrospective is owed for epic N when the epic is complete
+    (as defined above), it is in this sequence, its `epic-N-retrospective`
+    entry exists and is not `done`, and `"N"` is not in
+    `loop_state.retros_declined`. A missing `epic-N-retrospective` key means
+    not owed.
+  - **Retrospective offer.** Ask: "[1] Run retrospective for epic N / [2] Skip",
+    naming any existing `{implementation_artifacts}/epic-N-retro-*.md` (a crash
+    between the doc save and the status write leaves the doc with the entry not
+    `done`; the user then skips rather than writing a duplicate). [1] → run
+    `bmad-retrospective` in the main loop with epic N passed explicitly (its
+    auto-detection picks the highest epic with any `done` story) and relay its
+    output. [2] → append `"N"` (a string) to `loop_state.retros_declined` and
+    save the state file immediately. A [1] the user abandons leaves the entry
+    not `done` and no decline recorded, so the epic is still owed: the sweep
+    repeats the offer for it before advancing to Phase 9 ([2] skips it), and if
+    the session ends first, the next resume offers it again.
+    `bmad-retrospective` has no skip of its own and writes `done` only after
+    its doc is saved, which is why the decline is recorded here.
+  - **Epic close-out sweep.** After the story loop, before advancing to Phase 9
+    (fresh entry or resume), in this order: (1) the epic sweep: set
+    `epic-N: done` as above (with `last_updated`, preserving comments and
+    structure) for every complete epic (as defined above, at least one story
+    key) whose `epic-N` entry is not `done`, and tell the user which epics the
+    sweep set to `done` (none → say nothing); (2) the retrospective offer for
+    each owed epic, in epic order, repeated until no retrospective is owed. On
+    a fresh entry this covers epics whose
+    stories were already `done` (inferred `closed`), which step 8 never
+    reached in the story loop.
+  - **Exit.** Phase 8 is finished when every story is `closed` and no
+    retrospective is owed (as defined above): every owed epic's retrospective
+    has run or been declined.
 
 ## Execution Model — wrap, don't reimplement
 
