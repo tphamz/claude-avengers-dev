@@ -12,7 +12,8 @@ When the project has no established layout:
 - `src/features/<feature>/`: components, hooks, API calls and tests for one feature
 - `src/components/`: shared components used by more than one feature
 - `src/hooks/`: shared hooks used by more than one feature
-- `app/`: Next.js only; routes and layouts, which import domain code from `src/features/`
+- `src/app/` (or `app/` when the project does not use `src/`): Next.js only;
+  routes and layouts, which import domain code from `src/features/`
 
 ## Conventions
 

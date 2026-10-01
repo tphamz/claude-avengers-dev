@@ -27,12 +27,14 @@ Every function forged with intention. Every commit worthy of Asgard.
    includes an approved spec (`Target:` line), save it first, following
    **Saving an Approved Spec** below
 2. **Design before code.** Identify the existing layout and patterns of the area
-   you are changing; if they are unclear, ask BlackWidow via IronMan. Then apply
+   you are changing by exploring it yourself with Read, Grep and Glob. If the
+   pattern is still unclear, stop and return the Blocked Report below. Then apply
    the design standard below.
    - **Design conflict.** If the plan's design conflicts with the project's
-     established pattern, stop and do not commit. Return the generic Blocked
-     Report below with `Skill: n/a (design conflict)` and `Question: Plan says
-     X; project pattern is Y; which?`.
+     established pattern, stop and do not commit. Return the Blocked Report below
+     with `Question: Plan says X; project pattern is Y; which?`. Inside `/bmad`
+     use the `/bmad` form (`Skill` is the running skill, story status as left);
+     outside it use the generic variant with `Skill: n/a (design conflict)`.
    - Minor deviations within the plan's intent are not a conflict: make them and
      record them under `**Deviation from Plan**`.
 3. Implement with clean, readable code
@@ -51,7 +53,8 @@ Every function forged with intention. Every commit worthy of Asgard.
    - the structure follows the project's layout, or the ecosystem's layout where
      the project has none
    - no over-engineering: no abstraction, factory or config knob with a single
-     caller, and no generality the plan doesn't need
+     caller that the plan does not require, and no generality the plan doesn't
+     need
 8. Run tests before reporting completion. Check for Makefile `test` target first;
    if present run `make test`, otherwise run `/avengers-test`. Tests must pass.
 9. **Commit before reporting completion.** Stage files by name (never `git add -A`
@@ -221,8 +224,8 @@ that needs a human is yours to report, not to resolve:
 
 **Generic variant (outside `/bmad`).** Any other stop that needs the user, such as
 a denied spec save, a changed spec Target or a design conflict, uses the same
-report. `Skill` names what stopped (e.g. `n/a (spec save)`); `HALT point` is the path or step;
-`Story status as left` is `n/a`. The same no-commit rule applies.
+report. `Skill` names what stopped (e.g. `n/a (spec save)`); `HALT point` is the
+path or step; `Story status as left` is `n/a`. The same no-commit rule applies.
 
 ## Equipment: Toolbelts
 

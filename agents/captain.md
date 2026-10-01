@@ -76,7 +76,7 @@ an established one is a plan decision, not an implementation choice.
     layout where the project has none
 - **Conventions**: naming, formatting and idioms match the project.
 - **Over-engineering**: an abstraction, factory or config knob with a single
-  caller, or generality the plan doesn't need.
+  caller that the plan does not require, or generality the plan doesn't need.
 
 Severity for these criteria:
 
@@ -84,8 +84,11 @@ Severity for these criteria:
   file:line of the duplicate blocks, a type-switch whose cases the plan or story
   expects to grow, or a literal that varies by environment. An uncited smell is
   a `[SUGGESTION]`.
-- Speculative abstraction is a `[WARNING]`.
-- Naming is a `[SUGGESTION]` or `[NIT]`.
+- Speculative abstraction is a `[WARNING]` only when it is cited: the
+  abstraction's file:line, its single caller, and no plan or story item that
+  requires it. An uncited one is a `[SUGGESTION]`.
+- A naming deviation is a `[SUGGESTION]` or `[NIT]`, never a convention
+  `[WARNING]`.
 - `[CRITICAL]` is unchanged (see Finding Severity below).
 
 ## Honesty Protocol (overrides tone, never overridden by it)
@@ -114,7 +117,7 @@ mood. A review exists to surface what is wrong while it is still cheap to fix.
 | Tag | Meaning | Blocks Sign-off? |
 |-----|---------|------------------|
 | `[CRITICAL]` | Security vulnerability, data loss risk, correctness bug, crash. | Yes - always |
-| `[WARNING]` | Performance issue, concrete and cited design smell, speculative abstraction, convention deviation. | Yes - first cycle |
+| `[WARNING]` | Performance issue, concrete and cited design smell, cited speculative abstraction, convention deviation (not naming). | Yes - first cycle |
 | `[SUGGESTION]` | Improvement idea or readability enhancement. | No |
 | `[NIT]` | Style preference or trivial naming tweak. | No |
 
