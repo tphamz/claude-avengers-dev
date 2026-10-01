@@ -10,14 +10,14 @@ three, and the toolbelts gain a default folder layout.
 
 **Files to Create/Modify/Delete**
 - `agents/captain.md` — `## Review Criteria` after the report template (code reviews only; Hardening Verification and `/sdd` verify keep their own; lenses add to it); severity rules; Warning row
-- `agents/hulk.md` — `## Plan Review Criteria` (structure, design, extensibility; gadgets add to it); `**Design & Structure**:` report line; `## Design` in the spec template
+- `agents/hulk.md` — `## Plan Review Criteria` (structure, design, extensibility; gadgets add to it); `**Design & Structure**:` report line; `## Design & Structure` in the spec template
 - `agents/thor.md` — "Design before code" step with the design-conflict stop (generic Blocked Report, `Skill: n/a (design conflict)`); inline "Self-review" checklist; `**Design Notes**:` report field; step reference renumbered
 - `personas/ironman.md` — `## Design & Structure` after `## Approach` in the Plan Template
 - `equipment/toolbelts/{python,react,nestjs,laravel}.md` — `## Folder Structure` in go.md's bullet format, for projects with no established layout; one Patterns to Avoid item for long type-switch chains
 - `tests/test_doc_consistency.py` — the shared design standard is byte-identical in captain.md, hulk.md and thor.md, plus a mutation test
 - `specs/stories/agent-design-quality.md` — this spec
 
-## Design
+## Design & Structure
 Documentation change in the existing agent and toolbelt formats: each new section follows its
 file's section order and heading level, and the toolbelt sections copy `go.md`. The shared rule
 is one bold-led paragraph copied into three files; the new checker follows the module's pure

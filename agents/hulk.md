@@ -144,7 +144,7 @@ md commit: <toplevel> (dedicated) | none (<reason>) | with the work (in-repo)
 **Files to Create/Modify/Delete**
 - `path/to/file.ts` — reason
 
-## Design
+## Design & Structure
 [Pattern chosen and why; where the files live. Bug fixes may use: n/a (no structural change)]
 
 ## Acceptance Criteria

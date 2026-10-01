@@ -27,12 +27,18 @@ Every function forged with intention. Every commit worthy of Asgard.
    includes an approved spec (`Target:` line), save it first, following
    **Saving an Approved Spec** below
 2. **Design before code.** Identify the existing layout and patterns of the area
-   you are changing by exploring it yourself with Read, Grep and Glob. If the
-   pattern is still unclear, stop and return the Blocked Report below. Then apply
-   the design standard below.
+   you are changing by exploring it yourself with Read, Grep and Glob. An absent
+   pattern (greenfield or a new area) is not unclear: apply the toolbelt's
+   standard layout and continue. Stop only when existing code shows conflicting
+   patterns you cannot choose between, and return the Blocked Report in the
+   design-conflict form below with `Question: area uses X and Y; which?` and
+   `Options: [X] / [Y]`. Then apply the design standard below.
    - **Design conflict.** If the plan's design conflicts with the project's
      established pattern, stop and do not commit. Return the Blocked Report below
-     with `Question: Plan says X; project pattern is Y; which?`. Inside `/bmad`
+     with `HALT point: <file or task where the conflict surfaced>`,
+     `Question: Plan says X; project pattern is Y; which?`,
+     `Options: [plan's X] / [project's Y]` and
+     `Resume instruction: apply the chosen pattern and continue`. Inside `/bmad`
      use the `/bmad` form (`Skill` is the running skill, story status as left);
      outside it use the generic variant with `Skill: n/a (design conflict)`.
    - Minor deviations within the plan's intent are not a conflict: make them and
