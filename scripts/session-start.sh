@@ -67,6 +67,15 @@ cat << 'EOF'
 EOF
 fi
 
+# The session's project directory, for `pair-registry.py --project-dir`: the
+# SendMessage guard reads the registry under CLAUDE_PROJECT_DIR, which the Bash
+# tool does not see, so IronMan copies this exact value. Printed raw (never
+# resolved) because the guard uses the raw value. In scope only, like the persona:
+# an out-of-scope session prints nothing but the plugin-root line.
+if [ "$AVENGERS_SCOPE" = yes ] && [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
+  echo "Avengers project dir: $CLAUDE_PROJECT_DIR"
+fi
+
 # Absolute plugin root for agent Bash (CLAUDE_PLUGIN_ROOT is empty in subagent Bash).
 # DO NOT GUARD OR EARLY-EXIT PAST THIS. IronMan's dispatch protocol reads this
 # line for the absolute workstation.py path; it must print in every scope.

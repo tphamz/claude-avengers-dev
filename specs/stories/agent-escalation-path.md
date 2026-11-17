@@ -44,6 +44,7 @@ mutation test pattern and scans `tracked_markdown()` under `agents/`, `personas/
 - Blocked means "need an answer"; Stuck means "failed". The delegation row keys on whether the report carries a question.
 - The test pattern is broadened beyond the four removed lines, has no `Tier` term (`phase-8-review.md` uses "Tier 1" for code-review tiers), and scans repo-wide through `tracked_markdown()`, excluding `specs/` and `tests/`.
 - No SendMessage path: resuming a finished subagent is unverified, so re-dispatch is the single path.
+  Later superseded for paired builder teams only: `paired-reviewer-hardening.md` relies on resume-by-message, keeps re-dispatch as the fallback, and records verifying the mechanism as an open item.
 - The persona rule lives under `## How You Work`, next to the Quality Gate and Closure Loop rules.
 - BlackWidow keeps the 5+ files threshold.
 

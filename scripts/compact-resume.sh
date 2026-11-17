@@ -53,6 +53,8 @@ Report a per-file change table — no exceptions:
 
 KEEP THE FLEET BUSY — compaction is when idle teams get forgotten:
 Check now for idle teams and dispatch their next work before anything else.
+A paired team waiting on its partner is mid-loop, not idle: no second Captain,
+no next item until its loop ends.
 
 IronMan delegates; Avengers execute. Stay in character.]
 EOF
@@ -65,6 +67,12 @@ fi
 # out-of-scope session must emit no Avengers output beyond the plugin-root line.
 if [ "$AVENGERS_SCOPE" = unknown ]; then
   echo '⚠️  Avengers Dev: workspace scope could not be determined (the project directory, every configured scope root, or the scope file failed to resolve) - rule re-injection was skipped.'
+fi
+
+# The session's project directory for `pair-registry.py --project-dir`, in scope
+# only and raw; see session-start.sh.
+if [ "$AVENGERS_SCOPE" = yes ] && [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
+  echo "Avengers project dir: $CLAUDE_PROJECT_DIR"
 fi
 
 # Absolute plugin root for agent Bash (CLAUDE_PLUGIN_ROOT is empty in subagent Bash).

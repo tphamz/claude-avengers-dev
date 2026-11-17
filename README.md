@@ -88,6 +88,39 @@ is not injected and the post-compaction rules are not re-injected. The
 `Avengers plugin root:` line prints in every case, because agents read it.
 Changes take effect at the next session start.
 
+**Paired-reviewer guard.** The plugin also installs a PreToolUse hook
+(`scripts/sendmessage-guard.sh`) on the agent messaging tool. It restricts
+subagents only: calls whose hook input carries `agent_id`. Calls from the main
+session are not restricted. A subagent the orchestrator registered as half of a
+paired builder team (one Thor and its own Captain) in the project's
+`.avengers/pairs.json` (written by `scripts/pair-registry.py`) may message the
+main session (`main`) and its own partner; any other subagent may message only
+`main`. Every other target is denied: other sessions, names, `name [ref]`
+targets, another team's agents and unregistered ids. For subagents the hook
+fails closed: with no readable registry only `main` is allowed. A hook input
+that cannot be parsed, or a check that cannot run (for example `python3` is
+missing), denies the call, main session included. One case cannot fail
+closed: if the hook script itself is missing, `bash` fails with exit 127, which
+Claude Code treats as a non-blocking error, so the call goes through.
+
+The guard stops misdirected messages, not a hostile agent: any agent with Bash
+or Write access can edit `.avengers/pairs.json`, and an agentId is accepted as
+any single word (letters, digits, `-` and `_`).
+
+The orchestrator registers pairs with `pair-registry.py --project-dir` set to
+the `Avengers project dir:` line that the SessionStart and post-compaction hooks
+print in scope, since `CLAUDE_PROJECT_DIR` is not visible from the Bash tool.
+Concurrent `register` and `unregister` calls are serialised with a lock on
+`.avengers/pairs.lock`.
+
+Telling the main session apart relies on Claude Code's hook input: `agent_id`
+is documented as present for subagent calls, and its absence on main-session
+calls is implied rather than stated. `agent_type` alone is not used, because a
+`claude --agent <name>` session sets it too. To confirm this on your Claude Code
+version, set `AVENGERS_PAIR_GUARD_LOG=/path/to/file` before starting Claude Code:
+each guarded call appends one JSON line with the hook input's keys (no values
+apart from `agent_type`).
+
 **BMAD-METHOD dependency** — only needed for **`/avengers-dev:bmad`**. The BMAD
 conductor *wraps* the real BMAD-METHOD framework, whose skills require a
 project-level install. In the repo you want to run a BMAD sequence against:

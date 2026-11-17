@@ -62,6 +62,16 @@ python3 -m unittest discover -s tests -v
   `scripts/compact-resume.sh` print in each scope. It points `HOME` and
   `CLAUDE_CONFIG_DIR` at a temporary directory, so your own configuration is never
   read.
+- `tests/test_sendmessage_guard.py` covers the paired-reviewer guard: it feeds
+  `scripts/sendmessage-guard.sh` a PreToolUse payload on stdin. A main-session
+  call (no `agent_id`, even with `agent_type` set) is allowed to any target. A
+  registered subagent may message `main` and its own partner but not another
+  team; an unregistered subagent only `main`; session names and `name [ref]`
+  targets are denied (exit 2). A missing, unreadable or malformed registry, or a
+  malformed `agent_id`, leaves only `main`, and a guard which cannot run denies.
+  It also covers the `AVENGERS_PAIR_GUARD_LOG` debug line,
+  `scripts/pair-registry.py register`, `unregister` and `list`, and the hook's
+  entry in `hooks/hooks.json`.
 - `tests/test_script_smoke.py` runs `--help` on every `skills/*/scripts/*.py` and
   `tools/*.py`, which catches import-time errors on older Pythons.
 

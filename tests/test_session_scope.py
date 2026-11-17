@@ -45,6 +45,8 @@ COMPACT_BODY = "Context Resumed"
 # The idle-team check: compaction is when an orchestrator forgot its teams.
 COMPACT_DISPATCH = "Check now for idle teams and dispatch their next work"
 EXPECTED_PLUGIN_LINE = f"{PLUGIN_LINE} {ROOT}"
+# The session's project dir, for `pair-registry.py --project-dir`; in scope only.
+PROJECT_LINE = "Avengers project dir:"
 
 # Variables the parent environment must not leak into a scope decision.
 SCOPE_VARS = ("CLAUDE_PROJECT_DIR", "AVENGERS_SCOPE_ROOTS", "CLAUDE_CONFIG_DIR", "HOME")
@@ -508,6 +510,34 @@ class HookScriptTests(ScopeFixture):
     def test_compact_resume_unset_project_dir_uses_pwd(self) -> None:
         self.assertOnlyPluginLine(
             self.run_hook(COMPACT_RESUME, None, cwd=self.elsewhere))
+
+    # -- the project-dir line, in scope only -----------------------------------
+
+    def test_project_dir_line_prints_in_scope(self) -> None:
+        for script in (SESSION_START, COMPACT_RESUME):
+            with self.subTest(script=script.name):
+                out = self.run_hook(script, self.repo_a)
+                self.assertEqual(
+                    [l for l in out.splitlines() if l.startswith(PROJECT_LINE)],
+                    [f"{PROJECT_LINE} {self.repo_a}"])
+
+    def test_project_dir_line_is_the_raw_env_value(self) -> None:
+        """The guard builds the registry path from CLAUDE_PROJECT_DIR as given, so the
+        line must not resolve or rewrite it."""
+        link = self.tmp / "repo-link"
+        link.symlink_to(self.repo_a)
+        out = self.run_hook(SESSION_START, link)
+        self.assertIn(f"{PROJECT_LINE} {link}\n", out)
+
+    def test_project_dir_line_absent_outside_scope_or_without_the_env(self) -> None:
+        for script in (SESSION_START, COMPACT_RESUME):
+            for label, (project_dir, cwd) in {
+                    "no": (self.elsewhere, None),
+                    "unknown": (self.tmp / "gone", None),
+                    "unset": (None, self.repo_a)}.items():
+                with self.subTest(script=script.name, state=label):
+                    out = self.run_hook(script, project_dir, cwd=cwd)
+                    self.assertNotIn(PROJECT_LINE, out)
 
     # -- the plugin-root line, in every state ----------------------------------
 
